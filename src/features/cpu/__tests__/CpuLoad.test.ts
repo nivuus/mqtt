@@ -35,7 +35,10 @@ jest.mock('../../../config', () => {
 
 const flushPromises = () => new Promise(process.nextTick);
 
-describe('CpuLoad Feature', () => {
+// Requires real hardware counters (systeminformation); a CI runner only has a clone
+const describeWithHardware = process.env.CI ? describe.skip : describe;
+
+describeWithHardware('CpuLoad Feature', () => {
   let mockMqttClient: MockMqttClient;
   let cpuLoadFeature: CpuLoad;
   let setIntervalSpy: jest.SpyInstance;

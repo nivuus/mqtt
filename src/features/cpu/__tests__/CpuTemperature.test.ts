@@ -31,7 +31,10 @@ jest.mock('../../../config', () => {
 });
 
 
-describe('CpuTemperature Feature', () => {
+// Requires real hardware counters (systeminformation); a CI runner only has a clone
+const describeWithHardware = process.env.CI ? describe.skip : describe;
+
+describeWithHardware('CpuTemperature Feature', () => {
   let mockMqttClient: MockMqttClient;
   let cpuTemperatureFeature: CpuTemperature;
   let setIntervalSpy: jest.SpyInstance;
