@@ -194,6 +194,7 @@ All entities are linked to a single device in HA with:
 3. **Topic Prefixing**: BaseFeature automatically prefixes topics with `{base_topic}/{device_id}/` - don't manually add this prefix in features
 
 4. **Discovery Publishing**: Features publish discovery messages to `homeassistant/{component}/{device_id}/{unique_id}/config` with retain flag
+   - HA drops any discovery topic whose node_id/object_id is not `[a-zA-Z0-9_-]+` ("illegal discovery topic", silent for the agent). Always build the topic with `discoveryTopic()` / `BaseFeature.entityDiscoveryTopic()` (`src/homeassistant/discovery/discoveryTopic.ts`), never by string template: legal ids pass through unchanged, others get a readable part + an 8-hex SHA-256 digest of the raw value so distinct names (any script) never collide. Remove entities with `removeEntityDiscovery()` so removal hits the same topic.
 
 5. **State vs Attributes**: Use separate topics for state (single value) and attributes (JSON object with additional data)
 

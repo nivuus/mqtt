@@ -41,7 +41,7 @@ export class StreamingStatus extends BaseFeature {
       payload_off: 'OFF',
     };
 
-    const discoveryTopic = `homeassistant/binary_sensor/${this.deviceInfo.identifiers[0]}/${statusPayload.unique_id}/config`;
+    const discoveryTopic = this.entityDiscoveryTopic('binary_sensor', statusPayload.unique_id);
     await this.mqttClient.publish(discoveryTopic, JSON.stringify(statusPayload), { qos: 1, retain: true });
 
     // Streaming service sensor
@@ -57,7 +57,7 @@ export class StreamingStatus extends BaseFeature {
       entity_category: 'diagnostic',
     };
 
-    const serviceDiscoveryTopic = `homeassistant/sensor/${this.deviceInfo.identifiers[0]}/${servicePayload.unique_id}/config`;
+    const serviceDiscoveryTopic = this.entityDiscoveryTopic('sensor', servicePayload.unique_id);
     await this.mqttClient.publish(serviceDiscoveryTopic, JSON.stringify(servicePayload), { qos: 1, retain: true });
   }
 

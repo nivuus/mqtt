@@ -1,6 +1,7 @@
 // src/homeassistant/discovery/HomeAssistantDiscoveryService.ts
 import { MqttClient as MqttClientInterface } from '../../core/types';
 import { AgentConfig } from '../../core/types';
+import { discoveryTopic } from './discoveryTopic';
 
 /**
  * Publishes MQTT discovery configurations for alerts and events to Home Assistant.
@@ -18,7 +19,7 @@ export class HomeAssistantDiscoveryService {
     };
 
     // Alert sensor discovery
-    const alertConfigTopic = `homeassistant/sensor/${deviceId}/alert/config`;
+    const alertConfigTopic = discoveryTopic('sensor', deviceId, 'alert');
     const alertStateTopic = `${baseTopic}/${deviceId}/alert`;
     const alertConfig = {
       name: `${config.device_info.name} Alert`,
@@ -32,7 +33,7 @@ export class HomeAssistantDiscoveryService {
     await client.publish(alertConfigTopic, JSON.stringify(alertConfig), { retain: true, qos: 1 });
 
     // Event sensor discovery
-    const eventConfigTopic = `homeassistant/sensor/${deviceId}/event/config`;
+    const eventConfigTopic = discoveryTopic('sensor', deviceId, 'event');
     const eventStateTopic = `${baseTopic}/${deviceId}/event`;
     const eventConfig = {
       name: `${config.device_info.name} Event`,
