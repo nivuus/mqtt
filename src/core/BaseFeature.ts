@@ -3,6 +3,7 @@
 import { MqttClient, AgentConfig, FeatureConfig, HaDiscoveryPayload, DeviceInfo } from './types';
 import { getConfigManager } from '../config';
 import logger from '../utils/logger';
+import { sanitizeObjectId } from '../utils/validators';
 
 /**
  * Abstract base class for all features.
@@ -133,7 +134,15 @@ export abstract class BaseFeature {
    */
   protected async publishEntityDiscovery(component: string, objectId: string, payload: Partial<HaDiscoveryPayload>): Promise<void> {
     if (!this.mqttClient.connected) return;
-    const uniqueId = `${this.deviceInfo.identifiers[0]}_${this._featureName}_${objectId}`;
+    // objectId vient souvent d'une valeur du systeme — nom de zone firewalld,
+    // d'interface reseau, de disque — qui n'a aucune raison de respecter la
+    // grammaire des topics HA. « internal (default) », la zone firewalld par
+    // defaut, faisait rejeter huit entites en silence : HA repond « illegal
+    // discovery topic » de son cote, l'agent ne voit rien. Assaini ICI, au
+    // point de passage commun aux 18 features, plutot que dans chacune — une
+    // seule d'entre elles y pensait.
+    const uniqueId = sanitizeObjectId(
+      `${this.deviceInfo.identifiers[0]}_${this._featureName}_${objectId}`);
     const discoveryTopic = `homeassistant/${component}/${this.deviceInfo.identifiers[0]}/${uniqueId}/config`;
 
     const fullPayload: HaDiscoveryPayload = {

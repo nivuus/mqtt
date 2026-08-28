@@ -92,3 +92,28 @@ export function rejectInvalid(field: string, value: string, source: string): fal
   logger.error(`[validators] Rejected invalid ${field} from ${source}: ${JSON.stringify(value)}`);
   return false;
 }
+
+/**
+ * Rendre une valeur utilisable comme segment d'un topic de découverte HA.
+ *
+ * Home Assistant n'accepte que [a-zA-Z0-9_-] dans chaque segment d'un topic
+ * `homeassistant/.../config`. Tout le reste fait rejeter le message avec
+ * « Received message on illegal discovery topic » — et c'est un échec
+ * SILENCIEUX du point de vue de l'agent : la publication réussit, le broker
+ * accepte, HA jette, et l'entité n'apparaît jamais.
+ *
+ * Le cas qui a motivé cette fonction, relevé en production le 2026-08-28 : la
+ * zone firewalld par défaut s'appelle « internal (default) », espace et
+ * parenthèses comprises. Huit entités du gestionnaire de pare-feu étaient
+ * ignorées depuis toujours, sans une ligne d'erreur côté agent.
+ *
+ * Le remplacement est fait caractère par caractère, jamais par regroupement :
+ * réduire une suite de caractères interdits à un seul « _ » ferait collider
+ * deux identifiants voisins, et l'une des deux entités écraserait l'autre.
+ */
+export function sanitizeObjectId(value: string): string {
+  const cleaned = value.replace(/[^a-zA-Z0-9_-]/g, '_');
+  // Un segment vide produirait « homeassistant/sensor/nivuus//config », que HA
+  // rejette au même titre : mieux vaut un identifiant lisible qu'un trou.
+  return cleaned.length > 0 ? cleaned : 'unnamed';
+}
