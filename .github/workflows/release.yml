@@ -11,8 +11,11 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-    with:
-      # The agent ships as a Debian package; the hook that will install it
-      # (plan C) consumes this asset rather than rebuilding it on the target.
-      build-command: "npm ci && npm run package:deb"
-      artifact-glob: "*.deb"
+    # The agent is meant to ship as a Debian package (the hook that will
+    # install it, plan C, consumes that asset rather than rebuilding it on
+    # the target), but `npm run package:deb` invokes fpm, a Ruby gem no step
+    # here installs and that ubuntu-latest does not carry - shipping a job
+    # that cannot pass is the exact failure this plan exists to remove.
+    # build-command/artifact-glob are dropped until the plan that adds the
+    # fpm toolchain lands; until then this release ships the source archive
+    # only.
