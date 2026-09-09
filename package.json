@@ -135,7 +135,7 @@
     "jest-diff": "^29.7.0",
     "jest-docblock": "^29.7.0",
     "jest-each": "^29.7.0",
-    "jest-environment-node": "^29.7.0",
+    "jest-environment-node": "^30.5.1",
     "jest-get-type": "^29.6.3",
     "jest-haste-map": "^29.7.0",
     "jest-leak-detector": "^29.7.0",
