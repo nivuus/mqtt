@@ -1,5 +1,6 @@
 import { MqttClient } from '../mqtt/MqttClient';
 import { getConfigManager } from '../config';
+import { discoveryTopic } from '../homeassistant/discovery/discoveryTopic';
 
 /**
  * Simplified MQTT message sender for CLI commands
@@ -24,7 +25,7 @@ export class MqttMessageSender {
     // Publish discovery and event per ID
     for (const id of ids) {
       // Discovery: event sensor
-      const eventCfgTopic = `homeassistant/sensor/${id}/event/config`;
+      const eventCfgTopic = discoveryTopic('sensor', id, 'event');
       const eventStateTopic = `${baseTopic}/${id}/event`;
       const eventCfg = { name: `${config.device_info.name} Event (${id})`, state_topic: eventStateTopic, json_attributes_topic: eventStateTopic, value_template: "{{ value_json.type }}", unique_id: `${id}_event`, device, icon: "mdi:bell" };
       await client.publish(eventCfgTopic, JSON.stringify(eventCfg), { retain: true, qos: 1 });

@@ -89,7 +89,7 @@ export class HardwareHealth extends BaseFeature {
       if (entity.deviceClass) payload.device_class = entity.deviceClass;
 
       const topic =
-        `homeassistant/sensor/${this.deviceInfo.identifiers[0]}/${payload.unique_id}/config`;
+        this.entityDiscoveryTopic('sensor', payload.unique_id);
       await this.mqttClient.publish(topic, JSON.stringify(payload), { qos: 1, retain: true });
     }
   }

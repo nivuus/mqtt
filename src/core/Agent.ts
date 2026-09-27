@@ -30,6 +30,7 @@ import { KvmSplitLockMonitor } from '../features/vm/KvmSplitLockMonitor';
 import { WindowsDiskUsage } from '../features/disk/WindowsDiskUsage';
 import { UpsMonitor } from '../features/ups/UpsMonitor';
 import { HardwareHealth } from '../features/health/HardwareHealth';
+import { discoveryTopic } from '../homeassistant/discovery/discoveryTopic';
 
 type FeatureConstructor = new (mqttClient: MqttClientInterface, featureName: string) => BaseFeature;
 
@@ -158,12 +159,12 @@ export class Agent {
         };
         for (const deviceId of cfg.device_info.identifiers) {
           // Per-id Alert discovery
-          const alertConfigTopic = `homeassistant/sensor/${deviceId}/alert/config`;
+          const alertConfigTopic = discoveryTopic('sensor', deviceId, 'alert');
           const alertStateTopic = `${base}/${deviceId}/alert`;
           const alertConfig = { name: `System Alert Sensor`, state_topic: alertStateTopic, json_attributes_topic: alertStateTopic, value_template: "{{ value_json.message }}", unique_id: `${deviceId}_alert`, device, icon: "mdi:alert" };
           await this.mqttClient.publish(alertConfigTopic, JSON.stringify(alertConfig), { qos: 1, retain: true });
           // Per-id Event discovery
-          const eventConfigTopic = `homeassistant/sensor/${deviceId}/event/config`;
+          const eventConfigTopic = discoveryTopic('sensor', deviceId, 'event');
           const eventStateTopic = `${base}/${deviceId}/event`;
           const eventConfig = { name: `System Event Sensor`, state_topic: eventStateTopic, json_attributes_topic: eventStateTopic, value_template: "{{ value_json.type }}", unique_id: `${deviceId}_event`, device, icon: "mdi:bell" };
           await this.mqttClient.publish(eventConfigTopic, JSON.stringify(eventConfig), { qos: 1, retain: true });

@@ -91,7 +91,7 @@ export class MotherboardTemperature extends BaseFeature {
         payload.device_class = entity.deviceClass;
       }
 
-      const discoveryTopic = `homeassistant/sensor/${this.deviceInfo.identifiers[0]}/${payload.unique_id}/config`;
+      const discoveryTopic = this.entityDiscoveryTopic('sensor', payload.unique_id);
       await this.mqttClient.publish(discoveryTopic, JSON.stringify(payload), { qos: 1, retain: true });
     }
   }

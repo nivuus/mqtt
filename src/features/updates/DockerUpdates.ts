@@ -208,9 +208,7 @@ export class DockerUpdates extends BaseFeature {
     for (const serviceId of this.knownServiceNames) {
       if (!currentNames.has(serviceId)) {
         // Publish empty config to remove the entity from HA
-        const uniqueId = `${this.deviceInfo.identifiers[0]}_${this.featureName}_${serviceId}`;
-        const discoveryTopic = `homeassistant/update/${this.deviceInfo.identifiers[0]}/${uniqueId}/config`;
-        await this.mqttClient.publish(discoveryTopic, '', { retain: true, qos: 1 });
+        await this.removeEntityDiscovery('update', serviceId);
         this.containers.delete(serviceId);
         this.knownServiceNames.delete(serviceId);
         logger.info(`Removed stale Docker entity: ${serviceId}`);

@@ -3,6 +3,7 @@
 import { MqttClient, AgentConfig, FeatureConfig, HaDiscoveryPayload, DeviceInfo } from './types';
 import { getConfigManager } from '../config';
 import logger from '../utils/logger';
+import { discoveryTopic, toTopicSegment } from '../homeassistant/discovery/discoveryTopic';
 
 /**
  * Abstract base class for all features.
@@ -133,8 +134,8 @@ export abstract class BaseFeature {
    */
   protected async publishEntityDiscovery(component: string, objectId: string, payload: Partial<HaDiscoveryPayload>): Promise<void> {
     if (!this.mqttClient.connected) return;
-    const uniqueId = `${this.deviceInfo.identifiers[0]}_${this._featureName}_${objectId}`;
-    const discoveryTopic = `homeassistant/${component}/${this.deviceInfo.identifiers[0]}/${uniqueId}/config`;
+    const uniqueId = this.entityUniqueId(objectId);
+    const discoveryTopic = this.entityDiscoveryTopic(component, uniqueId);
 
     const fullPayload: HaDiscoveryPayload = {
       ...payload,
@@ -161,6 +162,27 @@ export abstract class BaseFeature {
     }
   }
   
+  /**
+   * The unique_id (and object_id) of one of this feature's entities. objectId
+   * often carries a raw system value — a firewalld zone, an interface or disk
+   * name in any script — so it is made legal for a discovery topic here, at
+   * the single point every publishEntityDiscovery caller goes through.
+   */
+  protected entityUniqueId(objectId: string): string {
+    return toTopicSegment(`${this.deviceInfo.identifiers[0]}_${this._featureName}_${objectId}`);
+  }
+
+  /** The retained discovery config topic for an entity of this device. */
+  protected entityDiscoveryTopic(component: string, uniqueId: string): string {
+    return discoveryTopic(component, this.deviceInfo.identifiers[0], uniqueId);
+  }
+
+  /** Remove an entity published through publishEntityDiscovery from Home Assistant. */
+  protected async removeEntityDiscovery(component: string, objectId: string): Promise<void> {
+    const topic = this.entityDiscoveryTopic(component, this.entityUniqueId(objectId));
+    await this.mqttClient.publish(topic, '', { retain: true, qos: 1 });
+  }
+
   protected prefixTopic(topic: string): string {
     if (topic.startsWith('homeassistant/') || topic.startsWith(this.agentConfig.mqtt.base_topic)) {
       return topic;

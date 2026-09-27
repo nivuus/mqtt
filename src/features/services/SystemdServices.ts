@@ -55,7 +55,7 @@ export class SystemdServices extends BaseFeature {
         entity_category: 'diagnostic',
       };
 
-      const discoveryTopic = `homeassistant/sensor/${this.deviceInfo.identifiers[0]}/${statusPayload.unique_id}/config`;
+      const discoveryTopic = this.entityDiscoveryTopic('sensor', statusPayload.unique_id);
       debugLog(`Publishing discovery for ${serviceName} status to ${discoveryTopic}`);
       await this.mqttClient.publish(discoveryTopic, JSON.stringify(statusPayload), { qos: 1, retain: true });
       debugLog(`Discovery published for ${serviceName} status`);
@@ -73,7 +73,7 @@ export class SystemdServices extends BaseFeature {
         entity_category: 'config',
       };
 
-      const restartDiscoveryTopic = `homeassistant/button/${this.deviceInfo.identifiers[0]}/${restartPayload.unique_id}/config`;
+      const restartDiscoveryTopic = this.entityDiscoveryTopic('button', restartPayload.unique_id);
       debugLog(`Publishing discovery for ${serviceName} restart button to ${restartDiscoveryTopic}`);
       await this.mqttClient.publish(restartDiscoveryTopic, JSON.stringify(restartPayload), { qos: 1, retain: true });
       debugLog(`Discovery published for ${serviceName} restart button`);
