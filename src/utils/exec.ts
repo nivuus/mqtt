@@ -1,5 +1,5 @@
 // src/utils/exec.ts
-import { exec, execFile } from 'child_process';
+import { exec, execFile, ChildProcess } from 'child_process';
 import logger from './logger';
 
 interface CommandResult {
@@ -11,6 +11,10 @@ interface CommandResult {
 interface ExecArgvOptions {
   timeoutMs?: number;
 }
+
+// How long a child that timed out gets to exit on the SIGTERM sent at its
+// timeout before it is sent SIGKILL.
+const FORCE_KILL_GRACE_MS = 5000;
 
 // Whitelist of allowed command prefixes for security
 // Only commands starting with these prefixes are allowed to execute
@@ -115,21 +119,7 @@ export function execute_command(command: string, _requiresApproval: boolean, tim
       resolve({ stdout, stderr, exitCode: 0 });
     });
 
-    // Force-kill the process group if SIGTERM didn't work after timeout
-    if (childProcess.pid) {
-      const pid = childProcess.pid;
-      const forceKillTimer = setTimeout(() => {
-        try {
-          process.kill(-pid, 'SIGKILL');
-        } catch (e) {
-          // Process might already be dead
-        }
-      }, timeoutMs + 5000);
-
-      childProcess.on('exit', () => {
-        clearTimeout(forceKillTimer);
-      });
-    }
+    armForceKill(childProcess, timeoutMs);
   });
 }
 
@@ -177,20 +167,30 @@ export function execute_argv(file: string, args: string[], opts: ExecArgvOptions
       resolve({ stdout, stderr, exitCode: 0 });
     });
 
-    // Force-kill the process group if SIGTERM didn't work after timeout
-    if (childProcess.pid) {
-      const pid = childProcess.pid;
-      const forceKillTimer = setTimeout(() => {
-        try {
-          process.kill(-pid, 'SIGKILL');
-        } catch (e) {
-          // Process might already be dead
-        }
-      }, timeoutMs + 5000);
+    armForceKill(childProcess, timeoutMs);
+  });
+}
 
-      childProcess.on('exit', () => {
-        clearTimeout(forceKillTimer);
-      });
-    }
+/**
+ * Sends SIGKILL to a child still alive FORCE_KILL_GRACE_MS after its
+ * timeout, i.e. one that survived the SIGTERM exec/execFile send when the
+ * timeout expires. Until it exits, its caller's promise stays pending, and
+ * a caller queued behind it (the update features' shared FIFO) waits
+ * forever.
+ *
+ * The child itself is signalled. It is not spawned detached, so it does not
+ * lead a process group: the previous `process.kill(-pid, 'SIGKILL')` failed
+ * with ESRCH (swallowed) and never reached it.
+ */
+function armForceKill(childProcess: ChildProcess, timeoutMs: number): void {
+  // A child that failed to spawn (e.g. ENOENT) has no pid and never exits.
+  if (!childProcess.pid) return;
+
+  const forceKillTimer = setTimeout(() => {
+    childProcess.kill('SIGKILL');
+  }, timeoutMs + FORCE_KILL_GRACE_MS);
+
+  childProcess.on('exit', () => {
+    clearTimeout(forceKillTimer);
   });
 }

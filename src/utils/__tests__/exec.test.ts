@@ -1,6 +1,19 @@
 // src/utils/__tests__/exec.test.ts
 
-import { execute_argv } from '../exec';
+import { execute_argv, execute_command } from '../exec';
+import logger from '../logger';
+
+beforeEach(() => {
+  // Pristine test output: every log line goes to a silent spy.
+  jest.spyOn(logger, 'debug').mockImplementation(() => {});
+  jest.spyOn(logger, 'info').mockImplementation(() => {});
+  jest.spyOn(logger, 'warn').mockImplementation(() => {});
+  jest.spyOn(logger, 'error').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 describe('execute_argv — shell metacharacters are inert', () => {
   it('passes ";" and a chained command as a single literal argument', async () => {
@@ -45,4 +58,26 @@ describe('execute_argv — shell metacharacters are inert', () => {
     expect(result).toHaveProperty('stderr');
     expect(result).toHaveProperty('exitCode');
   });
+});
+
+describe('force-kill of a child that outlives its timeout', () => {
+  // A shell that ignores the SIGTERM sent at the timeout, so only the SIGKILL
+  // fallback (armed for timeout + 5 s) can end it before its loop does. The
+  // loop is bounded at 20 s, past the test timeout: a regression fails the
+  // test without leaving a process behind for long.
+  const IGNORES_SIGTERM = 'trap "" TERM; i=0; while [ "$i" -lt 20 ]; do sleep 1; i=$((i + 1)); done';
+  const TEST_TIMEOUT_MS = 15000;
+
+  it('execute_argv kills the child itself and resolves', async () => {
+    const result = await execute_argv('sh', ['-c', IGNORES_SIGTERM], { timeoutMs: 300 });
+
+    expect(result.exitCode).toBe(1);
+  }, TEST_TIMEOUT_MS);
+
+  it('execute_command kills the shell itself and resolves', async () => {
+    // A whitelisted prefix, then the same script run by the spawned shell.
+    const result = await execute_command(`cat /dev/null; ${IGNORES_SIGTERM}`, false, 300);
+
+    expect(result.exitCode).not.toBe(0);
+  }, TEST_TIMEOUT_MS);
 });
