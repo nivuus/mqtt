@@ -108,6 +108,19 @@ function buildContainer(overrides: Partial<ContainerInfo> = {}): ContainerInfo {
 }
 
 describe('DockerHelper', () => {
+  beforeEach(() => {
+    // Pristine test output: every log line goes to a silent spy. A test that
+    // asserts on a log reads the same spy (jest.spyOn returns the existing mock).
+    jest.spyOn(logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(logger, 'info').mockImplementation(() => {});
+    jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(logger, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('replaying the compose invocation from labels', () => {
     it('carries -p, --project-directory, --env-file and both -f (in label order) on pull, up and config', async () => {
       const id = 'abc123';

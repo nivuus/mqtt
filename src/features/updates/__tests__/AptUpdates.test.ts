@@ -136,6 +136,13 @@ describe('AptUpdates compose restarts', () => {
   let feature: AptUpdates;
 
   beforeEach(() => {
+    // Pristine test output: every log line goes to a silent spy. A test that
+    // asserts on a log reads the same spy (jest.spyOn returns the existing mock).
+    jest.spyOn(logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(logger, 'info').mockImplementation(() => {});
+    jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(logger, 'error').mockImplementation(() => {});
+
     mockMqttClient = new MockMqttClient();
     feature = new AptUpdates(mockMqttClient, 'apt_updates');
 
@@ -270,5 +277,33 @@ describe('AptUpdates compose restarts', () => {
       'compose', '-p', 'mediamanager', '-f', '/stack/docker-compose.yml',
       'up', '-d', '--force-recreate', '--no-deps', 'sonarr',
     ]);
+  });
+
+  it('snapshots the running compose services before dpkg or apt-get touches any package', async () => {
+    await installWithCompose({
+      projects: [{ Name: 'mediamanager', ConfigFiles: '/stack/docker-compose.yml' }],
+      runningByProject: { mediamanager: 'plex' },
+    });
+
+    // A Docker package upgrade can restart the daemon, and restart policies
+    // can then bring containers back up: a snapshot taken after the first
+    // package command could no longer tell which services were running.
+    const dockerCallOrder = (predicate: (args: string[]) => boolean): number => {
+      const index = mockedExec.execute_argv.mock.calls.findIndex(
+        ([file, args]) => file === 'docker' && predicate(args as string[])
+      );
+      expect(index).toBeGreaterThanOrEqual(0);
+      return mockedExec.execute_argv.mock.invocationCallOrder[index];
+    };
+    const shellCallOrder = (fragment: string): number => {
+      const index = mockedExec.execute_command.mock.calls.findIndex(([command]) => command.includes(fragment));
+      expect(index).toBeGreaterThanOrEqual(0);
+      return mockedExec.execute_command.mock.invocationCallOrder[index];
+    };
+
+    const firstPackageCommand = shellCallOrder('dpkg --configure -a');
+    expect(dockerCallOrder(args => args[0] === 'compose' && args[1] === 'ls')).toBeLessThan(firstPackageCommand);
+    expect(dockerCallOrder(args => composeSubcommand(args) === 'ps')).toBeLessThan(firstPackageCommand);
+    expect(firstPackageCommand).toBeLessThan(shellCallOrder('apt-get dist-upgrade'));
   });
 });

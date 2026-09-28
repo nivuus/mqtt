@@ -4,6 +4,7 @@ import { DockerUpdates } from '../DockerUpdates';
 import { MockMqttClient } from '../../../mqtt/__tests__/mocks/MockMqttClient';
 import * as DockerHelperModule from '../DockerHelper';
 import { ContainerInfo } from '../DockerHelper';
+import logger from '../../../utils/logger';
 
 jest.mock('../DockerHelper');
 
@@ -76,6 +77,13 @@ describe('DockerUpdates install queue', () => {
   let feature: DockerUpdates;
 
   beforeEach(() => {
+    // Pristine test output: every log line goes to a silent spy. A test that
+    // asserts on a log reads the same spy (jest.spyOn returns the existing mock).
+    jest.spyOn(logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(logger, 'info').mockImplementation(() => {});
+    jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(logger, 'error').mockImplementation(() => {});
+
     mockMqttClient = new MockMqttClient();
     feature = new DockerUpdates(mockMqttClient, 'docker_updates');
 
