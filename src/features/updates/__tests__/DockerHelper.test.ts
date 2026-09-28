@@ -50,6 +50,7 @@ interface Routing {
   staleIds?: string[]; // container ids that no longer exist: any `docker inspect` naming one fails
   configJson?: string; // stdout for `compose ... config --format json`
   runningServices?: string; // stdout for `compose ... ps --services --status running`
+  restartResult?: CommandResult; // result of `compose ... restart ...` (default: success)
 }
 
 /**
@@ -81,6 +82,9 @@ function routeExecuteArgv(routing: Routing) {
     }
     if (sub === 'ps') {
       return ok(routing.runningServices ?? '');
+    }
+    if (sub === 'restart' && routing.restartResult) {
+      return routing.restartResult;
     }
 
     // pull, up, restart: generic success.
@@ -291,17 +295,20 @@ describe('DockerHelper', () => {
   });
 
   describe('restarting dependents', () => {
-    it('restarts only the dependent that is running, never the stopped one', async () => {
+    // plex has two dependents; only tautulli is running.
+    const PLEX_WITH_DEPENDENTS = JSON.stringify({
+      services: {
+        plex: {},
+        tautulli: { depends_on: ['plex'] },
+        tdarr: { depends_on: ['plex'] },
+      },
+    });
+
+    it('restarts only the dependent that is running, never the stopped one, and nothing that depends on it', async () => {
       const container = buildContainer();
       mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
         running: true,
-        configJson: JSON.stringify({
-          services: {
-            plex: {},
-            tautulli: { depends_on: ['plex'] },
-            tdarr: { depends_on: ['plex'] },
-          },
-        }),
+        configJson: PLEX_WITH_DEPENDENTS,
         runningServices: 'tautulli',
       }));
 
@@ -312,10 +319,57 @@ describe('DockerHelper', () => {
         'compose', '-p', 'mediamanager', '--project-directory', '/stack', '-f', 'docker-compose.yml',
         'ps', '--services', '--status', 'running',
       ]);
+      // Without --no-deps, compose would also restart -- and start -- the
+      // services declaring `depends_on: {tautulli: {restart: true}}`.
       expect(findCall(args => composeSubcommand(args) === 'restart')).toEqual([
         'compose', '-p', 'mediamanager', '--project-directory', '/stack', '-f', 'docker-compose.yml',
-        'restart', 'tautulli',
+        'restart', '--no-deps', 'tautulli',
       ]);
+    });
+
+    it('leaves the dependents alone when the updated container was left stopped', async () => {
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
+        running: false,
+        configJson: PLEX_WITH_DEPENDENTS,
+        runningServices: 'tautulli',
+      }));
+
+      expect(await updateContainer(buildContainer())).toBe(true);
+      expect(findCall(args => composeSubcommand(args) === 'restart')).toBeUndefined();
+    });
+
+    it('says so in the success log when the container was left stopped, and only then', async () => {
+      const container = buildContainer();
+      const leftStoppedLog = expect.stringMatching(new RegExp(`${container.name}.*left stopped`));
+
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ running: false }));
+      await updateContainer(container);
+      expect(logger.info).toHaveBeenCalledWith(leftStoppedLog);
+
+      jest.mocked(logger.info).mockClear();
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ running: true }));
+      await updateContainer(container);
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining(`Successfully updated container ${container.name}`));
+      expect(logger.info).not.toHaveBeenCalledWith(leftStoppedLog);
+    });
+
+    it('logs an error with stderr when restarting the dependents fails, and still reports the container updated', async () => {
+      const container = buildContainer();
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
+        running: true,
+        configJson: PLEX_WITH_DEPENDENTS,
+        runningServices: 'tautulli',
+        restartResult: { stdout: '', stderr: 'Error response from daemon: Cannot restart container', exitCode: 1 },
+      }));
+
+      const success = await updateContainer(container);
+
+      // The container itself was recreated on the new image: reporting a
+      // failed update would keep offering an update that is already installed.
+      expect(success).toBe(true);
+      expect(logger.error).toHaveBeenCalledWith(expect.stringMatching(
+        new RegExp(`${container.name}.*tautulli.*Cannot restart container`)
+      ));
     });
 
     it('issues no restart command when no dependent is running', async () => {

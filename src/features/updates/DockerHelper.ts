@@ -210,7 +210,8 @@ function buildComposeBaseArgv(container: ContainerInfo): string[] {
 }
 
 /**
- * Recreates a container via docker compose, then restarts dependent services.
+ * Recreates a container via docker compose, keeping it running or stopped as
+ * it was, then restarts its running dependents when it runs.
  */
 export async function updateContainer(container: ContainerInfo): Promise<boolean> {
   if (container.composeFiles.length === 0 || !container.composeService) {
@@ -258,20 +259,43 @@ export async function updateContainer(container: ContainerInfo): Promise<boolean
     return false;
   }
 
-  logger.info(`Successfully updated container ${container.name}`);
-
-  // Only restart dependents that were already running: compose `restart`
-  // also starts stopped services, which would undo an intentional stop.
-  const dependents = await getDependentServices(baseArgv, container.composeService);
-  const runningDependents = await filterRunningServices(baseArgv, dependents);
-  if (runningDependents.length > 0) {
-    logger.info(`Restarting dependent services: ${runningDependents.join(', ')}`);
-    await execute_argv('docker', [
-      ...baseArgv, 'restart', ...runningDependents,
-    ], { timeoutMs: 300000 });
+  if (!wasRunning) {
+    // Nothing started, so the dependents have nothing new to reconnect to:
+    // they are left exactly as they are.
+    logger.info(`Successfully updated container ${container.name}, left stopped as it was before the update`);
+    return true;
   }
 
+  logger.info(`Successfully updated container ${container.name}`);
+  await restartRunningDependents(baseArgv, container);
   return true;
+}
+
+/**
+ * Restarts the running dependents of a freshly recreated service, so they
+ * reconnect to it.
+ *
+ * Compose `restart` also starts stopped services, so only the dependents
+ * already running are passed to it: a stopped one (e.g. a Tdarr node the
+ * console VM's libvirt hooks stopped on purpose) stays stopped. `--no-deps`
+ * keeps compose from also restarting -- and starting -- the services that
+ * in turn declare `depends_on: {<dependent>: {restart: true}}`.
+ *
+ * A failed restart is logged, not reported as a failed update: the service
+ * itself is already recreated on the new image.
+ */
+async function restartRunningDependents(baseArgv: string[], container: ContainerInfo): Promise<void> {
+  const dependents = await getDependentServices(baseArgv, container.composeService);
+  const runningDependents = await filterRunningServices(baseArgv, dependents);
+  if (runningDependents.length === 0) return;
+
+  logger.info(`Restarting dependent services: ${runningDependents.join(', ')}`);
+  const result = await execute_argv('docker', [
+    ...baseArgv, 'restart', '--no-deps', ...runningDependents,
+  ], { timeoutMs: 300000 });
+  if (result.exitCode !== 0) {
+    logger.error(`Failed to restart the dependent services of ${container.name} (${runningDependents.join(', ')}): ${result.stderr}`);
+  }
 }
 
 // Every state `docker ps` reports, split the way docker sets its own
