@@ -131,7 +131,7 @@ function aptCommandTopic(): string {
 // already-resolved microtask has run. Same technique as DockerUpdates.test.ts.
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 
-describe('AptUpdates compose restarts', () => {
+describe('AptUpdates installs', () => {
   let mockMqttClient: MockMqttClient;
   let feature: AptUpdates;
 
@@ -305,5 +305,42 @@ describe('AptUpdates compose restarts', () => {
     expect(dockerCallOrder(args => args[0] === 'compose' && args[1] === 'ls')).toBeLessThan(firstPackageCommand);
     expect(dockerCallOrder(args => composeSubcommand(args) === 'ps')).toBeLessThan(firstPackageCommand);
     expect(firstPackageCommand).toBeLessThan(shellCallOrder('apt-get dist-upgrade'));
+  });
+
+  // In the tests below, a rejection that escaped the 'message' listener would
+  // fail the test on its own: jest reports it as an unhandled rejection, the
+  // same event that makes the agent exit in production (Agent.ts) -- in the
+  // middle of dpkg, or of a container install sharing the host FIFO.
+  it('carries on with the upgrade when the in_progress publish rejects', async () => {
+    mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ projects: [], runningByProject: {} }));
+    await mockMqttClient.connect();
+    await feature.start();
+    // A QoS 1 publish whose PUBACK is lost when the connection drops:
+    // mqtt.js rejects it at the next reconnect.
+    jest.spyOn(mockMqttClient, 'publish').mockRejectedValueOnce(new Error('Connection closed'));
+
+    mockMqttClient.simulateMessage(aptCommandTopic(), 'INSTALL');
+    await flush();
+
+    expect(mockedExec.execute_command.mock.calls.some(([command]) => command.includes('apt-get dist-upgrade'))).toBe(true);
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('APT'), 'Connection closed');
+    const published = mockMqttClient.publishedMessages;
+    expect(JSON.parse(String(published[published.length - 1].message))).toEqual(
+      expect.objectContaining({ in_progress: false })
+    );
+  });
+
+  it("catches a rejection from the command handler at the 'message' listener and logs it", async () => {
+    await mockMqttClient.connect();
+    await feature.start();
+    // Stands in for any failure inside the handler, e.g. the publish of the
+    // re-check that follows the upgrade: the listener is the last place it
+    // can be caught, since an EventEmitter drops what a listener returns.
+    jest.spyOn(feature as any, 'installUpdates').mockRejectedValueOnce(new Error('unexpected failure'));
+
+    mockMqttClient.simulateMessage(aptCommandTopic(), 'INSTALL');
+    await flush();
+
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining(aptCommandTopic()), 'unexpected failure');
   });
 });

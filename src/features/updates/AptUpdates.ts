@@ -35,7 +35,7 @@ export class AptUpdates extends BaseFeature {
   private packages: AptPackageUpdate[] = [];
   private lastCheckTimestamp: number = 0;
   private installing: boolean = false;
-  private boundMessageHandler: (topic: string, payload: Buffer) => Promise<void>;
+  private boundMessageHandler: (topic: string, payload: Buffer) => void;
 
   constructor(mqttClient: MqttClient, featureName: string = 'apt_updates') {
     super(mqttClient, featureName);
@@ -47,7 +47,17 @@ export class AptUpdates extends BaseFeature {
       this.featureConfig.update_interval_seconds = checkIntervalSeconds;
     }
 
-    this.boundMessageHandler = this.handleMessage.bind(this);
+    // An EventEmitter drops whatever a listener returns, so a rejection from
+    // handleMessage would surface as an unhandled rejection: the agent exits
+    // (Agent.ts), and systemd then kills its whole cgroup -- dpkg in the
+    // middle of an upgrade, or the `docker compose` of a container install
+    // sharing the host maintenance FIFO. This is the last place such a
+    // rejection can be caught.
+    this.boundMessageHandler = (topic: string, payload: Buffer) => {
+      this.handleMessage(topic, payload).catch((error: unknown) => {
+        logger.error(`Error handling APT update command on ${topic}:`, error instanceof Error ? error.message : error);
+      });
+    };
   }
 
   protected async publishDiscovery(): Promise<void> {
@@ -171,7 +181,15 @@ export class AptUpdates extends BaseFeature {
     const requested = this.packages;
     const upgrade = runExclusive(() => this.upgradePackages(requested));
 
-    await this.publishCurrentState();
+    // Logged instead of passed on, like DockerUpdates' install publishes:
+    // mqtt.js rejects a QoS 1 publish whose PUBACK was lost to a dropped
+    // connection at the next reconnect, and the upgrade must carry on (and
+    // `installing` be cleared) regardless.
+    try {
+      await this.publishCurrentState();
+    } catch (error: any) {
+      logger.error('Error publishing APT state:', error.message);
+    }
     await upgrade;
 
     this.installing = false;

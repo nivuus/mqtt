@@ -30,7 +30,7 @@ export class DockerUpdates extends BaseFeature {
   private containers: Map<string, ContainerState> = new Map();
   private knownServiceNames: Set<string> = new Set();
   private lastCheckTimestamp: number = 0;
-  private boundMessageHandler: (topic: string, payload: Buffer) => Promise<void>;
+  private boundMessageHandler: (topic: string, payload: Buffer) => void;
 
   constructor(mqttClient: MqttClient, featureName: string = 'docker_updates') {
     super(mqttClient, featureName);
@@ -42,7 +42,16 @@ export class DockerUpdates extends BaseFeature {
       this.featureConfig.update_interval_seconds = checkIntervalSeconds;
     }
 
-    this.boundMessageHandler = this.handleMessage.bind(this);
+    // An EventEmitter drops whatever a listener returns, so a rejection from
+    // handleMessage would surface as an unhandled rejection: the agent exits
+    // (Agent.ts), and systemd then kills its whole cgroup, including the
+    // `docker compose` of an install in progress. This is the last place
+    // such a rejection can be caught.
+    this.boundMessageHandler = (topic: string, payload: Buffer) => {
+      this.handleMessage(topic, payload).catch((error: unknown) => {
+        logger.error(`Error handling Docker update command on ${topic}:`, error instanceof Error ? error.message : error);
+      });
+    };
   }
 
   protected async publishDiscovery(): Promise<void> {
@@ -192,7 +201,7 @@ export class DockerUpdates extends BaseFeature {
     const serviceId = this.sanitize(state.container.serviceName);
     const run = runExclusive(() => this.runInstall(state, serviceId));
 
-    await this.publishContainerState(serviceId);
+    await this.publishInstallState(state, serviceId);
     await run;
   }
 
@@ -214,13 +223,20 @@ export class DockerUpdates extends BaseFeature {
     }
 
     state.installing = false;
+    await this.publishInstallState(state, serviceId);
+  }
 
+  /**
+   * Publishes a container's state at the start and the end of its install,
+   * logging a rejected publish instead of passing it on. mqtt.js rejects a
+   * QoS 1 publish whose PUBACK was lost to a dropped connection at the next
+   * reconnect; the install must carry on regardless, and a rejection that
+   * reached the 'message' listener would exit the agent in the middle of it.
+   */
+  private async publishInstallState(state: ContainerState, serviceId: string): Promise<void> {
     try {
       await this.publishContainerState(serviceId);
     } catch (error: any) {
-      // The install itself is over: a rejected publish (e.g. a QoS 1
-      // message that never gets its PUBACK) must not turn it into a
-      // rejection for installContainer's caller.
       logger.error(`Error publishing state for ${state.container.name}:`, error.message);
     }
   }

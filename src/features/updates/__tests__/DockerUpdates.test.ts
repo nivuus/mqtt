@@ -214,4 +214,41 @@ describe('DockerUpdates install queue', () => {
     expect(mockedHelper.updateContainer).toHaveBeenCalledTimes(2);
     expect(mockedHelper.updateContainer).toHaveBeenNthCalledWith(2, expect.objectContaining({ serviceName: 'sonarr' }));
   });
+
+  // In the tests below, a rejection that escaped the 'message' listener would
+  // fail the test on its own: jest reports it as an unhandled rejection, the
+  // same event that makes the agent exit in production (Agent.ts).
+  it('carries on with the install when the in_progress publish rejects', async () => {
+    const plex = buildContainer({ serviceName: 'plex', name: 'plex-1' });
+    await startWithContainers([plex]);
+    mockedHelper.updateContainer.mockResolvedValueOnce(true);
+
+    // A QoS 1 publish whose PUBACK is lost when the connection drops:
+    // mqtt.js rejects it at the next reconnect.
+    jest.spyOn(mockMqttClient, 'publish').mockRejectedValueOnce(new Error('Connection closed'));
+
+    mockMqttClient.simulateMessage(installTopic('plex'), 'INSTALL');
+    await flush();
+
+    expect(mockedHelper.updateContainer).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('plex-1'), 'Connection closed');
+    const published = mockMqttClient.publishedMessages;
+    expect(JSON.parse(String(published[published.length - 1].message))).toEqual(
+      expect.objectContaining({ in_progress: false })
+    );
+  });
+
+  it("catches a rejection from the command handler at the 'message' listener and logs it", async () => {
+    const plex = buildContainer({ serviceName: 'plex', name: 'plex-1' });
+    await startWithContainers([plex]);
+    // Stands in for any failure inside the handler: the listener is the last
+    // place it can be caught, since an EventEmitter drops what a listener
+    // returns.
+    jest.spyOn(feature as any, 'installContainer').mockRejectedValueOnce(new Error('unexpected failure'));
+
+    mockMqttClient.simulateMessage(installTopic('plex'), 'INSTALL');
+    await flush();
+
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining(installTopic('plex')), 'unexpected failure');
+  });
 });
