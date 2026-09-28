@@ -7,7 +7,7 @@ import {
   ContainerInfo, listWatchtowerContainers, checkContainerUpdate,
   fetchChangelog, updateContainer,
 } from './DockerHelper';
-import { runExclusive } from './hostMaintenanceQueue';
+import { hasPendingMaintenance, runExclusive } from './hostMaintenanceQueue';
 
 interface DockerUpdatesConfig extends FeatureConfig {
   check_interval_hours?: number;
@@ -105,6 +105,13 @@ export class DockerUpdates extends BaseFeature {
     logger.info('Checking Docker containers for updates...');
     this.lastCheckTimestamp = Date.now();
 
+    // A container being recreated -- by an install here, or by the compose
+    // recreate after a Docker package upgrade -- is briefly missing from
+    // `docker ps`: a listing taken while any maintenance is queued or running
+    // can't tell a container that is gone from one being recreated. Sampled
+    // before the listing, since that maintenance may be over by the time
+    // this check ends, and again before removing anything.
+    const maintenanceAtListing = hasPendingMaintenance();
     const allContainers = await listWatchtowerContainers();
     const excludeList = this.featureConfig.exclude_containers || [];
     const containers = allContainers.filter(c => !excludeList.includes(c.serviceName));
@@ -134,20 +141,42 @@ export class DockerUpdates extends BaseFeature {
         releaseUrl = changelog.releaseUrl;
       }
 
-      this.containers.set(serviceId, {
+      this.storeCheckResult(serviceId, {
         container,
         hasUpdate: checkResult.hasUpdate,
         newVersion: checkResult.newVersion,
         releaseSummary,
         releaseUrl,
-        installing: false,
       });
 
       await this.publishContainerState(serviceId);
     }
 
+    if (maintenanceAtListing || hasPendingMaintenance()) {
+      logger.info('Skipping stale Docker entity removal: an install or upgrade is queued or running');
+      return;
+    }
+
     // Remove entities for containers that no longer exist
     await this.removeStaleEntities(currentNames);
+  }
+
+  /**
+   * Stores a check's result for a container, updating its existing state in
+   * place rather than replacing it. An install queued or running for that
+   * container holds this very object: a replacement would drop its
+   * `installing` flag -- Home Assistant would show the install as idle and
+   * a repeated INSTALL would pass the guard -- and the install would finish
+   * by updating the orphaned object, publishing the check's stale versions.
+   * `installing` itself is carried over untouched.
+   */
+  private storeCheckResult(serviceId: string, result: Omit<ContainerState, 'installing'>): void {
+    const existing = this.containers.get(serviceId);
+    if (existing) {
+      Object.assign(existing, result);
+    } else {
+      this.containers.set(serviceId, { ...result, installing: false });
+    }
   }
 
   private async publishContainerDiscovery(container: ContainerInfo): Promise<void> {

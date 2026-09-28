@@ -18,6 +18,7 @@
  */
 
 let tail: Promise<void> = Promise.resolve();
+let pendingOperations = 0;
 
 /**
  * Runs `operation` once every operation queued before it has settled, and
@@ -26,11 +27,24 @@ let tail: Promise<void> = Promise.resolve();
  * own caller still receives the rejection.
  */
 export function runExclusive<T>(operation: () => Promise<T>): Promise<T> {
+  pendingOperations++;
   const run = tail.then(() => operation());
   tail = run.then(settled, settled);
   return run;
 }
 
-// The next operation only waits for the previous one to settle: that
-// operation's result or rejection belongs to its own caller.
-function settled(): void {}
+/**
+ * Whether any operation is queued or running. While one is, containers can
+ * be missing from `docker ps` because they are being recreated -- by a
+ * container install, or by the compose recreate that follows a Docker
+ * package upgrade.
+ */
+export function hasPendingMaintenance(): boolean {
+  return pendingOperations > 0;
+}
+
+// Runs once an operation has settled, whichever way. The next operation only
+// waits for that: the operation's result or rejection belongs to its caller.
+function settled(): void {
+  pendingOperations--;
+}

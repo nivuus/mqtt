@@ -1,6 +1,6 @@
 // src/features/updates/__tests__/hostMaintenanceQueue.test.ts
 
-import { runExclusive } from '../hostMaintenanceQueue';
+import { hasPendingMaintenance, runExclusive } from '../hostMaintenanceQueue';
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -62,5 +62,23 @@ describe('runExclusive', () => {
 
     await expect(throwing).rejects.toThrow('bad argv');
     await expect(next).resolves.toBe('ran');
+  });
+});
+
+describe('hasPendingMaintenance', () => {
+  it('reports maintenance while any operation is queued or running, and none once all have settled', async () => {
+    expect(hasPendingMaintenance()).toBe(false);
+
+    const first = defer<void>();
+    const firstRun = runExclusive(() => first.promise);
+    const failingRun = runExclusive(async () => { throw new Error('apt-get failed'); });
+    expect(hasPendingMaintenance()).toBe(true);
+
+    first.resolve();
+    await firstRun;
+    expect(hasPendingMaintenance()).toBe(true); // the failing one has yet to run
+
+    await expect(failingRun).rejects.toThrow('apt-get failed');
+    expect(hasPendingMaintenance()).toBe(false);
   });
 });
