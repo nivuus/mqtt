@@ -44,8 +44,10 @@ function composeSubcommand(args: string[]): string | undefined {
 interface Routing {
   psWatchtower?: string; // stdout for the top-level `docker ps --filter ...`
   inspectLabels?: string; // stdout for `docker inspect --format <labels> <id>`
-  running?: boolean; // for `docker inspect -f '{{.State.Running}}' <id>`
-  runningInspectResult?: CommandResult; // overrides `running` with an arbitrary result (failure, garbage output)
+  running?: boolean; // shorthand for serviceStates: 'running' or 'exited'
+  serviceStates?: string; // stdout for the state lookup `docker ps -a --filter <compose labels> --format {{.State}}`
+  stateLookupResult?: CommandResult; // overrides the state lookup with an arbitrary result (failure)
+  staleIds?: string[]; // container ids that no longer exist: any `docker inspect` naming one fails
   configJson?: string; // stdout for `compose ... config --format json`
   runningServices?: string; // stdout for `compose ... ps --services --status running`
 }
@@ -58,15 +60,19 @@ function routeExecuteArgv(routing: Routing) {
   return async (file: string, args: string[]): Promise<CommandResult> => {
     if (file !== 'docker') return ok();
 
+    if (args[0] === 'ps' && args[1] === '-a') {
+      if (routing.stateLookupResult) return routing.stateLookupResult;
+      return ok(routing.serviceStates ?? (routing.running ? 'running' : 'exited'));
+    }
     if (args[0] === 'ps') {
       return ok(routing.psWatchtower ?? '');
     }
+    const staleId = args[0] === 'inspect' ? routing.staleIds?.find(id => args.includes(id)) : undefined;
+    if (staleId) {
+      return { stdout: '', stderr: `Error: No such object: ${staleId}`, exitCode: 1 };
+    }
     if (args[0] === 'inspect' && args[1] === '--format') {
       return ok(routing.inspectLabels ?? '');
-    }
-    if (args[0] === 'inspect' && args[1] === '-f') {
-      if (routing.runningInspectResult) return routing.runningInspectResult;
-      return ok(routing.running ? 'true' : 'false');
     }
 
     const sub = composeSubcommand(args);
@@ -212,35 +218,75 @@ describe('DockerHelper', () => {
       expect(findCall(args => composeSubcommand(args) === 'restart')).toBeUndefined();
     });
 
-    it('aborts without recreating when the running state cannot be read (docker inspect fails)', async () => {
+  });
+
+  describe('reading the running state from compose labels', () => {
+    it('looks the state up by compose project and service labels, never by the cached container id', async () => {
       const container = buildContainer();
-      const errorSpy = jest.spyOn(logger, 'error');
-      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
-        runningInspectResult: { stdout: '', stderr: 'Error: No such object: abc123', exitCode: 1 },
-      }));
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ running: true }));
+
+      await updateContainer(container);
+
+      expect(findCall(args => args[0] === 'ps' && args[1] === '-a')).toEqual([
+        'ps', '-a',
+        '--filter', 'label=com.docker.compose.project=mediamanager',
+        '--filter', 'label=com.docker.compose.service=plex',
+        '--format', '{{.State}}',
+      ]);
+      expect(findCall(args => args.includes(container.id))).toBeUndefined();
+    });
+
+    it('recreates a container that was recreated since the last check, whose cached id no longer exists', async () => {
+      const container = buildContainer({ id: 'gone42' });
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ running: true, staleIds: ['gone42'] }));
 
       const success = await updateContainer(container);
 
-      // The image was already pulled; only the recreate step is skipped, so
-      // a running container is never guessed into "stopped" and left down.
+      expect(success).toBe(true);
+      expect(findCall(args => composeSubcommand(args) === 'up')).toEqual(expect.arrayContaining(['up', '-d', '--no-deps', 'plex']));
+    });
+
+    // Split the way docker itself sets State.Running, which is the answer the
+    // recreate replays: a restarting or paused container still counts as running.
+    it.each(['running', 'restarting', 'paused'])('recreates a "%s" container started (`up -d`)', async state => {
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ serviceStates: state }));
+
+      expect(await updateContainer(buildContainer())).toBe(true);
+      expect(findCall(args => composeSubcommand(args) === 'up')).toEqual(expect.arrayContaining(['up', '-d', '--no-deps', 'plex']));
+    });
+
+    it.each(['created', 'exited', 'dead', 'removing'])('recreates a "%s" container left stopped (`up --no-start`)', async state => {
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ serviceStates: state }));
+
+      expect(await updateContainer(buildContainer())).toBe(true);
+      expect(findCall(args => composeSubcommand(args) === 'up')).toEqual(expect.arrayContaining(['up', '--no-start', '--no-deps', 'plex']));
+    });
+
+    it('recreates started when every replica of the service is running', async () => {
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ serviceStates: 'running\nrunning\n' }));
+
+      expect(await updateContainer(buildContainer())).toBe(true);
+      expect(findCall(args => composeSubcommand(args) === 'up')).toEqual(expect.arrayContaining(['up', '-d', '--no-deps', 'plex']));
+    });
+
+    // In every case below the image is already pulled; only the recreate is
+    // skipped, so a running container is never guessed into "stopped" and
+    // left down, and a stopped one is never guessed into "running".
+    it.each<[string, Routing]>([
+      ['no container matches the labels', { serviceStates: '' }],
+      ['docker ps fails', { stateLookupResult: { stdout: '', stderr: 'Cannot connect to the Docker daemon', exitCode: 1 } }],
+      ['docker ps answers a state docker does not define', { serviceStates: '<no value>' }],
+      ['the replicas disagree, some running and some stopped', { serviceStates: 'running\nexited' }],
+    ])('aborts without recreating when %s', async (_case, routing) => {
+      const container = buildContainer();
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv(routing));
+
+      const success = await updateContainer(container);
+
       expect(findCall(args => composeSubcommand(args) === 'pull')).toBeDefined();
       expect(success).toBe(false);
       expect(findCall(args => composeSubcommand(args) === 'up')).toBeUndefined();
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining(container.name));
-    });
-
-    it('aborts without recreating when docker inspect answers neither "true" nor "false"', async () => {
-      const container = buildContainer();
-      const errorSpy = jest.spyOn(logger, 'error');
-      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
-        runningInspectResult: ok('<no value>'),
-      }));
-
-      const success = await updateContainer(container);
-
-      expect(success).toBe(false);
-      expect(findCall(args => composeSubcommand(args) === 'up')).toBeUndefined();
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining(container.name));
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining(container.name));
     });
   });
 

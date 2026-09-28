@@ -237,12 +237,12 @@ export async function updateContainer(container: ContainerInfo): Promise<boolean
   // concurrent `up` commands and "container name already in use" conflicts.
   //
   // When that state can't be read at all (daemon busy, permission error,
-  // transient failure, or an answer that is neither "true" nor "false"),
-  // guessing "stopped" would leave a container that was actually running
-  // stopped right after the pull, with nothing logged. So this aborts
-  // instead of guessing: the pulled image stays unused until the next
-  // attempt, same as any other failed step in this function.
-  const wasRunning = await isContainerRunning(container.id);
+  // transient failure, no matching container, or an answer docker doesn't
+  // define), guessing "stopped" would leave a container that was actually
+  // running stopped right after the pull, with nothing logged. So this
+  // aborts instead of guessing: the pulled image stays unused until the
+  // next attempt, same as any other failed step in this function.
+  const wasRunning = await readServiceRunningState(container);
   if (wasRunning === null) {
     logger.error(`Cannot recreate ${container.name}: unable to read its running state`);
     return false;
@@ -274,25 +274,57 @@ export async function updateContainer(container: ContainerInfo): Promise<boolean
   return true;
 }
 
+// Every state `docker ps` reports, split the way docker sets its own
+// State.Running flag: a restarting or paused container still counts as
+// running. That flag is the answer a recreate replays.
+const RUNNING_STATES = new Set(['running', 'restarting', 'paused']);
+const STOPPED_STATES = new Set(['created', 'exited', 'dead', 'removing']);
+
 /**
- * Checks whether a container is currently running, so a recreate can replay
- * that state instead of unconditionally starting it. Returns null when the
- * state can't be determined (docker inspect failed, or its output was
- * neither "true" nor "false") -- the caller must treat that as a failure,
- * never as "not running".
+ * Checks whether a compose service's container is currently running, so a
+ * recreate can replay that state instead of unconditionally starting it.
+ *
+ * The container is found by its compose project and service labels, not by
+ * the id cached in ContainerInfo: that id comes from the last periodic
+ * check, up to 12 h old, and anything that recreated the container since
+ * then (an operator, the apt path, a hook) leaves it pointing at a
+ * container that no longer exists. The labels survive a recreate.
+ *
+ * Returns null when the state is unknown -- docker ps failed, no container
+ * matches, a state is not one docker defines, or the service's containers
+ * (replicas) disagree, some running and some stopped. The caller must treat
+ * that as a failure, never as "not running".
  */
-async function isContainerRunning(id: string): Promise<boolean | null> {
-  const result = await execute_argv('docker', ['inspect', '-f', '{{.State.Running}}', id]);
+async function readServiceRunningState(container: ContainerInfo): Promise<boolean | null> {
+  const service = `${container.composeService} (compose project ${container.projectName})`;
+  const result = await execute_argv('docker', [
+    'ps', '-a',
+    '--filter', `label=com.docker.compose.project=${container.projectName}`,
+    '--filter', `label=com.docker.compose.service=${container.composeService}`,
+    '--format', '{{.State}}',
+  ]);
   if (result.exitCode !== 0) {
-    logger.warn(`docker inspect failed for container ${id}: ${result.stderr}`);
+    logger.warn(`docker ps failed for service ${service}: ${result.stderr}`);
     return null;
   }
 
-  const state = result.stdout.trim();
-  if (state === 'true') return true;
-  if (state === 'false') return false;
+  const states = result.stdout.split('\n').map(line => line.trim()).filter(Boolean);
+  if (states.length === 0) {
+    logger.warn(`No container found for service ${service}`);
+    return null;
+  }
 
-  logger.warn(`docker inspect returned an unexpected running state for container ${id}: "${state}"`);
+  const unexpectedStates = states.filter(state => !RUNNING_STATES.has(state) && !STOPPED_STATES.has(state));
+  if (unexpectedStates.length > 0) {
+    logger.warn(`docker ps returned an unexpected state for service ${service}: "${unexpectedStates.join('", "')}"`);
+    return null;
+  }
+
+  const runningCount = states.filter(state => RUNNING_STATES.has(state)).length;
+  if (runningCount === states.length) return true;
+  if (runningCount === 0) return false;
+
+  logger.warn(`The containers of service ${service} disagree on whether it is running: ${states.join(', ')}`);
   return null;
 }
 
