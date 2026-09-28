@@ -31,6 +31,15 @@ export class DockerUpdates extends BaseFeature {
   private lastCheckTimestamp: number = 0;
   private boundMessageHandler: (topic: string, payload: Buffer) => Promise<void>;
 
+  // Single FIFO across every container: Home Assistant can send several
+  // install commands in the same second, and running `docker compose up`
+  // concurrently for more than one of them produced "container name already
+  // in use" conflicts in production. Each accepted install is chained onto
+  // this promise, so the next one's updateContainer call only starts once
+  // the previous has settled (success or failure never breaks the chain,
+  // see runInstall's own try/catch).
+  private installQueue: Promise<void> = Promise.resolve();
+
   constructor(mqttClient: MqttClient, featureName: string = 'docker_updates') {
     super(mqttClient, featureName);
     this.featureConfig = this.agentConfig.features[featureName] as DockerUpdatesConfig ||
@@ -179,11 +188,20 @@ export class DockerUpdates extends BaseFeature {
 
   private async installContainer(state: ContainerState): Promise<void> {
     if (state.installing) return;
-
-    const serviceId = this.sanitize(state.container.serviceName);
     state.installing = true;
-    await this.publishContainerState(serviceId);
 
+    // Chained synchronously, before any await: the arrival order of two
+    // install commands is decided by the order handleMessage calls this
+    // method, not by how their promises later happen to settle.
+    const serviceId = this.sanitize(state.container.serviceName);
+    const run = this.installQueue.then(() => this.runInstall(state, serviceId));
+    this.installQueue = run;
+
+    await this.publishContainerState(serviceId);
+    await run;
+  }
+
+  private async runInstall(state: ContainerState, serviceId: string): Promise<void> {
     try {
       const success = await updateContainer(state.container);
       if (success) {
@@ -201,7 +219,17 @@ export class DockerUpdates extends BaseFeature {
     }
 
     state.installing = false;
-    await this.publishContainerState(serviceId);
+
+    try {
+      await this.publishContainerState(serviceId);
+    } catch (error: any) {
+      // This runs chained onto the shared installQueue: letting a publish
+      // rejection (e.g. a QoS 1 message that never gets its PUBACK) escape
+      // would make that promise -- and every install queued behind it --
+      // reject forever, since .then() on a rejected promise never calls
+      // its callback.
+      logger.error(`Error publishing state for ${state.container.name}:`, error.message);
+    }
   }
 
   private async removeStaleEntities(currentNames: Set<string>): Promise<void> {
