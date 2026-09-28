@@ -5,6 +5,7 @@ import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_command, execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
 import { splitCommaSeparatedList } from './splitCommaSeparatedList';
+import { runExclusive } from './hostMaintenanceQueue';
 
 interface AptUpdatesConfig extends FeatureConfig {
   check_interval_hours?: number;
@@ -160,8 +161,31 @@ export class AptUpdates extends BaseFeature {
 
   private async installUpdates(): Promise<void> {
     if (this.installing || this.packages.length === 0) return;
+    this.installing = true;
 
-    const dockerUpdated = this.packages.some(p => p.name.startsWith('docker'));
+    // Queued before any await, so an apt install and a container install
+    // requested in the same second run one at a time, in arrival order (see
+    // hostMaintenanceQueue for why the two must never overlap). The upgrade
+    // works from the package list this install was requested for, even if
+    // a periodic check replaces this.packages while it waits in the queue.
+    const requested = this.packages;
+    const upgrade = runExclusive(() => this.upgradePackages(requested));
+
+    await this.publishCurrentState();
+    await upgrade;
+
+    this.installing = false;
+    // Re-check to refresh state
+    await this.checkForUpdates();
+  }
+
+  /**
+   * The upgrade itself: dpkg recovery, dist-upgrade, held-back packages,
+   * autoremove and, after a Docker package upgrade, the compose recreate.
+   * Only ever run through runExclusive.
+   */
+  private async upgradePackages(packages: AptPackageUpdate[]): Promise<void> {
+    const dockerUpdated = packages.some(p => p.name.startsWith('docker'));
     // These apt commands need a shell because of the leading environment
     // assignments (DEBIAN_FRONTEND=...) and the Dpkg::Options quoting. They are
     // only ever built from fixed literals plus package names parsed from apt's
@@ -169,9 +193,6 @@ export class AptUpdates extends BaseFeature {
     const aptEnv = 'sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1';
     const dpkgOpts = '-o Dpkg::Options::="--force-confold"';
     const upgradeTimeout = 1800000; // 30 minutes
-
-    this.installing = true;
-    await this.publishCurrentState();
 
     try {
       // Snapshot which compose services are running BEFORE anything is
@@ -186,7 +207,7 @@ export class AptUpdates extends BaseFeature {
       await execute_command(`${aptEnv} dpkg --configure -a`, false, upgradeTimeout);
 
       // Main upgrade
-      logger.info(`Installing ${this.packages.length} APT updates...`);
+      logger.info(`Installing ${packages.length} APT updates...`);
       const result = await execute_command(
         `${aptEnv} apt-get dist-upgrade -y ${dpkgOpts}`,
         false, upgradeTimeout,
@@ -222,10 +243,6 @@ export class AptUpdates extends BaseFeature {
     } catch (error: any) {
       logger.error('Error installing APT updates:', error.message);
     }
-
-    this.installing = false;
-    // Re-check to refresh state
-    await this.checkForUpdates();
   }
 
   /**
