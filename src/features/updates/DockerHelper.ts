@@ -243,7 +243,19 @@ export async function updateContainer(container: ContainerInfo): Promise<boolean
   // assuming it should end up started. `--no-deps` keeps it from also
   // converging every dependency, which previously produced a burst of
   // concurrent `up` commands and "container name already in use" conflicts.
+  //
+  // When that state can't be read at all (daemon busy, permission error,
+  // transient failure, or an answer that is neither "true" nor "false"),
+  // guessing "stopped" would leave a container that was actually running
+  // stopped right after the pull, with nothing logged. So this aborts
+  // instead of guessing: the pulled image stays unused until the next
+  // attempt, same as any other failed step in this function.
   const wasRunning = await isContainerRunning(container.id);
+  if (wasRunning === null) {
+    logger.error(`Cannot recreate ${container.name}: unable to read its running state`);
+    return false;
+  }
+
   const upArgs = wasRunning
     ? [...baseArgv, 'up', '-d', '--no-deps', container.composeService]
     : [...baseArgv, 'up', '--no-start', '--no-deps', container.composeService];
@@ -272,11 +284,24 @@ export async function updateContainer(container: ContainerInfo): Promise<boolean
 
 /**
  * Checks whether a container is currently running, so a recreate can replay
- * that state instead of unconditionally starting it.
+ * that state instead of unconditionally starting it. Returns null when the
+ * state can't be determined (docker inspect failed, or its output was
+ * neither "true" nor "false") -- the caller must treat that as a failure,
+ * never as "not running".
  */
-async function isContainerRunning(id: string): Promise<boolean> {
+async function isContainerRunning(id: string): Promise<boolean | null> {
   const result = await execute_argv('docker', ['inspect', '-f', '{{.State.Running}}', id]);
-  return result.exitCode === 0 && result.stdout.trim() === 'true';
+  if (result.exitCode !== 0) {
+    logger.warn(`docker inspect failed for container ${id}: ${result.stderr}`);
+    return null;
+  }
+
+  const state = result.stdout.trim();
+  if (state === 'true') return true;
+  if (state === 'false') return false;
+
+  logger.warn(`docker inspect returned an unexpected running state for container ${id}: "${state}"`);
+  return null;
 }
 
 /**

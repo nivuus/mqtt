@@ -2,6 +2,7 @@
 
 import * as execModule from '../../../utils/exec';
 import { listWatchtowerContainers, updateContainer, ContainerInfo } from '../DockerHelper';
+import logger from '../../../utils/logger';
 
 jest.mock('../../../utils/exec');
 
@@ -44,6 +45,7 @@ interface Routing {
   psWatchtower?: string; // stdout for the top-level `docker ps --filter ...`
   inspectLabels?: string; // stdout for `docker inspect --format <labels> <id>`
   running?: boolean; // for `docker inspect -f '{{.State.Running}}' <id>`
+  runningInspectResult?: CommandResult; // overrides `running` with an arbitrary result (failure, garbage output)
   configJson?: string; // stdout for `compose ... config --format json`
   runningServices?: string; // stdout for `compose ... ps --services --status running`
 }
@@ -63,6 +65,7 @@ function routeExecuteArgv(routing: Routing) {
       return ok(routing.inspectLabels ?? '');
     }
     if (args[0] === 'inspect' && args[1] === '-f') {
+      if (routing.runningInspectResult) return routing.runningInspectResult;
       return ok(routing.running ? 'true' : 'false');
     }
 
@@ -194,6 +197,37 @@ describe('DockerHelper', () => {
         'up', '--no-start', '--no-deps', 'plex',
       ]);
       expect(findCall(args => composeSubcommand(args) === 'restart')).toBeUndefined();
+    });
+
+    it('aborts without recreating when the running state cannot be read (docker inspect fails)', async () => {
+      const container = buildContainer();
+      const errorSpy = jest.spyOn(logger, 'error');
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
+        runningInspectResult: { stdout: '', stderr: 'Error: No such object: abc123', exitCode: 1 },
+      }));
+
+      const success = await updateContainer(container);
+
+      // The image was already pulled; only the recreate step is skipped, so
+      // a running container is never guessed into "stopped" and left down.
+      expect(findCall(args => composeSubcommand(args) === 'pull')).toBeDefined();
+      expect(success).toBe(false);
+      expect(findCall(args => composeSubcommand(args) === 'up')).toBeUndefined();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining(container.name));
+    });
+
+    it('aborts without recreating when docker inspect answers neither "true" nor "false"', async () => {
+      const container = buildContainer();
+      const errorSpy = jest.spyOn(logger, 'error');
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
+        runningInspectResult: ok('<no value>'),
+      }));
+
+      const success = await updateContainer(container);
+
+      expect(success).toBe(false);
+      expect(findCall(args => composeSubcommand(args) === 'up')).toBeUndefined();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining(container.name));
     });
   });
 
