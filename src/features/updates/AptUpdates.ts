@@ -15,6 +15,17 @@ interface AptPackageUpdate {
   newVersion: string;
 }
 
+/**
+ * A compose project's identity plus the services it had running, taken
+ * before the apt upgrade runs. See snapshotRunningServices for why the
+ * timing matters.
+ */
+interface ComposeProjectSnapshot {
+  name: string;
+  configFiles: string[];
+  runningServices: string[];
+}
+
 const DEFAULT_CHECK_INTERVAL_HOURS = 12;
 
 export class AptUpdates extends BaseFeature {
@@ -162,6 +173,13 @@ export class AptUpdates extends BaseFeature {
     await this.publishCurrentState();
 
     try {
+      // Snapshot which compose services are running BEFORE anything is
+      // upgraded. A Docker package upgrade can restart the daemon, and a
+      // container's own restart policy can then bring it back up before the
+      // recreate below runs — taking the snapshot any later than this would
+      // let that policy corrupt the "was it running" answer.
+      const composeSnapshot = dockerUpdated ? await this.snapshotRunningServices() : [];
+
       // Recover from any previously interrupted dpkg
       logger.info('Recovering any interrupted dpkg state...');
       await execute_command(`${aptEnv} dpkg --configure -a`, false, upgradeTimeout);
@@ -194,9 +212,11 @@ export class AptUpdates extends BaseFeature {
       logger.info('Removing unused packages...');
       await execute_command(`${aptEnv} apt-get autoremove -y ${dpkgOpts}`, false, upgradeTimeout);
 
-      // If Docker packages were updated, restart all compose projects to recover containers
+      // If Docker packages were updated, recreate the compose services that
+      // were running before the upgrade. Projects and services that were
+      // already stopped are left alone.
       if (dockerUpdated) {
-        await this.restartComposeProjects();
+        await this.restartComposeProjects(composeSnapshot);
       }
     } catch (error: any) {
       logger.error('Error installing APT updates:', error.message);
@@ -207,8 +227,59 @@ export class AptUpdates extends BaseFeature {
     await this.checkForUpdates();
   }
 
-  private async restartComposeProjects(): Promise<void> {
-    logger.info('Docker packages updated — restarting compose projects...');
+  /**
+   * Records, for every compose project on the host (running or not), which
+   * of its services are currently running. `--all` is required here:
+   * without it, a project with every service stopped never appears at all,
+   * so restartComposeProjects would have no record telling it to leave that
+   * project alone rather than guessing.
+   */
+  private async snapshotRunningServices(): Promise<ComposeProjectSnapshot[]> {
+    const result = await execute_argv('docker', ['compose', 'ls', '--all', '--format', 'json']);
+    if (result.exitCode !== 0 || !result.stdout.trim()) {
+      logger.warn('Could not list compose projects');
+      return [];
+    }
+
+    const snapshot: ComposeProjectSnapshot[] = [];
+
+    // JSON.parse and the loop below share one try/catch, same scope as the
+    // pre-existing method this replaces: a malformed or unexpected listing
+    // must not throw out of this function, since it now runs before dpkg/
+    // apt-get -- an uncaught exception here would abort the whole upgrade,
+    // not just the compose-restart step.
+    try {
+      const projects: Array<{ Name?: string; ConfigFiles?: string }> = JSON.parse(result.stdout);
+      for (const project of projects) {
+        const configFiles = splitConfigFiles(project.ConfigFiles);
+        if (!project.Name || configFiles.length === 0) continue;
+
+        const psResult = await execute_argv('docker', [
+          'compose', '-p', project.Name, ...composeFileArgs(configFiles), 'ps', '--services', '--status', 'running',
+        ]);
+        const runningServices = psResult.exitCode === 0
+          ? psResult.stdout.split('\n').map(line => line.trim()).filter(Boolean)
+          : [];
+
+        snapshot.push({ name: project.Name, configFiles, runningServices });
+      }
+    } catch (error: any) {
+      logger.error('Error listing compose projects:', error.message);
+      return [];
+    }
+
+    return snapshot;
+  }
+
+  /**
+   * Recreates, per compose project, only the services recorded as running
+   * before the upgrade. `--no-deps` keeps a recreate from also converging
+   * every dependency (see DockerHelper.updateContainer for the same
+   * precaution); a project with no previously running service gets no
+   * command at all, rather than a force-recreate that would start it.
+   */
+  private async restartComposeProjects(snapshot: ComposeProjectSnapshot[]): Promise<void> {
+    logger.info('Docker packages updated — recreating previously running compose services...');
 
     // Wait for Docker daemon to be ready after upgrade
     for (let i = 0; i < 30; i++) {
@@ -217,29 +288,35 @@ export class AptUpdates extends BaseFeature {
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    // Find all running compose projects
-    const result = await execute_argv('docker', ['compose', 'ls', '--format', 'json']);
-    if (result.exitCode !== 0 || !result.stdout.trim()) {
-      logger.warn('Could not list compose projects');
-      return;
+    for (const project of snapshot) {
+      if (project.runningServices.length === 0) continue;
+
+      logger.info(`Recreating running services for compose project ${project.name}: ${project.runningServices.join(', ')}`);
+      await execute_argv('docker', [
+        'compose', '-p', project.name, ...composeFileArgs(project.configFiles),
+        'up', '-d', '--force-recreate', '--no-deps', ...project.runningServices,
+      ], { timeoutMs: 300000 });
     }
 
-    try {
-      const projects = JSON.parse(result.stdout);
-      for (const project of projects) {
-        const configFile = project.ConfigFiles;
-        if (!configFile) continue;
-        logger.info(`Restarting compose project: ${project.Name} (${configFile})`);
-        // Remove stuck containers and recreate
-        await execute_argv('docker', ['compose', '-f', configFile, 'up', '-d', '--force-recreate'], { timeoutMs: 300000 });
-      }
-      logger.info('All compose projects restarted');
-    } catch (error: any) {
-      logger.error('Error restarting compose projects:', error.message);
-    }
+    logger.info('Compose services recreated');
   }
 
   protected async cleanup(): Promise<void> {
     this.mqttClient.removeListener('message', this.boundMessageHandler);
   }
+}
+
+/**
+ * Splits a compose project's comma-separated ConfigFiles field (from
+ * `docker compose ls --format json`) into its entries. Same comma-separated
+ * shape as a container's config_files label in DockerHelper, applied here to
+ * a project listing instead.
+ */
+function splitConfigFiles(value: string | undefined): string[] {
+  return value ? value.split(',').filter(Boolean) : [];
+}
+
+/** Turns a list of compose files into repeated `-f <file>` argv entries, in order. */
+function composeFileArgs(files: string[]): string[] {
+  return files.flatMap(file => ['-f', file]);
 }
