@@ -4,6 +4,8 @@ import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_command, execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
+import { splitCommaSeparatedList } from './splitCommaSeparatedList';
+import { runExclusive } from './hostMaintenanceQueue';
 
 interface AptUpdatesConfig extends FeatureConfig {
   check_interval_hours?: number;
@@ -15,6 +17,17 @@ interface AptPackageUpdate {
   newVersion: string;
 }
 
+/**
+ * A compose project's identity plus the services it had running, taken
+ * before the apt upgrade runs. See snapshotRunningServices for why the
+ * timing matters.
+ */
+interface ComposeProjectSnapshot {
+  name: string;
+  configFiles: string[];
+  runningServices: string[];
+}
+
 const DEFAULT_CHECK_INTERVAL_HOURS = 12;
 
 export class AptUpdates extends BaseFeature {
@@ -22,7 +35,7 @@ export class AptUpdates extends BaseFeature {
   private packages: AptPackageUpdate[] = [];
   private lastCheckTimestamp: number = 0;
   private installing: boolean = false;
-  private boundMessageHandler: (topic: string, payload: Buffer) => Promise<void>;
+  private boundMessageHandler: (topic: string, payload: Buffer) => void;
 
   constructor(mqttClient: MqttClient, featureName: string = 'apt_updates') {
     super(mqttClient, featureName);
@@ -34,7 +47,17 @@ export class AptUpdates extends BaseFeature {
       this.featureConfig.update_interval_seconds = checkIntervalSeconds;
     }
 
-    this.boundMessageHandler = this.handleMessage.bind(this);
+    // An EventEmitter drops whatever a listener returns, so a rejection from
+    // handleMessage would surface as an unhandled rejection: the agent exits
+    // (Agent.ts), and systemd then kills its whole cgroup -- dpkg in the
+    // middle of an upgrade, or the `docker compose` of a container install
+    // sharing the host maintenance FIFO. This is the last place such a
+    // rejection can be caught.
+    this.boundMessageHandler = (topic: string, payload: Buffer) => {
+      this.handleMessage(topic, payload).catch((error: unknown) => {
+        logger.error(`Error handling APT update command on ${topic}:`, error instanceof Error ? error.message : error);
+      });
+    };
   }
 
   protected async publishDiscovery(): Promise<void> {
@@ -148,8 +171,39 @@ export class AptUpdates extends BaseFeature {
 
   private async installUpdates(): Promise<void> {
     if (this.installing || this.packages.length === 0) return;
+    this.installing = true;
 
-    const dockerUpdated = this.packages.some(p => p.name.startsWith('docker'));
+    // Queued before any await, so an apt install and a container install
+    // requested in the same second run one at a time, in arrival order (see
+    // hostMaintenanceQueue for why the two must never overlap). The upgrade
+    // works from the package list this install was requested for, even if
+    // a periodic check replaces this.packages while it waits in the queue.
+    const requested = this.packages;
+    const upgrade = runExclusive(() => this.upgradePackages(requested));
+
+    // Logged instead of passed on, like DockerUpdates' install publishes:
+    // mqtt.js rejects a QoS 1 publish whose PUBACK was lost to a dropped
+    // connection at the next reconnect, and the upgrade must carry on (and
+    // `installing` be cleared) regardless.
+    try {
+      await this.publishCurrentState();
+    } catch (error: any) {
+      logger.error('Error publishing APT state:', error.message);
+    }
+    await upgrade;
+
+    this.installing = false;
+    // Re-check to refresh state
+    await this.checkForUpdates();
+  }
+
+  /**
+   * The upgrade itself: dpkg recovery, dist-upgrade, held-back packages,
+   * autoremove and, after a Docker package upgrade, the compose recreate.
+   * Only ever run through runExclusive.
+   */
+  private async upgradePackages(packages: AptPackageUpdate[]): Promise<void> {
+    const dockerUpdated = packages.some(p => p.name.startsWith('docker'));
     // These apt commands need a shell because of the leading environment
     // assignments (DEBIAN_FRONTEND=...) and the Dpkg::Options quoting. They are
     // only ever built from fixed literals plus package names parsed from apt's
@@ -158,16 +212,20 @@ export class AptUpdates extends BaseFeature {
     const dpkgOpts = '-o Dpkg::Options::="--force-confold"';
     const upgradeTimeout = 1800000; // 30 minutes
 
-    this.installing = true;
-    await this.publishCurrentState();
-
     try {
+      // Snapshot which compose services are running BEFORE anything is
+      // upgraded. A Docker package upgrade can restart the daemon, and a
+      // container's own restart policy can then bring it back up before the
+      // recreate below runs — taking the snapshot any later than this would
+      // let that policy corrupt the "was it running" answer.
+      const composeSnapshot = dockerUpdated ? await this.snapshotRunningServices() : [];
+
       // Recover from any previously interrupted dpkg
       logger.info('Recovering any interrupted dpkg state...');
       await execute_command(`${aptEnv} dpkg --configure -a`, false, upgradeTimeout);
 
       // Main upgrade
-      logger.info(`Installing ${this.packages.length} APT updates...`);
+      logger.info(`Installing ${packages.length} APT updates...`);
       const result = await execute_command(
         `${aptEnv} apt-get dist-upgrade -y ${dpkgOpts}`,
         false, upgradeTimeout,
@@ -194,21 +252,90 @@ export class AptUpdates extends BaseFeature {
       logger.info('Removing unused packages...');
       await execute_command(`${aptEnv} apt-get autoremove -y ${dpkgOpts}`, false, upgradeTimeout);
 
-      // If Docker packages were updated, restart all compose projects to recover containers
+      // If Docker packages were updated, recreate the compose services that
+      // were running before the upgrade. Projects and services that were
+      // already stopped are left alone.
       if (dockerUpdated) {
-        await this.restartComposeProjects();
+        await this.restartComposeProjects(composeSnapshot);
       }
     } catch (error: any) {
       logger.error('Error installing APT updates:', error.message);
     }
-
-    this.installing = false;
-    // Re-check to refresh state
-    await this.checkForUpdates();
   }
 
-  private async restartComposeProjects(): Promise<void> {
-    logger.info('Docker packages updated — restarting compose projects...');
+  /**
+   * Records, for every compose project on the host (running or not), which
+   * of its services are currently running. `--all` is required here:
+   * without it, a project with every service stopped never appears at all,
+   * so restartComposeProjects would have no record telling it to leave that
+   * project alone rather than guessing.
+   */
+  private async snapshotRunningServices(): Promise<ComposeProjectSnapshot[]> {
+    const result = await execute_argv('docker', ['compose', 'ls', '--all', '--format', 'json']);
+    if (result.exitCode !== 0 || !result.stdout.trim()) {
+      logger.warn('Could not list compose projects');
+      return [];
+    }
+
+    const snapshot: ComposeProjectSnapshot[] = [];
+
+    // JSON.parse and the loop below share one try/catch, same scope as the
+    // pre-existing method this replaces: a malformed or unexpected listing
+    // must not throw out of this function, since it now runs before dpkg/
+    // apt-get -- an uncaught exception here would abort the whole upgrade,
+    // not just the compose-restart step.
+    try {
+      const projects: Array<{ Name?: string; ConfigFiles?: string }> = JSON.parse(result.stdout);
+      for (const project of projects) {
+        if (!project.Name) {
+          // Nothing else identifies this entry (no -p to address it by), so
+          // this is the only place it is ever recorded: silently `continue`
+          // would leave whatever it has running with no trace of why it was
+          // never recreated after the upgrade.
+          logger.error(`Skipping a compose project with no Name (ConfigFiles: ${project.ConfigFiles}): its services cannot be queried or recreated`);
+          continue;
+        }
+
+        const configFiles = splitCommaSeparatedList(project.ConfigFiles);
+        if (configFiles.length === 0) continue;
+
+        const psResult = await execute_argv('docker', [
+          'compose', '-p', project.Name, ...composeFileArgs(configFiles), 'ps', '--services', '--status', 'running',
+        ]);
+        if (psResult.exitCode !== 0) {
+          // A project skipped here never enters the snapshot at all, so
+          // restartComposeProjects has no record of it: whatever is running
+          // on it silently stays on the pre-upgrade image unless this names
+          // it -- the fail-safe direction (never guess) stays the same as a
+          // project with an empty running-services list, but the operator
+          // now finds out why.
+          logger.error(`Could not read running services for compose project ${project.Name}: ${psResult.stderr}`);
+          continue;
+        }
+
+        const runningServices = psResult.stdout.split('\n').map(line => line.trim()).filter(Boolean);
+        snapshot.push({ name: project.Name, configFiles, runningServices });
+      }
+    } catch (error: any) {
+      logger.error('Error listing compose projects:', error.message);
+      return [];
+    }
+
+    return snapshot;
+  }
+
+  /**
+   * Recreates, per compose project, only the services recorded as running
+   * before the upgrade. `--no-deps` keeps a recreate from also converging
+   * every dependency (see DockerHelper.updateContainer for the same
+   * precaution); a project with no previously running service gets no
+   * command at all, rather than a force-recreate that would start it. A
+   * project whose recreate fails is logged by name with its stderr instead
+   * of being reported as recreated, and does not stop the remaining
+   * projects from being processed.
+   */
+  private async restartComposeProjects(snapshot: ComposeProjectSnapshot[]): Promise<void> {
+    logger.info('Docker packages updated — recreating previously running compose services...');
 
     // Wait for Docker daemon to be ready after upgrade
     for (let i = 0; i < 30; i++) {
@@ -217,29 +344,30 @@ export class AptUpdates extends BaseFeature {
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    // Find all running compose projects
-    const result = await execute_argv('docker', ['compose', 'ls', '--format', 'json']);
-    if (result.exitCode !== 0 || !result.stdout.trim()) {
-      logger.warn('Could not list compose projects');
-      return;
-    }
+    for (const project of snapshot) {
+      if (project.runningServices.length === 0) continue;
 
-    try {
-      const projects = JSON.parse(result.stdout);
-      for (const project of projects) {
-        const configFile = project.ConfigFiles;
-        if (!configFile) continue;
-        logger.info(`Restarting compose project: ${project.Name} (${configFile})`);
-        // Remove stuck containers and recreate
-        await execute_argv('docker', ['compose', '-f', configFile, 'up', '-d', '--force-recreate'], { timeoutMs: 300000 });
+      logger.info(`Recreating running services for compose project ${project.name}: ${project.runningServices.join(', ')}`);
+      const upResult = await execute_argv('docker', [
+        'compose', '-p', project.name, ...composeFileArgs(project.configFiles),
+        'up', '-d', '--force-recreate', '--no-deps', ...project.runningServices,
+      ], { timeoutMs: 300000 });
+
+      if (upResult.exitCode !== 0) {
+        logger.error(`Failed to recreate compose project ${project.name}: ${upResult.stderr}`);
+        continue;
       }
-      logger.info('All compose projects restarted');
-    } catch (error: any) {
-      logger.error('Error restarting compose projects:', error.message);
+
+      logger.info(`Recreated compose project ${project.name}`);
     }
   }
 
   protected async cleanup(): Promise<void> {
     this.mqttClient.removeListener('message', this.boundMessageHandler);
   }
+}
+
+/** Turns a list of compose files into repeated `-f <file>` argv entries, in order. */
+function composeFileArgs(files: string[]): string[] {
+  return files.flatMap(file => ['-f', file]);
 }

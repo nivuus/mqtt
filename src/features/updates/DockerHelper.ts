@@ -2,6 +2,7 @@
 
 import { execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
+import { splitCommaSeparatedList } from './splitCommaSeparatedList';
 import https from 'https';
 import http from 'http';
 
@@ -11,7 +12,10 @@ export interface ContainerInfo {
   serviceName: string;
   image: string;
   imageId: string;
-  composeFile: string;
+  composeFiles: string[];
+  envFiles: string[];
+  projectName: string;
+  workingDir: string;
   composeService: string;
   installedVersion: string;
   sourceUrl: string;
@@ -55,6 +59,9 @@ export async function listWatchtowerContainers(): Promise<ContainerInfo[]> {
 async function inspectContainer(id: string, name: string, image: string): Promise<ContainerInfo | null> {
   const format = [
     '{{index .Config.Labels "com.docker.compose.service"}}',
+    '{{index .Config.Labels "com.docker.compose.project"}}',
+    '{{index .Config.Labels "com.docker.compose.project.working_dir"}}',
+    '{{index .Config.Labels "com.docker.compose.project.environment_file"}}',
     '{{index .Config.Labels "com.docker.compose.project.config_files"}}',
     '{{index .Config.Labels "org.opencontainers.image.version"}}',
     '{{index .Config.Labels "org.opencontainers.image.source"}}',
@@ -67,11 +74,14 @@ async function inspectContainer(id: string, name: string, image: string): Promis
 
   const parts = result.stdout.trim().split('|');
   const composeService = parts[0] || name;
-  const composeFile = (parts[1] || '').split(',')[0]; // Take first compose file
-  const version = parts[2] || '';
-  const sourceUrl = parts[3] || '';
-  const imageId = parts[4] || '';
-  const configImage = parts[5] || ''; // Full image name from Config.Image
+  const projectName = parts[1] || '';
+  const workingDir = parts[2] || '';
+  const envFiles = splitCommaSeparatedList(parts[3] || '');
+  const composeFiles = splitCommaSeparatedList(parts[4] || '');
+  const version = parts[5] || '';
+  const sourceUrl = parts[6] || '';
+  const imageId = parts[7] || '';
+  const configImage = parts[8] || ''; // Full image name from Config.Image
 
   // Use Config.Image (e.g. "linuxserver/plex:latest") instead of docker ps Image
   // which can show a short hash when the tag has moved
@@ -83,7 +93,10 @@ async function inspectContainer(id: string, name: string, image: string): Promis
     serviceName: composeService,
     image: resolvedImage,
     imageId,
-    composeFile,
+    composeFiles,
+    envFiles,
+    projectName,
+    workingDir,
     composeService,
     installedVersion: version || imageId.substring(7, 19), // Fallback to short digest
     sourceUrl,
@@ -166,51 +179,184 @@ export async function fetchChangelog(sourceUrl: string): Promise<ChangelogResult
 }
 
 /**
- * Recreates a container via docker compose, then restarts dependent services.
+ * Builds the `docker compose` argv prefix that replays a container's original
+ * invocation, from its compose labels: project name, working directory,
+ * every env file and every compose file, in label order.
+ *
+ * An explicit `-f` makes compose ignore every other file, including a
+ * `COMPOSE_FILE` the project sets in its own `.env` — passing only the first
+ * config_files entry (the previous behaviour) silently dropped every overlay
+ * a project layered on top of its base compose file. Replaying the full
+ * argv is what every compose invocation below (pull, up, config, ps,
+ * restart) must share, so this is the single place that builds it.
+ */
+function buildComposeBaseArgv(container: ContainerInfo): string[] {
+  const argv: string[] = ['compose'];
+
+  if (container.projectName) {
+    argv.push('-p', container.projectName);
+  }
+  if (container.workingDir) {
+    argv.push('--project-directory', container.workingDir);
+  }
+  for (const envFile of container.envFiles) {
+    argv.push('--env-file', envFile);
+  }
+  for (const composeFile of container.composeFiles) {
+    argv.push('-f', composeFile);
+  }
+
+  return argv;
+}
+
+/**
+ * Recreates a container via docker compose, keeping it running or stopped as
+ * it was, then restarts its running dependents when it runs.
  */
 export async function updateContainer(container: ContainerInfo): Promise<boolean> {
-  if (!container.composeFile || !container.composeService) {
+  if (container.composeFiles.length === 0 || !container.composeService) {
     logger.error(`Cannot update ${container.name}: missing compose info`);
     return false;
   }
 
+  const baseArgv = buildComposeBaseArgv(container);
+
   // Pull the service image via compose
   const pullResult = await execute_argv('docker', [
-    'compose', '-f', container.composeFile, 'pull', container.composeService,
+    ...baseArgv, 'pull', container.composeService,
   ], { timeoutMs: 300000 });
   if (pullResult.exitCode !== 0) {
     logger.error(`Failed to pull ${container.composeService}: ${pullResult.stderr}`);
     return false;
   }
 
-  // Recreate the service
-  const upResult = await execute_argv('docker', [
-    'compose', '-f', container.composeFile, 'up', '-d', container.composeService,
-  ], { timeoutMs: 300000 });
+  // `up -d` alone also (re)starts a container that was deliberately left
+  // stopped (e.g. a Tdarr node paused by the console VM's libvirt hooks), so
+  // the recreate must replay the container's own running state instead of
+  // assuming it should end up started. `--no-deps` keeps it from also
+  // converging every dependency, which previously produced a burst of
+  // concurrent `up` commands and "container name already in use" conflicts.
+  //
+  // When that state can't be read at all (daemon busy, permission error,
+  // transient failure, no matching container, or an answer docker doesn't
+  // define), guessing "stopped" would leave a container that was actually
+  // running stopped right after the pull, with nothing logged. So this
+  // aborts instead of guessing: the pulled image stays unused until the
+  // next attempt, same as any other failed step in this function.
+  const wasRunning = await readServiceRunningState(container);
+  if (wasRunning === null) {
+    logger.error(`Cannot recreate ${container.name}: unable to read its running state`);
+    return false;
+  }
+
+  const upArgs = wasRunning
+    ? [...baseArgv, 'up', '-d', '--no-deps', container.composeService]
+    : [...baseArgv, 'up', '--no-start', '--no-deps', container.composeService];
+
+  const upResult = await execute_argv('docker', upArgs, { timeoutMs: 300000 });
   if (upResult.exitCode !== 0) {
     logger.error(`Failed to recreate ${container.composeService}: ${upResult.stderr}`);
     return false;
   }
 
-  logger.info(`Successfully updated container ${container.name}`);
-
-  // Restart services that depend on this one
-  const dependents = await getDependentServices(container.composeFile, container.composeService);
-  if (dependents.length > 0) {
-    logger.info(`Restarting dependent services: ${dependents.join(', ')}`);
-    await execute_argv('docker', [
-      'compose', '-f', container.composeFile, 'restart', ...dependents,
-    ], { timeoutMs: 300000 });
+  if (!wasRunning) {
+    // Nothing started, so the dependents have nothing new to reconnect to:
+    // they are left exactly as they are.
+    logger.info(`Successfully updated container ${container.name}, left stopped as it was before the update`);
+    return true;
   }
 
+  logger.info(`Successfully updated container ${container.name}`);
+  await restartRunningDependents(baseArgv, container);
   return true;
 }
 
 /**
- * Finds services that depend on the given service in a compose file.
+ * Restarts the running dependents of a freshly recreated service, so they
+ * reconnect to it.
+ *
+ * Compose `restart` also starts stopped services, so only the dependents
+ * already running are passed to it: a stopped one (e.g. a Tdarr node the
+ * console VM's libvirt hooks stopped on purpose) stays stopped. `--no-deps`
+ * keeps compose from also restarting -- and starting -- the services that
+ * in turn declare `depends_on: {<dependent>: {restart: true}}`.
+ *
+ * A failed restart is logged, not reported as a failed update: the service
+ * itself is already recreated on the new image.
  */
-async function getDependentServices(composeFile: string, serviceName: string): Promise<string[]> {
-  const result = await execute_argv('docker', ['compose', '-f', composeFile, 'config', '--format', 'json']);
+async function restartRunningDependents(baseArgv: string[], container: ContainerInfo): Promise<void> {
+  const dependents = await getDependentServices(baseArgv, container.composeService);
+  const runningDependents = await filterRunningServices(baseArgv, dependents);
+  if (runningDependents.length === 0) return;
+
+  logger.info(`Restarting dependent services: ${runningDependents.join(', ')}`);
+  const result = await execute_argv('docker', [
+    ...baseArgv, 'restart', '--no-deps', ...runningDependents,
+  ], { timeoutMs: 300000 });
+  if (result.exitCode !== 0) {
+    logger.error(`Failed to restart the dependent services of ${container.name} (${runningDependents.join(', ')}): ${result.stderr}`);
+  }
+}
+
+// Every state `docker ps` reports, split the way docker sets its own
+// State.Running flag: a restarting or paused container still counts as
+// running. That flag is the answer a recreate replays.
+const RUNNING_STATES = new Set(['running', 'restarting', 'paused']);
+const STOPPED_STATES = new Set(['created', 'exited', 'dead', 'removing']);
+
+/**
+ * Checks whether a compose service's container is currently running, so a
+ * recreate can replay that state instead of unconditionally starting it.
+ *
+ * The container is found by its compose project and service labels, not by
+ * the id cached in ContainerInfo: that id comes from the last periodic
+ * check, up to 12 h old, and anything that recreated the container since
+ * then (an operator, the apt path, a hook) leaves it pointing at a
+ * container that no longer exists. The labels survive a recreate.
+ *
+ * Returns null when the state is unknown -- docker ps failed, no container
+ * matches, a state is not one docker defines, or the service's containers
+ * (replicas) disagree, some running and some stopped. The caller must treat
+ * that as a failure, never as "not running".
+ */
+async function readServiceRunningState(container: ContainerInfo): Promise<boolean | null> {
+  const service = `${container.composeService} (compose project ${container.projectName})`;
+  const result = await execute_argv('docker', [
+    'ps', '-a',
+    '--filter', `label=com.docker.compose.project=${container.projectName}`,
+    '--filter', `label=com.docker.compose.service=${container.composeService}`,
+    '--format', '{{.State}}',
+  ]);
+  if (result.exitCode !== 0) {
+    logger.warn(`docker ps failed for service ${service}: ${result.stderr}`);
+    return null;
+  }
+
+  const states = result.stdout.split('\n').map(line => line.trim()).filter(Boolean);
+  if (states.length === 0) {
+    logger.warn(`No container found for service ${service}`);
+    return null;
+  }
+
+  const unexpectedStates = states.filter(state => !RUNNING_STATES.has(state) && !STOPPED_STATES.has(state));
+  if (unexpectedStates.length > 0) {
+    logger.warn(`docker ps returned an unexpected state for service ${service}: "${unexpectedStates.join('", "')}"`);
+    return null;
+  }
+
+  const runningCount = states.filter(state => RUNNING_STATES.has(state)).length;
+  if (runningCount === states.length) return true;
+  if (runningCount === 0) return false;
+
+  logger.warn(`The containers of service ${service} disagree on whether it is running: ${states.join(', ')}`);
+  return null;
+}
+
+/**
+ * Finds services that depend on the given service in the compose project.
+ */
+async function getDependentServices(baseArgv: string[], serviceName: string): Promise<string[]> {
+  const result = await execute_argv('docker', [...baseArgv, 'config', '--format', 'json']);
   if (result.exitCode !== 0 || !result.stdout.trim()) return [];
 
   try {
@@ -233,6 +379,20 @@ async function getDependentServices(composeFile: string, serviceName: string): P
     logger.warn(`Failed to parse compose config: ${error.message}`);
     return [];
   }
+}
+
+/**
+ * Narrows a list of service names down to the ones currently running, so a
+ * stopped dependent (e.g. paused on purpose) is never restarted.
+ */
+async function filterRunningServices(baseArgv: string[], services: string[]): Promise<string[]> {
+  if (services.length === 0) return [];
+
+  const result = await execute_argv('docker', [...baseArgv, 'ps', '--services', '--status', 'running']);
+  if (result.exitCode !== 0 || !result.stdout.trim()) return [];
+
+  const running = new Set(result.stdout.trim().split('\n').map(line => line.trim()).filter(Boolean));
+  return services.filter(service => running.has(service));
 }
 
 function httpGet(url: string): Promise<string> {

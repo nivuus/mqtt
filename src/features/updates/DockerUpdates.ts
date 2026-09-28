@@ -7,6 +7,7 @@ import {
   ContainerInfo, listWatchtowerContainers, checkContainerUpdate,
   fetchChangelog, updateContainer,
 } from './DockerHelper';
+import { hasPendingMaintenance, runExclusive } from './hostMaintenanceQueue';
 
 interface DockerUpdatesConfig extends FeatureConfig {
   check_interval_hours?: number;
@@ -29,7 +30,7 @@ export class DockerUpdates extends BaseFeature {
   private containers: Map<string, ContainerState> = new Map();
   private knownServiceNames: Set<string> = new Set();
   private lastCheckTimestamp: number = 0;
-  private boundMessageHandler: (topic: string, payload: Buffer) => Promise<void>;
+  private boundMessageHandler: (topic: string, payload: Buffer) => void;
 
   constructor(mqttClient: MqttClient, featureName: string = 'docker_updates') {
     super(mqttClient, featureName);
@@ -41,7 +42,16 @@ export class DockerUpdates extends BaseFeature {
       this.featureConfig.update_interval_seconds = checkIntervalSeconds;
     }
 
-    this.boundMessageHandler = this.handleMessage.bind(this);
+    // An EventEmitter drops whatever a listener returns, so a rejection from
+    // handleMessage would surface as an unhandled rejection: the agent exits
+    // (Agent.ts), and systemd then kills its whole cgroup, including the
+    // `docker compose` of an install in progress. This is the last place
+    // such a rejection can be caught.
+    this.boundMessageHandler = (topic: string, payload: Buffer) => {
+      this.handleMessage(topic, payload).catch((error: unknown) => {
+        logger.error(`Error handling Docker update command on ${topic}:`, error instanceof Error ? error.message : error);
+      });
+    };
   }
 
   protected async publishDiscovery(): Promise<void> {
@@ -95,6 +105,13 @@ export class DockerUpdates extends BaseFeature {
     logger.info('Checking Docker containers for updates...');
     this.lastCheckTimestamp = Date.now();
 
+    // A container being recreated -- by an install here, or by the compose
+    // recreate after a Docker package upgrade -- is briefly missing from
+    // `docker ps`: a listing taken while any maintenance is queued or running
+    // can't tell a container that is gone from one being recreated. Sampled
+    // before the listing, since that maintenance may be over by the time
+    // this check ends, and again before removing anything.
+    const maintenanceAtListing = hasPendingMaintenance();
     const allContainers = await listWatchtowerContainers();
     const excludeList = this.featureConfig.exclude_containers || [];
     const containers = allContainers.filter(c => !excludeList.includes(c.serviceName));
@@ -124,20 +141,42 @@ export class DockerUpdates extends BaseFeature {
         releaseUrl = changelog.releaseUrl;
       }
 
-      this.containers.set(serviceId, {
+      this.storeCheckResult(serviceId, {
         container,
         hasUpdate: checkResult.hasUpdate,
         newVersion: checkResult.newVersion,
         releaseSummary,
         releaseUrl,
-        installing: false,
       });
 
       await this.publishContainerState(serviceId);
     }
 
+    if (maintenanceAtListing || hasPendingMaintenance()) {
+      logger.info('Skipping stale Docker entity removal: an install or upgrade is queued or running');
+      return;
+    }
+
     // Remove entities for containers that no longer exist
     await this.removeStaleEntities(currentNames);
+  }
+
+  /**
+   * Stores a check's result for a container, updating its existing state in
+   * place rather than replacing it. An install queued or running for that
+   * container holds this very object: a replacement would drop its
+   * `installing` flag -- Home Assistant would show the install as idle and
+   * a repeated INSTALL would pass the guard -- and the install would finish
+   * by updating the orphaned object, publishing the check's stale versions.
+   * `installing` itself is carried over untouched.
+   */
+  private storeCheckResult(serviceId: string, result: Omit<ContainerState, 'installing'>): void {
+    const existing = this.containers.get(serviceId);
+    if (existing) {
+      Object.assign(existing, result);
+    } else {
+      this.containers.set(serviceId, { ...result, installing: false });
+    }
   }
 
   private async publishContainerDiscovery(container: ContainerInfo): Promise<void> {
@@ -179,11 +218,23 @@ export class DockerUpdates extends BaseFeature {
 
   private async installContainer(state: ContainerState): Promise<void> {
     if (state.installing) return;
-
-    const serviceId = this.sanitize(state.container.serviceName);
     state.installing = true;
-    await this.publishContainerState(serviceId);
 
+    // One install at a time, across every container and the apt upgrade:
+    // Home Assistant can send several install commands in the same second,
+    // and concurrent `docker compose up` runs produced "container name
+    // already in use" conflicts in production (see hostMaintenanceQueue for
+    // the apt side). Queued synchronously, before any await: the arrival
+    // order of two install commands is decided by the order handleMessage
+    // calls this method, not by how their promises later happen to settle.
+    const serviceId = this.sanitize(state.container.serviceName);
+    const run = runExclusive(() => this.runInstall(state, serviceId));
+
+    await this.publishInstallState(state, serviceId);
+    await run;
+  }
+
+  private async runInstall(state: ContainerState, serviceId: string): Promise<void> {
     try {
       const success = await updateContainer(state.container);
       if (success) {
@@ -201,7 +252,22 @@ export class DockerUpdates extends BaseFeature {
     }
 
     state.installing = false;
-    await this.publishContainerState(serviceId);
+    await this.publishInstallState(state, serviceId);
+  }
+
+  /**
+   * Publishes a container's state at the start and the end of its install,
+   * logging a rejected publish instead of passing it on. mqtt.js rejects a
+   * QoS 1 publish whose PUBACK was lost to a dropped connection at the next
+   * reconnect; the install must carry on regardless, and a rejection that
+   * reached the 'message' listener would exit the agent in the middle of it.
+   */
+  private async publishInstallState(state: ContainerState, serviceId: string): Promise<void> {
+    try {
+      await this.publishContainerState(serviceId);
+    } catch (error: any) {
+      logger.error(`Error publishing state for ${state.container.name}:`, error.message);
+    }
   }
 
   private async removeStaleEntities(currentNames: Set<string>): Promise<void> {
