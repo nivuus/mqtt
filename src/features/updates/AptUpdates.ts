@@ -4,6 +4,7 @@ import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_command, execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
+import { splitCommaSeparatedList } from './splitCommaSeparatedList';
 
 interface AptUpdatesConfig extends FeatureConfig {
   check_interval_hours?: number;
@@ -251,16 +252,33 @@ export class AptUpdates extends BaseFeature {
     try {
       const projects: Array<{ Name?: string; ConfigFiles?: string }> = JSON.parse(result.stdout);
       for (const project of projects) {
-        const configFiles = splitConfigFiles(project.ConfigFiles);
-        if (!project.Name || configFiles.length === 0) continue;
+        if (!project.Name) {
+          // Nothing else identifies this entry (no -p to address it by), so
+          // this is the only place it is ever recorded: silently `continue`
+          // would leave whatever it has running with no trace of why it was
+          // never recreated after the upgrade.
+          logger.error(`Skipping a compose project with no Name (ConfigFiles: ${project.ConfigFiles}): its services cannot be queried or recreated`);
+          continue;
+        }
+
+        const configFiles = splitCommaSeparatedList(project.ConfigFiles);
+        if (configFiles.length === 0) continue;
 
         const psResult = await execute_argv('docker', [
           'compose', '-p', project.Name, ...composeFileArgs(configFiles), 'ps', '--services', '--status', 'running',
         ]);
-        const runningServices = psResult.exitCode === 0
-          ? psResult.stdout.split('\n').map(line => line.trim()).filter(Boolean)
-          : [];
+        if (psResult.exitCode !== 0) {
+          // A project skipped here never enters the snapshot at all, so
+          // restartComposeProjects has no record of it: whatever is running
+          // on it silently stays on the pre-upgrade image unless this names
+          // it -- the fail-safe direction (never guess) stays the same as a
+          // project with an empty running-services list, but the operator
+          // now finds out why.
+          logger.error(`Could not read running services for compose project ${project.Name}: ${psResult.stderr}`);
+          continue;
+        }
 
+        const runningServices = psResult.stdout.split('\n').map(line => line.trim()).filter(Boolean);
         snapshot.push({ name: project.Name, configFiles, runningServices });
       }
     } catch (error: any) {
@@ -276,7 +294,10 @@ export class AptUpdates extends BaseFeature {
    * before the upgrade. `--no-deps` keeps a recreate from also converging
    * every dependency (see DockerHelper.updateContainer for the same
    * precaution); a project with no previously running service gets no
-   * command at all, rather than a force-recreate that would start it.
+   * command at all, rather than a force-recreate that would start it. A
+   * project whose recreate fails is logged by name with its stderr instead
+   * of being reported as recreated, and does not stop the remaining
+   * projects from being processed.
    */
   private async restartComposeProjects(snapshot: ComposeProjectSnapshot[]): Promise<void> {
     logger.info('Docker packages updated — recreating previously running compose services...');
@@ -292,28 +313,23 @@ export class AptUpdates extends BaseFeature {
       if (project.runningServices.length === 0) continue;
 
       logger.info(`Recreating running services for compose project ${project.name}: ${project.runningServices.join(', ')}`);
-      await execute_argv('docker', [
+      const upResult = await execute_argv('docker', [
         'compose', '-p', project.name, ...composeFileArgs(project.configFiles),
         'up', '-d', '--force-recreate', '--no-deps', ...project.runningServices,
       ], { timeoutMs: 300000 });
-    }
 
-    logger.info('Compose services recreated');
+      if (upResult.exitCode !== 0) {
+        logger.error(`Failed to recreate compose project ${project.name}: ${upResult.stderr}`);
+        continue;
+      }
+
+      logger.info(`Recreated compose project ${project.name}`);
+    }
   }
 
   protected async cleanup(): Promise<void> {
     this.mqttClient.removeListener('message', this.boundMessageHandler);
   }
-}
-
-/**
- * Splits a compose project's comma-separated ConfigFiles field (from
- * `docker compose ls --format json`) into its entries. Same comma-separated
- * shape as a container's config_files label in DockerHelper, applied here to
- * a project listing instead.
- */
-function splitConfigFiles(value: string | undefined): string[] {
-  return value ? value.split(',').filter(Boolean) : [];
 }
 
 /** Turns a list of compose files into repeated `-f <file>` argv entries, in order. */

@@ -2,6 +2,7 @@
 
 import { execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
+import { splitCommaSeparatedList } from './splitCommaSeparatedList';
 import https from 'https';
 import http from 'http';
 
@@ -75,8 +76,8 @@ async function inspectContainer(id: string, name: string, image: string): Promis
   const composeService = parts[0] || name;
   const projectName = parts[1] || '';
   const workingDir = parts[2] || '';
-  const envFiles = splitLabelList(parts[3] || '');
-  const composeFiles = splitLabelList(parts[4] || '');
+  const envFiles = splitCommaSeparatedList(parts[3] || '');
+  const composeFiles = splitCommaSeparatedList(parts[4] || '');
   const version = parts[5] || '';
   const sourceUrl = parts[6] || '';
   const imageId = parts[7] || '';
@@ -100,15 +101,6 @@ async function inspectContainer(id: string, name: string, image: string): Promis
     installedVersion: version || imageId.substring(7, 19), // Fallback to short digest
     sourceUrl,
   };
-}
-
-/**
- * Splits a comma-separated compose label (config_files, environment_file)
- * into its entries, preserving label order. An absent or empty label yields
- * an empty array rather than `['']`.
- */
-function splitLabelList(value: string): string[] {
-  return value ? value.split(',').filter(Boolean) : [];
 }
 
 /**

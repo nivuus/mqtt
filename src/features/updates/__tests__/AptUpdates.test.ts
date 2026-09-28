@@ -3,6 +3,7 @@
 import { AptUpdates } from '../AptUpdates';
 import { MockMqttClient } from '../../../mqtt/__tests__/mocks/MockMqttClient';
 import * as execModule from '../../../utils/exec';
+import logger from '../../../utils/logger';
 
 jest.mock('../../../utils/exec');
 
@@ -81,6 +82,10 @@ interface Routing {
   projects: ComposeProjectFixture[];
   // Project name -> stdout of `compose ... ps --services --status running`.
   runningByProject: Record<string, string>;
+  // Project name -> stderr; when set, that project's `ps` call exits non-zero.
+  psFailureByProject?: Record<string, string>;
+  // Project name -> stderr; when set, that project's `up` call exits non-zero.
+  upFailureByProject?: Record<string, string>;
 }
 
 /**
@@ -97,12 +102,21 @@ function routeExecuteArgv(routing: Routing) {
       return ok(JSON.stringify(routing.projects));
     }
 
-    if (composeSubcommand(args) === 'ps') {
-      const name = projectNameOf(args) ?? '';
+    const sub = composeSubcommand(args);
+    const name = projectNameOf(args) ?? '';
+
+    if (sub === 'ps') {
+      if (routing.psFailureByProject && name in routing.psFailureByProject) {
+        return { stdout: '', stderr: routing.psFailureByProject[name], exitCode: 1 };
+      }
       return ok(routing.runningByProject[name] ?? '');
     }
 
-    // up: generic success.
+    if (sub === 'up' && routing.upFailureByProject && name in routing.upFailureByProject) {
+      return { stdout: '', stderr: routing.upFailureByProject[name], exitCode: 1 };
+    }
+
+    // up (success) and anything else: generic success.
     return ok();
   };
 }
@@ -196,6 +210,65 @@ describe('AptUpdates compose restarts', () => {
     expect(findCall(args => composeSubcommand(args) === 'up' && args.includes('/stack/docker-compose.yml'))).toEqual([
       'compose', '-p', 'mediamanager', '-f', '/stack/docker-compose.yml',
       'up', '-d', '--force-recreate', '--no-deps', 'plex',
+    ]);
+  });
+
+  it('logs the failing project by name and stderr when a per-project ps call fails, and still restarts the other project', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+    await installWithCompose({
+      projects: [
+        { Name: 'mediamanager', ConfigFiles: '/stack/docker-compose.yml' },
+        { Name: 'broken', ConfigFiles: '/opt/broken/docker-compose.yml' },
+      ],
+      runningByProject: { mediamanager: 'plex' },
+      psFailureByProject: { broken: 'Error: no such service' },
+    });
+
+    expect(findCall(args => composeSubcommand(args) === 'up' && args.includes('/stack/docker-compose.yml'))).toEqual([
+      'compose', '-p', 'mediamanager', '-f', '/stack/docker-compose.yml',
+      'up', '-d', '--force-recreate', '--no-deps', 'plex',
+    ]);
+    expect(findCall(args => composeSubcommand(args) === 'up' && args.includes('/opt/broken/docker-compose.yml'))).toBeUndefined();
+    expect(errorSpy.mock.calls.some(
+      ([message]) => typeof message === 'string' && message.includes('broken') && message.includes('no such service')
+    )).toBe(true);
+  });
+
+  it('logs a compose project that has no Name instead of silently skipping it', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+    await installWithCompose({
+      projects: [
+        { Name: 'mediamanager', ConfigFiles: '/stack/docker-compose.yml' },
+        { Name: '', ConfigFiles: '/opt/nameless/docker-compose.yml' },
+      ],
+      runningByProject: { mediamanager: 'plex' },
+    });
+
+    expect(findCall(args => composeSubcommand(args) === 'up' && args.includes('/stack/docker-compose.yml'))).toBeDefined();
+    expect(errorSpy.mock.calls.some(
+      ([message]) => typeof message === 'string' && message.includes('/opt/nameless/docker-compose.yml')
+    )).toBe(true);
+  });
+
+  it('logs an error naming the project and its stderr when the recreate itself fails, and still recreates the next project', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+    await installWithCompose({
+      projects: [
+        { Name: 'broken', ConfigFiles: '/opt/broken/docker-compose.yml' },
+        { Name: 'mediamanager', ConfigFiles: '/stack/docker-compose.yml' },
+      ],
+      runningByProject: { broken: 'plex', mediamanager: 'sonarr' },
+      upFailureByProject: { broken: 'Error: driver failed programming external connectivity' },
+    });
+
+    expect(errorSpy.mock.calls.some(
+      ([message]) => typeof message === 'string'
+        && message.includes('broken')
+        && message.includes('driver failed programming external connectivity')
+    )).toBe(true);
+    expect(findCall(args => composeSubcommand(args) === 'up' && args.includes('/stack/docker-compose.yml'))).toEqual([
+      'compose', '-p', 'mediamanager', '-f', '/stack/docker-compose.yml',
+      'up', '-d', '--force-recreate', '--no-deps', 'sonarr',
     ]);
   });
 });
