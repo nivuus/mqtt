@@ -11,7 +11,10 @@ export interface ContainerInfo {
   serviceName: string;
   image: string;
   imageId: string;
-  composeFile: string;
+  composeFiles: string[];
+  envFiles: string[];
+  projectName: string;
+  workingDir: string;
   composeService: string;
   installedVersion: string;
   sourceUrl: string;
@@ -55,6 +58,9 @@ export async function listWatchtowerContainers(): Promise<ContainerInfo[]> {
 async function inspectContainer(id: string, name: string, image: string): Promise<ContainerInfo | null> {
   const format = [
     '{{index .Config.Labels "com.docker.compose.service"}}',
+    '{{index .Config.Labels "com.docker.compose.project"}}',
+    '{{index .Config.Labels "com.docker.compose.project.working_dir"}}',
+    '{{index .Config.Labels "com.docker.compose.project.environment_file"}}',
     '{{index .Config.Labels "com.docker.compose.project.config_files"}}',
     '{{index .Config.Labels "org.opencontainers.image.version"}}',
     '{{index .Config.Labels "org.opencontainers.image.source"}}',
@@ -67,11 +73,14 @@ async function inspectContainer(id: string, name: string, image: string): Promis
 
   const parts = result.stdout.trim().split('|');
   const composeService = parts[0] || name;
-  const composeFile = (parts[1] || '').split(',')[0]; // Take first compose file
-  const version = parts[2] || '';
-  const sourceUrl = parts[3] || '';
-  const imageId = parts[4] || '';
-  const configImage = parts[5] || ''; // Full image name from Config.Image
+  const projectName = parts[1] || '';
+  const workingDir = parts[2] || '';
+  const envFiles = splitLabelList(parts[3] || '');
+  const composeFiles = splitLabelList(parts[4] || '');
+  const version = parts[5] || '';
+  const sourceUrl = parts[6] || '';
+  const imageId = parts[7] || '';
+  const configImage = parts[8] || ''; // Full image name from Config.Image
 
   // Use Config.Image (e.g. "linuxserver/plex:latest") instead of docker ps Image
   // which can show a short hash when the tag has moved
@@ -83,11 +92,23 @@ async function inspectContainer(id: string, name: string, image: string): Promis
     serviceName: composeService,
     image: resolvedImage,
     imageId,
-    composeFile,
+    composeFiles,
+    envFiles,
+    projectName,
+    workingDir,
     composeService,
     installedVersion: version || imageId.substring(7, 19), // Fallback to short digest
     sourceUrl,
   };
+}
+
+/**
+ * Splits a comma-separated compose label (config_files, environment_file)
+ * into its entries, preserving label order. An absent or empty label yields
+ * an empty array rather than `['']`.
+ */
+function splitLabelList(value: string): string[] {
+  return value ? value.split(',').filter(Boolean) : [];
 }
 
 /**
@@ -166,27 +187,68 @@ export async function fetchChangelog(sourceUrl: string): Promise<ChangelogResult
 }
 
 /**
+ * Builds the `docker compose` argv prefix that replays a container's original
+ * invocation, from its compose labels: project name, working directory,
+ * every env file and every compose file, in label order.
+ *
+ * An explicit `-f` makes compose ignore every other file, including a
+ * `COMPOSE_FILE` the project sets in its own `.env` — passing only the first
+ * config_files entry (the previous behaviour) silently dropped every overlay
+ * a project layered on top of its base compose file. Replaying the full
+ * argv is what every compose invocation below (pull, up, config, ps,
+ * restart) must share, so this is the single place that builds it.
+ */
+function buildComposeBaseArgv(container: ContainerInfo): string[] {
+  const argv: string[] = ['compose'];
+
+  if (container.projectName) {
+    argv.push('-p', container.projectName);
+  }
+  if (container.workingDir) {
+    argv.push('--project-directory', container.workingDir);
+  }
+  for (const envFile of container.envFiles) {
+    argv.push('--env-file', envFile);
+  }
+  for (const composeFile of container.composeFiles) {
+    argv.push('-f', composeFile);
+  }
+
+  return argv;
+}
+
+/**
  * Recreates a container via docker compose, then restarts dependent services.
  */
 export async function updateContainer(container: ContainerInfo): Promise<boolean> {
-  if (!container.composeFile || !container.composeService) {
+  if (container.composeFiles.length === 0 || !container.composeService) {
     logger.error(`Cannot update ${container.name}: missing compose info`);
     return false;
   }
 
+  const baseArgv = buildComposeBaseArgv(container);
+
   // Pull the service image via compose
   const pullResult = await execute_argv('docker', [
-    'compose', '-f', container.composeFile, 'pull', container.composeService,
+    ...baseArgv, 'pull', container.composeService,
   ], { timeoutMs: 300000 });
   if (pullResult.exitCode !== 0) {
     logger.error(`Failed to pull ${container.composeService}: ${pullResult.stderr}`);
     return false;
   }
 
-  // Recreate the service
-  const upResult = await execute_argv('docker', [
-    'compose', '-f', container.composeFile, 'up', '-d', container.composeService,
-  ], { timeoutMs: 300000 });
+  // `up -d` alone also (re)starts a container that was deliberately left
+  // stopped (e.g. a Tdarr node paused by the console VM's libvirt hooks), so
+  // the recreate must replay the container's own running state instead of
+  // assuming it should end up started. `--no-deps` keeps it from also
+  // converging every dependency, which previously produced a burst of
+  // concurrent `up` commands and "container name already in use" conflicts.
+  const wasRunning = await isContainerRunning(container.id);
+  const upArgs = wasRunning
+    ? [...baseArgv, 'up', '-d', '--no-deps', container.composeService]
+    : [...baseArgv, 'up', '--no-start', '--no-deps', container.composeService];
+
+  const upResult = await execute_argv('docker', upArgs, { timeoutMs: 300000 });
   if (upResult.exitCode !== 0) {
     logger.error(`Failed to recreate ${container.composeService}: ${upResult.stderr}`);
     return false;
@@ -194,12 +256,14 @@ export async function updateContainer(container: ContainerInfo): Promise<boolean
 
   logger.info(`Successfully updated container ${container.name}`);
 
-  // Restart services that depend on this one
-  const dependents = await getDependentServices(container.composeFile, container.composeService);
-  if (dependents.length > 0) {
-    logger.info(`Restarting dependent services: ${dependents.join(', ')}`);
+  // Only restart dependents that were already running: compose `restart`
+  // also starts stopped services, which would undo an intentional stop.
+  const dependents = await getDependentServices(baseArgv, container.composeService);
+  const runningDependents = await filterRunningServices(baseArgv, dependents);
+  if (runningDependents.length > 0) {
+    logger.info(`Restarting dependent services: ${runningDependents.join(', ')}`);
     await execute_argv('docker', [
-      'compose', '-f', container.composeFile, 'restart', ...dependents,
+      ...baseArgv, 'restart', ...runningDependents,
     ], { timeoutMs: 300000 });
   }
 
@@ -207,10 +271,19 @@ export async function updateContainer(container: ContainerInfo): Promise<boolean
 }
 
 /**
- * Finds services that depend on the given service in a compose file.
+ * Checks whether a container is currently running, so a recreate can replay
+ * that state instead of unconditionally starting it.
  */
-async function getDependentServices(composeFile: string, serviceName: string): Promise<string[]> {
-  const result = await execute_argv('docker', ['compose', '-f', composeFile, 'config', '--format', 'json']);
+async function isContainerRunning(id: string): Promise<boolean> {
+  const result = await execute_argv('docker', ['inspect', '-f', '{{.State.Running}}', id]);
+  return result.exitCode === 0 && result.stdout.trim() === 'true';
+}
+
+/**
+ * Finds services that depend on the given service in the compose project.
+ */
+async function getDependentServices(baseArgv: string[], serviceName: string): Promise<string[]> {
+  const result = await execute_argv('docker', [...baseArgv, 'config', '--format', 'json']);
   if (result.exitCode !== 0 || !result.stdout.trim()) return [];
 
   try {
@@ -233,6 +306,20 @@ async function getDependentServices(composeFile: string, serviceName: string): P
     logger.warn(`Failed to parse compose config: ${error.message}`);
     return [];
   }
+}
+
+/**
+ * Narrows a list of service names down to the ones currently running, so a
+ * stopped dependent (e.g. paused on purpose) is never restarted.
+ */
+async function filterRunningServices(baseArgv: string[], services: string[]): Promise<string[]> {
+  if (services.length === 0) return [];
+
+  const result = await execute_argv('docker', [...baseArgv, 'ps', '--services', '--status', 'running']);
+  if (result.exitCode !== 0 || !result.stdout.trim()) return [];
+
+  const running = new Set(result.stdout.trim().split('\n').map(line => line.trim()).filter(Boolean));
+  return services.filter(service => running.has(service));
 }
 
 function httpGet(url: string): Promise<string> {
