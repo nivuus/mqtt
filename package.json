@@ -65,7 +65,7 @@
     "color-convert": "^2.0.1",
     "color-name": "^1.1.4",
     "commist": "^3.2.0",
-    "concat-map": "^0.0.1",
+    "concat-map": "^0.0.2",
     "concat-stream": "^2.0.0",
     "convert-source-map": "^2.0.0",
     "create-jest": "^29.7.0",
