@@ -9,20 +9,20 @@
     "test": "jest",
     "build": "tsc",
     "start": "node dist/index.js",
-    "package:executable": "npm run build && rm -f dist/mqtt-system-agent && pkg . --targets node18-linux-x64 --output dist/mqtt-system-agent",
+    "package:executable": "npm run build && rm -f dist/mqtt-system-agent && pkg . --targets node22-linux-x64 --output dist/mqtt-system-agent",
     "package:deb": "npm run package:executable && fpm --force -s dir -t deb -n mqtt-system-agent -v $(node -p \"require('./package.json').version\") --architecture amd64 --maintainer \"Your Name <your.email@example.com>\" --description \"MQTT System Agent for Home Assistant Integration\" --license \"PolyForm-Noncommercial-1.0.0\" --url \"https://github.com/your-repo/mqtt-system-agent\" --deb-systemd debian/mqtt-system-agent.service --after-install debian/postinst.sh --before-remove debian/prerm.sh dist/mqtt-system-agent=/opt/mqtt-system-agent/mqtt-system-agent dist/mqtt-system-agent=/usr/bin/mqtt-system-agent config/agent.yaml=/opt/mqtt-system-agent/config/agent.yaml"
   },
   "author": "Your Name <your.email@example.com>",
   "license": "PolyForm-Noncommercial-1.0.0",
   "devDependencies": {
-    "@types/jest": "^29.5.14",
+    "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/minimist": "^1.2.5",
     "@types/node": "^22.15.18",
     "@types/ws": "^8.18.1",
-    "jest": "^29.7.0",
-    "pkg": "^5.8.1",
-    "ts-jest": "^29.3.4",
+    "@yao-pkg/pkg": "^6.23.0",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
@@ -43,7 +43,7 @@
       "config/**/*"
     ],
     "targets": [
-      "node18-linux-x64"
+      "node22-linux-x64"
     ]
   }
 }
