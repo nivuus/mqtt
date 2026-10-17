@@ -17,3 +17,9 @@ jobs:
     with:
       test-dirs: ""
       shellcheck-paths: "."
+
+  dependabot-auto-merge:
+    uses: nivuus/.github/.github/workflows/dependabot-auto-merge.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
