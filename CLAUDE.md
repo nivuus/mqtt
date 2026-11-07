@@ -330,6 +330,13 @@ credentials live in the systemd drop-in
 overrides, so **they survive package upgrades** — after any `dpkg -i`, the config
 placeholder is back but the env drop-in still wins.
 
+**NUT credentials follow the same rule** (`NUT_USERNAME`/`NUT_PASSWORD` in
+`/etc/mqtt-system-agent.env`, read by `src/features/ups/nutCommands.ts`). The upsd user is
+`mqtt-agent`, restricted in `/etc/nut/upsd.users` to `test.battery.start.quick` and
+`test.battery.stop` — never give it `instcmds = ALL`, which includes `load.off` (cuts the
+host's power). The battery test command is picked from `upscmd -l`, because models differ:
+the APC Back-UPS BX1600MI has no plain `test.battery.start`, only `.quick` and `.deep`.
+
 **Files the features read and write:**
 
 | Feature | Path |

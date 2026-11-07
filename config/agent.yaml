@@ -143,8 +143,8 @@ features:
     enabled: true
     update_interval_seconds: 15
     ups_name: "myups@localhost"
-    low_battery_threshold: 30
-    critical_battery_threshold: 10
+    low_battery_threshold: 50
+    critical_battery_threshold: 30
     shutdown_on_critical: true
     shutdown_script: "/opt/mqtt-system-agent/scripts/ups-shutdown.sh"
 
