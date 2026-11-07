@@ -4,6 +4,7 @@ import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
+import { nutCredentialsFromEnv, parseInstantCommands, pickBatteryTestCommand } from './nutCommands';
 
 interface UpsMonitorConfig extends FeatureConfig {
   ups_name: string;
@@ -128,13 +129,28 @@ export class UpsMonitor extends BaseFeature {
 
     if (command === 'battery_test' && message === 'TEST') {
       logger.info(`[${this.featureName}] Battery test requested`);
-      const upsName = this.upsConfig.ups_name || 'myups@localhost';
-      const result = await execute_argv('upscmd', ['-u', 'admin', '-p', 'admin', upsName, 'test.battery.start']);
-      if (result.exitCode === 0) {
-        logger.info(`[${this.featureName}] Battery test initiated`);
-      } else {
-        logger.error(`[${this.featureName}] Battery test failed: ${result.stderr}`);
-      }
+      await this.startBatteryTest();
+    }
+  }
+
+  private async startBatteryTest(): Promise<void> {
+    const credentials = nutCredentialsFromEnv();
+    if (!credentials) {
+      logger.error(`[${this.featureName}] Battery test refused: NUT_USERNAME/NUT_PASSWORD are not set`);
+      return;
+    }
+    const upsName = this.upsConfig.ups_name || 'myups@localhost';
+    const listed = await execute_argv('upscmd', ['-l', upsName]);
+    const testCommand = listed.exitCode === 0 ? pickBatteryTestCommand(parseInstantCommands(listed.stdout)) : null;
+    if (!testCommand) {
+      logger.error(`[${this.featureName}] Battery test refused: ${upsName} offers no quick battery test (${listed.stderr || 'none listed'})`);
+      return;
+    }
+    const result = await execute_argv('upscmd', ['-u', credentials.username, '-p', credentials.password, upsName, testCommand]);
+    if (result.exitCode === 0) {
+      logger.info(`[${this.featureName}] Battery test initiated (${testCommand})`);
+    } else {
+      logger.error(`[${this.featureName}] Battery test failed: ${result.stderr}`);
     }
   }
 
