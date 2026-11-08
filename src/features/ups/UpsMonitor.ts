@@ -5,6 +5,9 @@ import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
 import { nutCredentialsFromEnv, parseInstantCommands, pickBatteryTestCommand } from './nutCommands';
+import { PeriodicBatteryTest } from './batteryTestSchedule';
+
+const DEFAULT_TEST_STATE_FILE = '/var/lib/mqtt-system-agent/ups-battery-test.last';
 
 interface UpsMonitorConfig extends FeatureConfig {
   ups_name: string;
@@ -12,6 +15,9 @@ interface UpsMonitorConfig extends FeatureConfig {
   critical_battery_threshold: number;
   shutdown_on_critical: boolean;
   shutdown_script: string;
+  // 0 turns the periodic quick test off.
+  battery_test_interval_days?: number;
+  battery_test_state_file?: string;
 }
 
 interface UpsData {
@@ -21,6 +27,7 @@ interface UpsData {
   load: number | null;
   inputVoltage: number | null;
   realPowerNominal: number | null;
+  testResult: string | null;
 }
 
 // Status translations from NUT to human-readable
@@ -39,6 +46,7 @@ export class UpsMonitor extends BaseFeature {
   private previousStatus: string = '';
   private lowBatteryAlertSent: boolean = false;
   private shutdownTriggered: boolean = false;
+  private periodicTest: PeriodicBatteryTest | null = null;
 
   constructor(mqttClient: MqttClient, featureName: string = 'ups_monitor') {
     super(mqttClient, featureName);
@@ -104,6 +112,13 @@ export class UpsMonitor extends BaseFeature {
         payload_off: 'OFF',
         icon: 'mdi:power-plug',
       }),
+      this.publishEntityDiscovery('sensor', 'test_result', {
+        name: `${baseName} Battery Test Result`,
+        state_topic: `${this.featureName}/test_result/state`,
+        json_attributes_topic: `${this.featureName}/test_result/attributes`,
+        icon: 'mdi:battery-check',
+        entity_category: 'diagnostic' as 'diagnostic',
+      }),
       this.publishEntityDiscovery('button', 'battery_test', {
         name: `${baseName} Battery Test`,
         command_topic: `${this.featureName}/command/battery_test`,
@@ -133,25 +148,26 @@ export class UpsMonitor extends BaseFeature {
     }
   }
 
-  private async startBatteryTest(): Promise<void> {
+  private async startBatteryTest(): Promise<boolean> {
     const credentials = nutCredentialsFromEnv();
     if (!credentials) {
       logger.error(`[${this.featureName}] Battery test refused: NUT_USERNAME/NUT_PASSWORD are not set`);
-      return;
+      return false;
     }
     const upsName = this.upsConfig.ups_name || 'myups@localhost';
     const listed = await execute_argv('upscmd', ['-l', upsName]);
     const testCommand = listed.exitCode === 0 ? pickBatteryTestCommand(parseInstantCommands(listed.stdout)) : null;
     if (!testCommand) {
       logger.error(`[${this.featureName}] Battery test refused: ${upsName} offers no quick battery test (${listed.stderr || 'none listed'})`);
-      return;
+      return false;
     }
     const result = await execute_argv('upscmd', ['-u', credentials.username, '-p', credentials.password, upsName, testCommand]);
     if (result.exitCode === 0) {
       logger.info(`[${this.featureName}] Battery test initiated (${testCommand})`);
-    } else {
-      logger.error(`[${this.featureName}] Battery test failed: ${result.stderr}`);
+      return true;
     }
+    logger.error(`[${this.featureName}] Battery test failed: ${result.stderr}`);
+    return false;
   }
 
   protected async update(): Promise<void> {
@@ -183,6 +199,14 @@ export class UpsMonitor extends BaseFeature {
         data.status.includes('OL') ? 'ON' : 'OFF', true),
     ]);
 
+    const periodic = this.periodicBatteryTest();
+    await periodic.tick(new Date(), data.status, data.batteryCharge, () => this.startBatteryTest());
+    await this.publishState(`${this.featureName}/test_result/state`, data.testResult ?? 'unavailable', true);
+    await this.publishAttributes(`${this.featureName}/test_result/attributes`, {
+      last_periodic_test: periodic.lastRun()?.toISOString() ?? null,
+      interval_days: this.testIntervalDays(),
+    }, true);
+
     await this.checkAlerts(data);
     this.previousStatus = data.status;
   }
@@ -210,7 +234,23 @@ export class UpsMonitor extends BaseFeature {
       load: this.parseFloat(vars['ups.load']),
       inputVoltage: this.parseFloat(vars['input.voltage']),
       realPowerNominal: this.parseFloat(vars['ups.realpower.nominal']),
+      testResult: vars['ups.test.result'] || null,
     };
+  }
+
+  private testIntervalDays(): number {
+    return this.upsConfig.battery_test_interval_days ?? 30;
+  }
+
+  private periodicBatteryTest(): PeriodicBatteryTest {
+    if (!this.periodicTest) {
+      this.periodicTest = new PeriodicBatteryTest(
+        this.upsConfig.battery_test_state_file || DEFAULT_TEST_STATE_FILE,
+        this.testIntervalDays(),
+        (msg) => logger.info(`[${this.featureName}] ${msg}`),
+      );
+    }
+    return this.periodicTest;
   }
 
   private parseFloat(value: string | undefined): number | null {

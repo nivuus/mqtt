@@ -337,6 +337,14 @@ placeholder is back but the env drop-in still wins.
 host's power). The battery test command is picked from `upscmd -l`, because models differ:
 the APC Back-UPS BX1600MI has no plain `test.battery.start`, only `.quick` and `.deep`.
 
+**Periodic quick battery test** (`src/features/ups/batteryTestSchedule.ts`): every
+`battery_test_interval_days` (default 30, 0 = off), only when `ups.status` carries the
+`OL` flag without `OB`/`LB` and the charge is ≥ 90 %. The last accepted run is stored in
+`/var/lib/mqtt-system-agent/ups-battery-test.last` (survives `dpkg -i`); a refused start is
+not recorded and is retried a day later. The outcome is `ups.test.result`, published as
+the diagnostic sensor `UPS Battery Test Result`. On the BX1600MI a running test reads
+`OL DISCHRG`, not `OB`.
+
 **Files the features read and write:**
 
 | Feature | Path |
