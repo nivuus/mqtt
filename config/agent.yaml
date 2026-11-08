@@ -147,6 +147,11 @@ features:
     critical_battery_threshold: 30
     shutdown_on_critical: true
     shutdown_script: "/opt/mqtt-system-agent/scripts/ups-shutdown.sh"
+    # Quick battery test (~10 s on battery) every N days, only on mains with
+    # the battery at 90 % or more. 0 = off. The last run is kept in
+    # battery_test_state_file so the interval survives restarts and upgrades.
+    battery_test_interval_days: 30
+    battery_test_state_file: "/var/lib/mqtt-system-agent/ups-battery-test.last"
 
 # Logging Configuration
 logging:
