@@ -330,10 +330,49 @@ certificate copies are named `nivuus-guest-vpn_a-ca.pem` and `-tls-auth.pem`, as
   home 204, guest 204, every binding as on the host, `nvguest0` in `external`. The only error is
   the known, harmless Docker `NAME_CONFLICT`.
 
-### To redo after the fixes
+### Re-run of Steps 2 and 3 after the fixes
 
-Steps 2 (import, re-import, backoff) and 3 (C1 detection, 15–30 s fallback, DNS DNAT following
-health) must run again on a build with D1–D3 fixed. The bench now holds the agent package, the
-stand-in profile `nivuus-guest-vpn` (password in its keyfile: `bench.qcow2` stays secret),
-mosquitto, `/etc/mqtt-system-agent.env`, the `cache` directory, no `connection.secondaries` on
-`bridge-publicBridge`, and the old DNS dispatcher hook moved to `/root/old-bench/`.
+2026-11-09, bench clock UTC, 17:43–18:00. The `.deb` was built from `feat/guest-vpn` at `2a77517`
+(fixes `46574cd` D1–D3, `6aa71a2` D4, `2a77517` test helpers out of the executable) and
+installed in the VM after `rm -rf /opt/mqtt-system-agent` and deleting every `nivuus-guest-vpn*`
+profile and certificate. Host: snapshots `t9f-pre` / `t9f-post` identical (`same:` x5, empty
+firewalld journal), 18 connectivity checks, all 204. Logs: `/root/work/guest-vpn-bench/t9f/vm-logs/`.
+
+The fixes, as the captures dictate (nmcli 1.52.1):
+- D1: the keyfile comes from `nmcli -g UUID,FILENAME connection show` (list form).
+- D2: the status reads `-t -f vpn.data,GENERAL.STATE,IP4.DNS`. `VPN.*` cannot be selected with
+  `-f` at all (`-f VPN` selects the `vpn` setting); for a VPN, NM derives GENERAL.STATE from the
+  VPN state (`nm-vpn-connection.c`, `_state_to_ac_state`), so it is enough.
+- D3: the cause is nmcli's `nmc_activation_get_effective_state` (libnmc-base): an activating
+  connection whose device is a bridge in IP_CONFIG..ACTIVATED counts as activated ("controller
+  waiting for ports"), so `--wait` does not help. `up()` now polls `-t -f GENERAL.STATE` by UUID:
+  `activated` = success, gone = failure (NM removes a failed VPN's active connection: wrong
+  password, gone 2.6 s after `up`), still `activating` after 90 s = cancel (`down`) and fail.
+- D4: `ReadWritePaths=` removed (no-op with `ProtectSystem=false`; the agent creates `cache/`).
+
+| Check | Result |
+| --- | --- |
+| Fresh install, no `cache/` | unit `active (running)`, no 226/NAMESPACE; `cache/` still absent |
+| Import (client.py) | `connected` in 2.1 s, staging `_a`, `-ca.pem`/`-tls-auth.pem` as `_a-` |
+| Re-import while up | `connected` in 6.4 s, profile now `_b`, `_a` certificates removed, old tunnel down 17:44:27, new one activated 17:44:33 (the exit-IP logger was not yet running) |
+| Wrong password (import while up) | import reply `error`, `activation_failed: true` in 3.3 s; `up` attempts at 17:45:05.5 (import), 08.3, 36.7, 46:06.5, 47:06.5, 49:06.7, next published 53:06.6: spacing 28, 30, 60, 120, 240 s (the 15 s step lands on the second tick) |
+| Switch OFF / ON (MQTT) | `disabled` and guest on the uplink within 2 s; `connected` 2 s after ON, guest on the provider |
+| Agent restart, tunnel up | no `up`/`down`, guest on the provider on every sample, `connected` on the first tick |
+| Plain outage (150 s silent drop of UDP from 1194, from 17:51:32) | DNAT removed at +7 s (first failed DNS probe), `down` at +22 s, guest on the uplink at **+23 s** (was 181 s); retry `up` activating 62 s then dropped (NM's 60 s VPN timeout), next `up` 15 s later; guest back on the provider 9 s after the unblock |
+| C1 (130 s silent block, agent stopped so it could not pre-empt C1) | from 17:58:30 NM `activated`, table 200 empty, rule 100 present, guest on the uplink. Agent started 17:58:52: `error` with the fault at 17:58:53 (**1 s**), DNAT removed 17:58:54, `down` 17:59:08, `up` 17:59:23, `connected` and guest on the provider at 17:59:25: **32 s** from detection to recovery; `connected` never shown during C1 |
+| Home stand-in (`localBridge`) | 448 samples every 2 s, 17:44:51–18:00:41: 0 off the uplink (the logger was not running 17:43:25–17:44:51: `/root/exit-ip-logger.sh` is not executable; it now runs as `bash /root/exit-ip-logger.sh`) |
+
+Remaining (not fixed here):
+- An import whose activation fails is not counted by the backoff: the next tick retries at once
+  (17:45:08, 3 s after the import's attempt).
+- The backoff runs from the start of the failed attempt; an attempt that times out after 60 s
+  therefore publishes a `next_attempt` already in the past (17:53:21 published 17:52:50).
+- `postinst.sh` enables the unit by path (`systemctl enable /lib/systemd/system/...`), which
+  links `/etc/systemd/system/mqtt-system-agent.service`; with merged `/usr`, `is-enabled` then
+  fails ("Too many levels of symbolic links") and `prerm.sh`'s `systemctl disable` refuses a
+  linked unit, so `dpkg -P` fails under `set -e`.
+
+The bench now holds the fixed package, profile `nivuus-guest-vpn` (`_b`, password in its keyfile),
+the desired state ON, `/root/t9f/` (scripts, logs, `wrong.txt` with the username and a wrong
+password), mosquitto, `/etc/mqtt-system-agent.env`, and the old DNS dispatcher hook in
+`/root/old-bench/`. The VM is shut down; no `.deb` is left on the bench or in the worktree.
