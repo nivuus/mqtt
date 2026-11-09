@@ -361,6 +361,8 @@ binds `127.0.0.1:8766` by default: HA runs with `network_mode: host`, so its int
 use host `127.0.0.1` (its default `192.168.0.1` no longer answers). Tokens are compared in
 constant time, a failed or late (10 s) auth closes the socket, messages are capped at 1 MiB,
 and any browser `Origin` not in `allowed_origins` is refused with 403.
+`WizardHandler.ts` is only the router (own-property action lookup); each feature's actions
+live in `src/websocket/wizard/<feature>Handlers.ts`, the hostapd path allowlist in `hostapdConfig.ts`.
 
 **Periodic quick battery test** (`src/features/ups/batteryTestSchedule.ts`): every
 `battery_test_interval_days` (default 30, 0 = off), only when `ups.status` carries the
