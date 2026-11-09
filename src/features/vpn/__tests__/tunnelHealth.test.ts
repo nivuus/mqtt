@@ -24,7 +24,7 @@ describe('checkTunnelHealth', () => {
   let routes: Result;
   let rules: Result;
   let probe: Result;
-  let calls: { file: string; args: string[]; opts?: { timeoutMs?: number; quiet?: boolean } }[];
+  let calls: { file: string; args: string[]; input?: string; opts?: { timeoutMs?: number; quiet?: boolean } }[];
 
   beforeEach(() => {
     routes = ok(ROUTES_OK);
@@ -35,6 +35,10 @@ describe('checkTunnelHealth', () => {
       calls.push({ file, args: [...args], opts });
       if (file === 'ip' && args.includes('route')) return routes;
       if (file === 'ip' && args.includes('rule')) return rules;
+      throw new Error(`unexpected ${file} ${args.join(' ')}`);
+    });
+    mockedExec.execute_argv_input.mockImplementation(async (file, args, input, opts) => {
+      calls.push({ file, args: [...args], input, opts });
       if (file === 'python3') return probe;
       throw new Error(`unexpected ${file} ${args.join(' ')}`);
     });
@@ -45,7 +49,7 @@ describe('checkTunnelHealth', () => {
     expect(calls.map(c => [c.file, ...c.args.slice(0, 5)])).toEqual([
       ['ip', '-j', '-4', 'route', 'show', 'table'],
       ['ip', '-j', '-4', 'rule', 'show'],
-      ['python3', '-I', '-c', expect.any(String), 'nvguest0', '10.20.128.1'],
+      ['python3', '-I', '-', 'nvguest0', '10.20.128.1', String(DNS_PROBE_TIMEOUT_S)],
     ]);
     expect(calls[0].args).toEqual(['-j', '-4', 'route', 'show', 'table', '200']);
   });
@@ -69,6 +73,28 @@ describe('checkTunnelHealth', () => {
   it('a default route in table 200 through another device → unhealthy', async () => {
     routes = ok(JSON.stringify([{ dst: 'default', gateway: '192.168.1.1', dev: 'enp5s0.832', flags: [] }]));
     await expect(checkTunnelHealth(cfg, ['10.20.128.1'])).resolves.toMatch(/no default route via nvguest0/);
+  });
+
+  const route = (dst: string, dev = 'nvguest0') => ({ dst, dev, scope: 'link', flags: [] });
+
+  it('healthy with the def1 shape: both 0.0.0.0/1 and 128.0.0.0/1 via the tun', async () => {
+    routes = ok(JSON.stringify([route('0.0.0.0/1'), route('128.0.0.0/1'), route('10.20.128.1')]));
+    await expect(checkTunnelHealth(cfg, ['10.20.128.1'])).resolves.toBeUndefined();
+  });
+
+  it.each(['0.0.0.0/1', '128.0.0.0/1'])('only %s of the def1 pair → unhealthy', async half => {
+    routes = ok(JSON.stringify([route(half)]));
+    await expect(checkTunnelHealth(cfg, ['10.20.128.1'])).resolves.toMatch(/no default route via nvguest0/);
+  });
+
+  it('the def1 pair through another device → unhealthy', async () => {
+    routes = ok(JSON.stringify([route('0.0.0.0/1', 'enp5s0.832'), route('128.0.0.0/1', 'enp5s0.832')]));
+    await expect(checkTunnelHealth(cfg, ['10.20.128.1'])).resolves.toMatch(/no default route via nvguest0/);
+  });
+
+  it('python3 missing → "could not run python3", not a dead tunnel', async () => {
+    probe = { stdout: '', stderr: '', exitCode: 1, spawnError: 'ENOENT' };
+    await expect(checkTunnelHealth(cfg, ['10.20.128.1'])).resolves.toMatch(/could not run python3: ENOENT/);
   });
 
   it('rule 100 missing → unhealthy', async () => {
@@ -101,8 +127,11 @@ describe('checkTunnelHealth', () => {
 
   it('the probe binds the socket to the device, never to a source address', async () => {
     await checkTunnelHealth(cfg, ['10.20.128.1']);
-    const script = calls.find(c => c.file === 'python3')!.args[2];
+    const py = calls.find(c => c.file === 'python3')!;
+    const script = py.input!;
     expect(script).toContain('SO_BINDTODEVICE');
+    // The script goes on stdin, which exec never logs; argv carries only the parameters.
+    expect(py.args.join(' ')).not.toContain('socket');
     expect(script).not.toMatch(/\.bind\(/);
   });
 

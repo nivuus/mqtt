@@ -6,7 +6,8 @@
  * the uplink, and a probe bound to the tun device still succeeds.
  *
  * Healthy means all three, checked in this order (read-only):
- * 1. `ip -j -4 route show table <table>` holds a default route via the tun;
+ * 1. `ip -j -4 route show table <table>` holds a default route via the tun, either as
+ *    `default` or as OpenVPN's def1 pair `0.0.0.0/1` + `128.0.0.0/1` (both; one alone is not);
  * 2. `ip -j -4 rule show` holds `priority 100 iif <bridge> lookup <table>`;
  * 3. the first IPv4 DNS the tunnel pushed answers through the tun (dnsProbe.ts).
  */
@@ -25,7 +26,7 @@ type IpRule = { priority?: number; iif?: string; table?: string | number };
 export async function checkTunnelHealth(cfg: GuestVpnConfig, dns: string[]): Promise<string | undefined> {
   const routes = await readIpJson<IpRoute>('route', ['-j', '-4', 'route', 'show', 'table', String(cfg.table)]);
   if (typeof routes === 'string') return routes;
-  if (!routes.some(r => r.dst === 'default' && r.dev === cfg.device)) {
+  if (!hasDefaultVia(routes, cfg.device)) {
     return `no default route via ${cfg.device} in table ${cfg.table}`;
   }
 
@@ -42,6 +43,12 @@ export async function checkTunnelHealth(cfg: GuestVpnConfig, dns: string[]): Pro
   }
   const probeError = await probeDns(cfg.device, server);
   return probeError === undefined ? undefined : `DNS probe failed: ${probeError}`;
+}
+
+/** The bench never captured table 200 while healthy: accept NM's `default` and the def1 pair. */
+function hasDefaultVia(routes: IpRoute[], device: string): boolean {
+  const via = new Set(routes.filter(r => r.dev === device).map(r => r.dst));
+  return via.has('default') || (via.has('0.0.0.0/1') && via.has('128.0.0.0/1'));
 }
 
 /** The parsed JSON array, or the reason it could not be read. */
