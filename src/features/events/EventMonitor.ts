@@ -5,11 +5,11 @@ import { MqttClient, FeatureConfig, HaDiscoveryPayload } from '../../core/types'
 import { execute_stream_command } from '../../utils/exec_stream'; // Changed import
 import { ChildProcess } from 'child_process';
 import logger from '../../utils/logger';
+import { parseClamdDetection, DetectionDeduper } from './clamavDetection';
 
 interface EventMonitorFeatureConfig extends FeatureConfig {
   fail2ban_log?: string;
   auth_log?: string;
-  clamav_log?: string;
   syslog_watch_level?: ('error' | 'critical' | 'alert' | 'emergency')[]; // Syslog levels to monitor
   // cron_log_dir is harder to monitor generically, would need specific setup. Deferring.
 }
@@ -17,7 +17,6 @@ interface EventMonitorFeatureConfig extends FeatureConfig {
 const DEFAULT_FAIL2BAN_LOG = '/var/log/fail2ban.log';
 const DEFAULT_AUTH_LOG = '/var/log/auth.log'; // Common, but /var/log/secure on others
 const DEFAULT_SYSLOG = '/var/log/syslog'; // Common, but /var/log/messages on others
-const DEFAULT_CLAMAV_LOG = '/var/log/clamav/clamonacc.log';
 const DEFAULT_SYSLOG_LEVELS: ('error' | 'critical' | 'alert' | 'emergency')[] = ['error', 'critical'];
 
 // The agent's own stdout ends up in journald/syslog. Any line it emits must be ignored
@@ -40,6 +39,7 @@ export class EventMonitor extends BaseFeature {
   protected featureConfig: EventMonitorFeatureConfig;
   private logWatchers: ChildProcess[] = []; 
   private shuttingDown: boolean = false; // Added property
+  private readonly clamavDeduper = new DetectionDeduper();
 
   constructor(mqttClient: MqttClient, featureName: string = 'event_monitor') {
     super(mqttClient, featureName);
@@ -157,23 +157,19 @@ export class EventMonitor extends BaseFeature {
         }, true);
       }
 
-      // Get last ClamAV virus detection
-      const clamavLog = this.featureConfig.clamav_log || DEFAULT_CLAMAV_LOG;
-      const lastVirus = await this.getLastLogMatch(
-        clamavLog,
-        /^(.+):\s+(.+)\s+FOUND$/,
-        (match) => ({ subType: 'virus_found', file: match[1], virus_name: match[2] })
-      );
+      // Get last ClamAV virus detection, from clamd's journal: every detection
+      // (on-demand and on-access) goes through clamd, and the journal keeps
+      // weeks where the last 100 lines of a log keep hours.
+      const lastVirus = await this.getLastClamdDetection();
       if (lastVirus) {
         await this.publishState(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/state`), lastVirus.timestamp, true);
         await this.publishAttributes(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/attributes`), lastVirus.data, true);
       } else {
-        // No viruses detected - publish "No viruses detected" state
         await this.publishState(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/state`), 'No viruses detected', true);
         await this.publishAttributes(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/attributes`), {
           subType: 'no_virus',
           level: 'info',
-          message: 'No virus detections in last 100 ClamAV log lines'
+          message: 'No virus detection in the clamd journal'
         }, true);
       }
     } catch (error) {
@@ -211,6 +207,23 @@ export class EventMonitor extends BaseFeature {
       logger.debug(`Could not read last event from ${logPath}:`, error);
     }
     return null;
+  }
+
+  private async getLastClamdDetection(): Promise<{ timestamp: string; data: any } | null> {
+    try {
+      const { execute_argv } = await import('../../utils/exec');
+      const result = await execute_argv('sudo', ['journalctl', '-t', 'clamd', '--grep', 'FOUND$', '-n', '1', '--no-pager', '--output=short-iso']);
+      const line = result.stdout.split('\n').reverse().find((l) => parseClamdDetection(l));
+      if (!line) return null;
+      const detection = parseClamdDetection(line)!;
+      const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:?\d{2}|Z))/);
+      const timestamp = timestampMatch ? new Date(timestampMatch[1]).toISOString() : new Date().toISOString();
+      return { timestamp, data: { subType: 'virus', ...detection, original_log_line: line } };
+    } catch (error) {
+      // journalctl --grep exits 1 when nothing matches: that is "no detection".
+      logger.debug('No clamd detection found in the journal:', error);
+      return null;
+    }
   }
 
   private async getLastJournalMatch(
@@ -358,6 +371,15 @@ export class EventMonitor extends BaseFeature {
         return null;
       });
     }
+    // ClamAV detections, live. clamd logs to syslog every detection, on-demand
+    // and on-access alike, twice per detection (hence the deduper). Published
+    // as event type "clamav_virus", which feeds last_clamav_virus_event.
+    this.startLogWatcher(DEFAULT_SYSLOG, 'clamav', (line) => {
+      const detection = parseClamdDetection(line);
+      if (!detection || this.clamavDeduper.isDuplicate(detection)) return null;
+      return { subType: 'virus', ...detection };
+    });
+
     // Note: Cron job monitoring is more complex and not implemented here.
     // It would typically involve watching specific log files for cron outputs or using a wrapper for cron jobs.
   }
