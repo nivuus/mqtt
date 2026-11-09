@@ -7,7 +7,9 @@ import { fakeStatus, Harness, makeHarness } from './guestVpnHarness';
 
 jest.mock('../../../utils/exec');
 jest.mock('../guestVpnStatus');
-jest.mock('../guestVpnDns', () => ({ ...jest.requireActual('../guestVpnDns'), reconcileDnsRedirect: jest.fn() }));
+jest.mock('../guestVpnDns', () => ({
+  ...jest.requireActual('../guestVpnDns'), reconcileDnsRedirect: jest.fn(), clearDnsRedirect: jest.fn(),
+}));
 jest.mock('../../../config', () => ({
   getConfigManager: () => ({ config: require('./guestVpnHarness').mockAgentConfig }),
 }));
@@ -17,6 +19,9 @@ const mockedStatus = readGuestVpnStatus as jest.MockedFunction<typeof readGuestV
 const mockedReconcile = reconcileDnsRedirect as jest.MockedFunction<typeof reconcileDnsRedirect>;
 
 const tick = (h: Harness) => h.tick();
+let clock = 0;
+/** Moves Date.now forward: activation retries are spaced in time (RetryBackoff). */
+const later = (seconds: number) => { clock += seconds * 1000; };
 /** BaseFeature's own call: starts a tick without waiting for it. */
 const scheduledUpdate = (h: Harness) => (h.feature as unknown as { update(): Promise<void> }).update();
 
@@ -26,8 +31,11 @@ describe('GuestVpn supervisor', () => {
     h = await makeHarness(mockedExec);
     mockedStatus.mockImplementation((_cfg, lastError) => fakeStatus(h.nm, lastError));
     mockedReconcile.mockResolvedValue(undefined);
+    clock = 1_000_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => clock);
   });
   afterEach(async () => {
+    jest.restoreAllMocks();
     await h.feature.stop();
     await h.nm.remove();
   });
@@ -39,7 +47,7 @@ describe('GuestVpn supervisor', () => {
     expect(mockedStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('supervisor: desired on + profile inactive → up() once per tick, state connecting/error with last_error published', async () => {
+  it('supervisor: desired on + profile inactive → up() on each due tick, state connecting/error with last_error published', async () => {
     await writeDesiredEnabled(h.nm.cfg.stateFile, true);
     await h.nm.addProfile('nivuus-guest-vpn', 'nivuus-guest-vpn');
     h.nm.override = args => (args.includes('up') ? fail('Error: Connection activation failed: auth failed') : undefined);
@@ -50,10 +58,13 @@ describe('GuestVpn supervisor', () => {
     expect(h.attributes().last_error).toBe('Error: Connection activation failed: auth failed');
     expect(h.last('on_orange/state')).toBe('ON');
 
+    // Backoff (GuestVpnRecovery.test.ts): a tick before the next attempt only publishes the state.
     await tick(h);
+    expect(h.upCalls()).toBe(1);
+    later(15);
     await tick(h);
-    expect(h.upCalls()).toBe(3);
-    expect(h.payloads('state/state')).toEqual(['connecting', 'error', 'connecting', 'error', 'connecting', 'error']);
+    expect(h.upCalls()).toBe(2);
+    expect(h.payloads('state/state')).toEqual(['connecting', 'error', 'error', 'connecting', 'error']);
   });
 
   it('supervisor: brings the tunnel back once the provider answers again', async () => {
@@ -62,6 +73,7 @@ describe('GuestVpn supervisor', () => {
     h.nm.override = args => (args.includes('up') ? fail('timeout') : undefined);
     await tick(h);
     h.nm.override = undefined;
+    later(15);
     await tick(h);
     expect(h.last('state/state')).toBe('connected');
     expect(h.attributes().last_error).toBeNull();

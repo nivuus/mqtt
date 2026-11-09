@@ -2,38 +2,34 @@
  * Keeps the guest VPN where the owner put it and reports what it really does.
  *
  * NM never re-activates a VPN profile by itself (bench, 2026-11-09), so every tick, while the
- * owner wants the VPN on and a profile exists that is not active, the supervisor runs one
- * `up()`, and while the owner wants it off and the profile is active, one `down()`. Every
- * attempt is published (`connecting`, then the state NM reports with its error): supervision,
- * not a loop that hides failures. Ticks, switch commands and imports go through one queue,
- * and each ends by reconciling the DNS table and publishing a snapshot inside it.
+ * owner wants the VPN on and the profile is not active, the supervisor runs one `up()` (spaced
+ * by RetryBackoff after failures), and while the owner wants it off and it is active, one
+ * `down()`. An activated tunnel that fails its health checks (tunnelHealth.ts) on two ticks in
+ * a row is taken down, so guests fall back to the uplink and the next due tick brings it up
+ * again. Every attempt is published. Ticks, switch commands and imports share one queue, and
+ * each ends by reconciling the DNS table and publishing a snapshot inside it.
  */
 import logger from '../../utils/logger';
 import { readDesiredEnabled, writeDesiredEnabled } from './desiredState';
-import { reconcileDnsRedirect } from './guestVpnDns';
+import { clearDnsRedirect, reconcileDnsRedirect } from './guestVpnDns';
 import { GuestVpnStatus, readGuestVpnStatus } from './guestVpnStatus';
 import { GuestVpnConfig, ImportResult, NmGuestVpn, ProfileInput } from './nmGuestVpn';
 import { prepareProfileText } from './profileText';
 import { SerialQueue } from './serialQueue';
+import { GuestVpnSnapshot, logSnapshotChanges, TAG } from './guestVpnSnapshot';
+import { TunnelRecovery, UNHEALTHY_TICKS_BEFORE_RESTART } from './tunnelRecovery';
 
-export interface GuestVpnSnapshot {
-  /** The owner's on/off choice; undefined when the file cannot be read. */
-  desired?: boolean;
-  status: GuestVpnStatus;
-  /** The DNS table could not be applied, or guests resolve outside the tunnel. */
-  dnsError?: string;
-  /** A failed switch command, supervision step or on/off file read. */
-  actionError?: string;
-}
+export type { GuestVpnSnapshot } from './guestVpnSnapshot';
 
 type Desired = { value?: boolean; error?: string };
 
-const TAG = '[guest_vpn]';
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 export class GuestVpnSupervisor {
   private readonly queue = new SerialQueue();
+  private readonly recovery = new TunnelRecovery();
   private switchError: string | undefined;
+  private writeError: string | undefined;
   private tickError: string | undefined;
   private last: GuestVpnSnapshot | undefined;
 
@@ -55,6 +51,15 @@ export class GuestVpnSupervisor {
           this.tickError = `supervision failed: ${message(err)}`;
         }
       }
+      const snapshot = await this.refresh(desired);
+      if (desired.value !== true || !this.recovery.observeTick(snapshot.status, Date.now())) return snapshot;
+      logger.warn(`${TAG} restarting the tunnel, unhealthy on ${UNHEALTHY_TICKS_BEFORE_RESTART} ticks: `
+        + `${snapshot.status.tunnelFault}`);
+      try {
+        await this.nm.down();
+      } catch (err) {
+        this.tickError = `restarting the unhealthy tunnel failed: ${message(err)}`;
+      }
       return this.refresh(desired);
     });
   }
@@ -63,6 +68,14 @@ export class GuestVpnSupervisor {
     return this.queue.run(async () => {
       try {
         await writeDesiredEnabled(this.cfg.stateFile, on);
+        this.writeError = undefined;
+      } catch (err) {
+        // Kept until a later write succeeds: no tick can tell it is moot.
+        this.writeError = `saving the switch choice ${on ? 'ON' : 'OFF'} failed: ${message(err)}`;
+        return this.refresh();
+      }
+      this.recovery.startOver();
+      try {
         await this.converge(on);
         this.switchError = undefined;
       } catch (err) {
@@ -79,8 +92,9 @@ export class GuestVpnSupervisor {
       try {
         // Validated before anything is announced: a rejected upload never shows `connecting`.
         prepareProfileText(input.ovpn, input.ca);
+        this.recovery.startOver();
         if ((await this.readDesired()).value) await this.announceConnecting();
-        result = await this.nm.importProfile(input);
+        result = await this.nm.importProfile(input, () => clearDnsRedirect(this.cfg));
       } catch (err) {
         logger.error(`${TAG} profile import failed: ${message(err)}`);
         // A failure after the old tunnel went down changes the state: show it as it is.
@@ -103,19 +117,24 @@ export class GuestVpnSupervisor {
   }
 
   /**
-   * Brings the tunnel to the owner's choice: one `up()` when on and inactive, `down()` when
-   * off and active. True when it ends there; a failed `up()` is kept by NmGuestVpn and
-   * surfaces as the status' last error, then is retried next tick.
+   * Brings the tunnel to the owner's choice: one `up()` when on, inactive and due, `down()`
+   * when off and active. True when it ends there. The DNS table is emptied before `up()`,
+   * which can take two minutes. A failed `up()` is kept by NmGuestVpn and surfaces as the
+   * status' last error; the backoff decides when the next one runs.
    */
   private async converge(on: boolean): Promise<boolean> {
     if (!(await this.nm.profileExists())) return !on;
     const active = await this.nm.isActive();
     if (on && !active) {
+      const startedAt = Date.now();
+      if (!this.recovery.mayActivate(startedAt)) return false;
+      await clearDnsRedirect(this.cfg);
       await this.announceConnecting();
       try {
         await this.nm.up();
       } catch {
         // Recorded by up() (lastActivationError) and published by refresh().
+        this.recovery.activationFailed(startedAt);
         return false;
       }
     } else if (!on && active) {
@@ -154,35 +173,25 @@ export class GuestVpnSupervisor {
     } catch (err) {
       status = { state: 'error', lastError: `reading the VPN state failed: ${message(err)}`, dns: [] };
     }
+    this.recovery.observeStatus(status);
     let dnsError: string | undefined;
     try {
       await reconcileDnsRedirect(this.cfg, status);
     } catch (err) {
       dnsError = message(err);
     }
-    const errors = [this.switchError, this.tickError, desired.error].filter((e): e is string => !!e);
+    const errors = [this.writeError, this.switchError, this.tickError, desired.error].filter((e): e is string => !!e);
+    const next = this.recovery.nextAttempt();
     const snapshot: GuestVpnSnapshot = {
       ...(desired.value !== undefined && { desired: desired.value }),
       status,
       ...(dnsError !== undefined && { dnsError }),
       ...(errors.length > 0 && { actionError: errors.join('; ') }),
+      ...(desired.value === true && next !== undefined && { nextAttempt: new Date(next).toISOString() }),
     };
-    this.logChanges(snapshot);
+    logSnapshotChanges(this.last, snapshot);
     this.last = snapshot;
     await this.publish(snapshot);
     return snapshot;
-  }
-
-  /** Logs each new state or error once, not on every 15 s tick. */
-  private logChanges(next: GuestVpnSnapshot): void {
-    const prev = this.last;
-    if (prev?.status.state !== next.status.state || prev.status.lastError !== next.status.lastError) {
-      const why = next.status.lastError ? `: ${next.status.lastError}` : '';
-      const line = `${TAG} state ${next.status.state}${why}`;
-      if (next.status.state === 'error') logger.warn(line);
-      else logger.info(line);
-    }
-    if (next.dnsError && next.dnsError !== prev?.dnsError) logger.error(`${TAG} DNS: ${next.dnsError}`);
-    if (next.actionError && next.actionError !== prev?.actionError) logger.error(`${TAG} ${next.actionError}`);
   }
 }

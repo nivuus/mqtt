@@ -10,7 +10,9 @@ import { fakeStatus, Harness, makeHarness } from './guestVpnHarness';
 
 jest.mock('../../../utils/exec');
 jest.mock('../guestVpnStatus');
-jest.mock('../guestVpnDns', () => ({ ...jest.requireActual('../guestVpnDns'), reconcileDnsRedirect: jest.fn() }));
+jest.mock('../guestVpnDns', () => ({
+  ...jest.requireActual('../guestVpnDns'), reconcileDnsRedirect: jest.fn(), clearDnsRedirect: jest.fn(),
+}));
 jest.mock('../../../config', () => ({
   getConfigManager: () => ({ config: require('./guestVpnHarness').mockAgentConfig }),
 }));

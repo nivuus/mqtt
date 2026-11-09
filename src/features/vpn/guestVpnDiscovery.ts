@@ -71,6 +71,7 @@ export function snapshotPayloads(feature: string, s: GuestVpnSnapshot): Array<[s
     exit_ip_error: s.status.exitIpError ?? null,
     dns_error: s.dnsError ?? null,
     action_error: s.actionError ?? null,
+    next_attempt: s.nextAttempt ?? null,
   };
   return [
     [t.switchState, switchState],
