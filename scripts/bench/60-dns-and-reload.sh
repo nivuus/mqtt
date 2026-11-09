@@ -12,7 +12,8 @@ set -uo pipefail
 export LC_ALL=C
 
 leak_test() { # label
-  local name="leak-$(date +%s%N).example.com"
+  local name
+  name="leak-$(date +%s%N).example.com"
   tcpdump -i enp0s2 -nn -l -A udp port 53 or tcp port 53 2>/dev/null > /tmp/uplink53.txt &
   local p1=$!
   tcpdump -i nvguest0 -nn -l udp port 53 or tcp port 53 2>/dev/null > /tmp/tunnel53.txt &

@@ -10,8 +10,7 @@ export LC_ALL=C
 UPLINK_IP="$(curl -s -m 5 https://api.ipify.org)"
 
 wait_up() {
-  local i
-  for i in $(seq 60); do
+  for _ in $(seq 60); do
     [ "$(nmcli -t -f NAME,STATE con show --active | awk -F: '$1=="nivuus-guest-vpn"{print $2}')" = activated ] && return 0
     sleep 1
   done
