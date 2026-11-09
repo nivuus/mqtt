@@ -84,6 +84,7 @@ On the host (all paths absolute, `S=/root/work/mqtt-guest-vpn/scripts/bench`,
 | `90-nivuus-guest-vpn-dns.dispatcher` | VM, `/etc/NetworkManager/dispatcher.d/` | Bench DNS DNAT while the tunnel is up |
 | `60-dns-and-reload.sh` | VM | Leak test, IPv6 DNS, survival across `firewall-cmd --reload` and firewalld restart |
 | `70-fallback-and-import.sh` | VM | Fallback timings and import behaviour of path-taking directives |
+| `80-staged-revert.sh` | VM, via `qga` | Task 9b: reproduce the 12:09 failure, then time the staged revert (drop-table delete, zone backup + restart) |
 
 Run one long test at a time: the block tests and the logger share files in `/root/`.
 

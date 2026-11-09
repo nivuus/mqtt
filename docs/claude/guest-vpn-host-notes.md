@@ -244,3 +244,96 @@ step:
 3. Whether to add the permanent `nvguest0` binding in `external.xml`, so the zone survives
    reloads.
 4. Add `ipv6.ignore-auto-routes yes` to the VPN profile settings.
+
+## Task 9b — agent build on the bench
+
+2026-11-09, bench VM (QEMU user-mode networking only), bench clock UTC, 17:00–17:28. The `.deb`
+was built from `feat/guest-vpn` at `5a5e859` (`npm run package:deb`) and installed in the VM,
+with mosquitto inside the VM, an agent config enabling only `guest_vpn`, and `NIVUUS_WS_TOKEN`
+generated in the VM. `vpn.import_profile` / `vpn.get_status` were sent by nivuus_vpn's own
+`client.py` + `payloads.py` (Home Assistant stubbed by a plain aiohttp session), the switch by
+`mosquitto_pub`. Fixtures: `src/features/vpn/__tests__/fixtures/bench/` (`manifest.json` holds
+the command, exit code and stderr of each capture; used by `benchFixtures.test.ts`). Host: the
+snapshots taken before the VM start and after its shutdown are identical (nft tables, links,
+`ip rule`, `ip -6 rule`, active zones, empty firewalld journal), and the host answered 204
+throughout.
+
+**Result: the build does not work with nmcli 1.52. Three agent defects and one packaging defect.**
+
+| # | Where | What (real output) |
+| --- | --- | --- |
+| D1 | `nmProfiles.ts` `keyfileOf` | `nmcli -g GENERAL.FILENAME connection show uuid <u>` prints nothing (rc 0) on an inactive profile and fails with rc 2 on an active one (`invalid field 'GENERAL.FILENAME'`). So `vpn.import_profile` always fails ("NetworkManager reported no keyfile"), fresh or re-import. The list form `nmcli -g UUID,FILENAME connection show` works. |
+| D2 | `guestVpnStatus.ts` `SHOW_FIELDS` | `-f vpn.data,GENERAL.STATE,VPN.VPN-STATE,IP4.DNS` fails with rc 2 on inactive **and** active profiles: `invalid field 'VPN.VPN-STATE'; allowed fields: vpn.service-type,...` (the `VPN` group collides with the `vpn` setting). The full `nmcli -t connection show uuid` lists `VPN.VPN-STATE:5 - VPN connected`, but it cannot be selected with `-f`. Effect: the state is always `error` ("reading the VPN state failed"), never `connected` or `disabled`; `tunnelHealth` never runs, the DNS DNAT table is never filled, the unhealthy-tunnel restart never fires. |
+| D3 | `nmGuestVpn.ts` `up()` | `nmcli connection up uuid <u> ifname publicBridge` returns rc 0 in 19 ms ("Connection successfully activated (controller waiting for ports)") without waiting for the VPN. With a wrong password OpenVPN then gets `AUTH_FAILED`, but the agent saw a success: no `lastError`, no backoff, `next_attempt` null, and `up` ran on **every 15 s tick** (23 attempts from 17:05:05 to 17:10:33). |
+| D4 | `debian/mqtt-system-agent.service`, `postinst.sh` | Fresh install: `ReadWritePaths=/opt/mqtt-system-agent/cache` does not exist, so the unit fails with `226/NAMESPACE` in a restart loop. The bench created the directory by hand. |
+
+Because of D1 the profile was imported by a stand-in that replays the agent's exact steps
+(staging name `nivuus-guest-vpn_a`, `profileSettingsArgs` copied from the agent's log line,
+credentials written into the keyfile from a file, `connection load`, rename by UUID). NM's
+certificate copies are named `nivuus-guest-vpn_a-ca.pem` and `-tls-auth.pem`, as expected.
+
+### Step 1: real output vs the unit-test mocks
+
+- `ip -j -4 route show table 200`, healthy: `{"dst":"default","gateway":"10.20.172.17","dev":"nvguest0",...}`
+  plus host routes. Matches `hasDefaultVia` (the `default` form; the def1 pair was never seen).
+  Inactive and C1 leak: `[]`.
+- `ip -j -4 rule show`: `{"priority":100,"src":"all","iif":"publicBridge","table":"200","protocol":"static"}`,
+  as in the mock. Rule 99 prints `suppress_prefixlen` (mock: `suppress_prefixlength`; not read).
+- Inactive profile, `-t -f vpn.data,GENERAL.STATE,IP4.DNS`: only the `vpn.data` line, rc 0, as
+  the mock.
+- `vpn.data` escaping: ':' inside values is **not** escaped in `-t` detail mode
+  (`remote = nl2.webunlim.com:1194`); the mock has `\:`. Harmless for the parser. `vpn.data`
+  carries `username = ...`, and the full listing prints it in `VPN.USERNAME` and `VPN.CFG[n]`
+  (redacted in the fixtures).
+
+### Step 2
+
+| Check | Result |
+| --- | --- |
+| `vpn.get_status` / `vpn.import_profile` with client.py | protocol OK (auth, reply, `parse_status`); import FAILS (D1) |
+| Switch ON (MQTT) | `nmcli up` at once; guest on the provider's exit IP within 3 s; state shown `error` (D2) |
+| Switch OFF | down within 2 s, guest on the uplink at the next 2 s sample; state shown `error` (D2) |
+| Re-import while up | fails on D1 before touching anything; live tunnel and certificates untouched |
+| Wrong password | FAIL: no backoff, an attempt every 15 s, `next_attempt` null (D3) |
+| Agent restart with the tunnel up | tunnel untouched (no `up`/`down`), guest stayed on the provider |
+
+### Step 3: C1 and provider outage
+
+- **Plain outage** (silent drop of UDP from port 1194 for 150 s, from 17:12:20): guests got no
+  answer until OpenVPN's `ping-restart` (+119 s) then `ping-exit` (+180 s); NM dropped the VPN
+  and guests were on the uplink at 17:15:21, **181 s** after the outage started. The agent ran
+  `up` on the next tick (17:15:33); guests were back on the provider at 17:15:37. The designed
+  15–30 s fallback did not happen (D2: no health check). The unblock (+153 s) fell between
+  `ping-restart` and `ping-exit`, but OpenVPN did not reconnect before `ping-exit`.
+- **C1 reproduced** (130 s silent block from 17:20:16): `ping-restart` at +119 s, reconnect at
+  17:22:31 with "Pulled options changed on restart, will need to close and reopen TUN/TAP device",
+  a new address, and NM's `unable to configure IPv4 route ... table 200`. From 17:22:32, NM showed
+  `activated`, table 200 was empty, rule 100 was present, and the guest left through the uplink
+  for the whole 4 min watched, until healed by switch OFF/ON. The agent did nothing (D2), so
+  `down()`/`up()` on lost routes is **not proven** on the real build. HA never showed
+  `connected`, but only because every state was `error`. `tunnelHealth` does flag the captured C1
+  state (`benchFixtures.test.ts`).
+- Home stand-in (`localBridge`), sampled every 2 s from 17:00:23 to 17:27:41 (763 samples): on
+  the uplink on every sample, except two inside the deliberate step-4 failure (17:27:24 and
+  17:27:27).
+
+### Step 4: the 12:09 failure and the staged revert
+
+`scripts/bench/80-staged-revert.sh`, run through `vm.sh qga`:
+- Healthy start (fixed `internal.xml`): bindings as on the host, home 204, guest 204.
+- The host's `internal.xml` (stale `enp15s0`) copied back, then `firewall-cmd --reload`: rc 13,
+  firewalld `not running`, `firewalld_policy_drop` present, home 000, guest 000; firewalld logs
+  `Could not process rule: No such file or directory`.
+- `nft delete table inet firewalld_policy_drop`: rc 0 in 17 ms; home 204 and guest 204 on the
+  next probe, although firewalld is still `not running`.
+- Zone backup restored, then `systemctl restart firewalld` (0.9 s): `running`, no DROP table,
+  home 204, guest 204, every binding as on the host, `nvguest0` in `external`. The only error is
+  the known, harmless Docker `NAME_CONFLICT`.
+
+### To redo after the fixes
+
+Steps 2 (import, re-import, backoff) and 3 (C1 detection, 15–30 s fallback, DNS DNAT following
+health) must run again on a build with D1–D3 fixed. The bench now holds the agent package, the
+stand-in profile `nivuus-guest-vpn` (password in its keyfile: `bench.qcow2` stays secret),
+mosquitto, `/etc/mqtt-system-agent.env`, the `cache` directory, no `connection.secondaries` on
+`bridge-publicBridge`, and the old DNS dispatcher hook moved to `/root/old-bench/`.

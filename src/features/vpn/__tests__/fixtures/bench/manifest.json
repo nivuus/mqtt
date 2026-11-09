@@ -1,0 +1,146 @@
+{
+  "active.ip-route-200.json": {
+    "state": "tunnel up and healthy",
+    "command": "ip -j -4 route show table 200",
+    "rc": 0,
+    "stderr": ""
+  },
+  "active.ip-rule.json": {
+    "state": "tunnel up and healthy",
+    "command": "ip -j -4 rule show",
+    "rc": 0,
+    "stderr": ""
+  },
+  "active.nmcli-status": {
+    "state": "tunnel up and healthy",
+    "command": "nmcli -t -f vpn.data,GENERAL.STATE,VPN.VPN-STATE,IP4.DNS connection show uuid <u>",
+    "rc": 2,
+    "stderr": "Error: 'connection show': invalid field 'VPN.VPN-STATE'; allowed fields: vpn.service-type,vpn.user-name,vpn.data,vpn.secrets,vpn.persistent,vpn.timeout"
+  },
+  "active.nmcli-status-no-vpnstate": {
+    "state": "tunnel up and healthy",
+    "command": "nmcli -t -f vpn.data,GENERAL.STATE,IP4.DNS connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "active.nmcli-filename": {
+    "state": "tunnel up and healthy",
+    "command": "nmcli -g GENERAL.FILENAME connection show uuid <u>",
+    "rc": 2,
+    "stderr": "Error: 'connection show': invalid field 'GENERAL.FILENAME'; allowed fields: GENERAL.NAME,GENERAL.UUID,GENERAL.DEVICES,GENERAL.IP-IFACE,GENERAL.STATE,GENERAL.DEFAULT,GENERAL.DEFAULT6,GENERAL.SPEC-OBJECT,GENERAL.VPN,GENERAL.DBUS-PATH,GENERAL.CON-PATH,GENERAL.ZONE,GENERAL.MASTER-PATH"
+  },
+  "active.nmcli-list-filename": {
+    "state": "tunnel up and healthy",
+    "command": "nmcli -g UUID,FILENAME connection show",
+    "rc": 0,
+    "stderr": ""
+  },
+  "active.nmcli-show-full": {
+    "state": "tunnel up and healthy",
+    "command": "nmcli -t connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "active.nmcli-active-uuids": {
+    "state": "tunnel up and healthy",
+    "command": "nmcli -g UUID connection show --active",
+    "rc": 0,
+    "stderr": ""
+  },
+  "inactive-off.ip-route-200.json": {
+    "state": "profile inactive (switch OFF)",
+    "command": "ip -j -4 route show table 200",
+    "rc": 0,
+    "stderr": ""
+  },
+  "inactive-off.ip-rule.json": {
+    "state": "profile inactive (switch OFF)",
+    "command": "ip -j -4 rule show",
+    "rc": 0,
+    "stderr": ""
+  },
+  "inactive-off.nmcli-status": {
+    "state": "profile inactive (switch OFF)",
+    "command": "nmcli -t -f vpn.data,GENERAL.STATE,VPN.VPN-STATE,IP4.DNS connection show uuid <u>",
+    "rc": 2,
+    "stderr": "Error: 'connection show': invalid field 'VPN.VPN-STATE'; allowed fields: vpn.service-type,vpn.user-name,vpn.data,vpn.secrets,vpn.persistent,vpn.timeout"
+  },
+  "inactive-off.nmcli-status-no-vpnstate": {
+    "state": "profile inactive (switch OFF)",
+    "command": "nmcli -t -f vpn.data,GENERAL.STATE,IP4.DNS connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "inactive-off.nmcli-filename": {
+    "state": "profile inactive (switch OFF)",
+    "command": "nmcli -g GENERAL.FILENAME connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "inactive-off.nmcli-list-filename": {
+    "state": "profile inactive (switch OFF)",
+    "command": "nmcli -g UUID,FILENAME connection show",
+    "rc": 0,
+    "stderr": ""
+  },
+  "inactive-off.nmcli-show-full": {
+    "state": "profile inactive (switch OFF)",
+    "command": "nmcli -t connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "inactive-off.nmcli-active-uuids": {
+    "state": "profile inactive (switch OFF)",
+    "command": "nmcli -g UUID connection show --active",
+    "rc": 0,
+    "stderr": ""
+  },
+  "c1-after-reconnect.ip-route-200.json": {
+    "state": "C1 leak: OpenVPN reopened nvguest0 after a 130 s silent outage; NM still activated, table 200 empty",
+    "command": "ip -j -4 route show table 200",
+    "rc": 0,
+    "stderr": ""
+  },
+  "c1-after-reconnect.ip-rule.json": {
+    "state": "C1 leak: OpenVPN reopened nvguest0 after a 130 s silent outage; NM still activated, table 200 empty",
+    "command": "ip -j -4 rule show",
+    "rc": 0,
+    "stderr": ""
+  },
+  "c1-after-reconnect.nmcli-status": {
+    "state": "C1 leak: OpenVPN reopened nvguest0 after a 130 s silent outage; NM still activated, table 200 empty",
+    "command": "nmcli -t -f vpn.data,GENERAL.STATE,VPN.VPN-STATE,IP4.DNS connection show uuid <u>",
+    "rc": 2,
+    "stderr": "Error: 'connection show': invalid field 'VPN.VPN-STATE'; allowed fields: vpn.service-type,vpn.user-name,vpn.data,vpn.secrets,vpn.persistent,vpn.timeout"
+  },
+  "c1-after-reconnect.nmcli-status-no-vpnstate": {
+    "state": "C1 leak: OpenVPN reopened nvguest0 after a 130 s silent outage; NM still activated, table 200 empty",
+    "command": "nmcli -t -f vpn.data,GENERAL.STATE,IP4.DNS connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "c1-after-reconnect.nmcli-filename": {
+    "state": "C1 leak: OpenVPN reopened nvguest0 after a 130 s silent outage; NM still activated, table 200 empty",
+    "command": "nmcli -g GENERAL.FILENAME connection show uuid <u>",
+    "rc": 2,
+    "stderr": "Error: 'connection show': invalid field 'GENERAL.FILENAME'; allowed fields: GENERAL.NAME,GENERAL.UUID,GENERAL.DEVICES,GENERAL.IP-IFACE,GENERAL.STATE,GENERAL.DEFAULT,GENERAL.DEFAULT6,GENERAL.SPEC-OBJECT,GENERAL.VPN,GENERAL.DBUS-PATH,GENERAL.CON-PATH,GENERAL.ZONE,GENERAL.MASTER-PATH"
+  },
+  "c1-after-reconnect.nmcli-list-filename": {
+    "state": "C1 leak: OpenVPN reopened nvguest0 after a 130 s silent outage; NM still activated, table 200 empty",
+    "command": "nmcli -g UUID,FILENAME connection show",
+    "rc": 0,
+    "stderr": ""
+  },
+  "c1-after-reconnect.nmcli-show-full": {
+    "state": "C1 leak: OpenVPN reopened nvguest0 after a 130 s silent outage; NM still activated, table 200 empty",
+    "command": "nmcli -t connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "c1-after-reconnect.nmcli-active-uuids": {
+    "state": "C1 leak: OpenVPN reopened nvguest0 after a 130 s silent outage; NM still activated, table 200 empty",
+    "command": "nmcli -g UUID connection show --active",
+    "rc": 0,
+    "stderr": ""
+  }
+}
