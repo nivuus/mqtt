@@ -14,6 +14,8 @@ describe('NmGuestVpn', () => {
   beforeEach(async () => { nm = new FakeNm(); await nm.install(mockedExec); });
   afterEach(async () => { await nm.remove(); });
 
+  const vpn = () => new NmGuestVpn(nm.cfg, nm.env);
+
   it('has the documented defaults', () => {
     expect(DEFAULT_GUEST_VPN_CONFIG).toEqual({
       bridge: 'publicBridge', connectionId: ID, device: 'nvguest0', table: 200,
@@ -21,49 +23,68 @@ describe('NmGuestVpn', () => {
     });
   });
 
-  it('up passes ifname publicBridge', async () => {
-    await nm.addProfile(ID, 'nivuus-guest-vpn_a');
-    await new NmGuestVpn(nm.cfg, nm.env).up();
-    expect(nm.calls[0].args).toEqual(['connection', 'up', 'id', ID, 'ifname', 'publicBridge']);
+  it('up addresses the live profile by UUID and passes ifname publicBridge', async () => {
+    const { uuid } = await nm.addProfile(ID, 'nivuus-guest-vpn_a');
+    await vpn().up();
+    expect(nm.find(a => a[1] === 'up')[0].args).toEqual(['connection', 'up', 'uuid', uuid, 'ifname', 'publicBridge']);
   });
 
   it('failed up keeps nmcli stderr in lastActivationError and throws', async () => {
     await nm.addProfile(ID, 'nivuus-guest-vpn_a');
-    const vpn = new NmGuestVpn(nm.cfg, nm.env);
+    const v = vpn();
     nm.override = a => (a[1] === 'up' ? fail('Error: Connection activation failed: no secrets\n') : undefined);
-    await expect(vpn.up()).rejects.toThrow(/no secrets/);
-    expect(vpn.lastActivationError()).toBe('Error: Connection activation failed: no secrets');
+    await expect(v.up()).rejects.toThrow(/no secrets/);
+    expect(v.lastActivationError()).toBe('Error: Connection activation failed: no secrets');
     nm.override = undefined;
-    await vpn.up();
-    expect(vpn.lastActivationError()).toBeUndefined();
+    await v.up();
+    expect(v.lastActivationError()).toBeUndefined();
+  });
+
+  it('up without a profile fails and records why', async () => {
+    const v = vpn();
+    await expect(v.up()).rejects.toThrow(/no nivuus-guest-vpn profile/);
+    expect(v.lastActivationError()).toMatch(/no nivuus-guest-vpn profile/);
   });
 
   it('down, isActive and profileExists read nmcli', async () => {
-    const vpn = new NmGuestVpn(nm.cfg, nm.env);
-    await expect(vpn.profileExists()).resolves.toBe(false);
-    await expect(vpn.isActive()).resolves.toBe(false);
-    await nm.addProfile(ID, 'nivuus-guest-vpn_a', true);
-    await expect(vpn.profileExists()).resolves.toBe(true);
-    await expect(vpn.isActive()).resolves.toBe(true);
-    await vpn.down();
-    expect(nm.calls[nm.calls.length - 1].args).toEqual(['connection', 'down', 'id', ID]);
+    const v = vpn();
+    await expect(v.profileExists()).resolves.toBe(false);
+    await expect(v.isActive()).resolves.toBe(false);
+    const { uuid } = await nm.addProfile(ID, 'nivuus-guest-vpn_a', true);
+    await expect(v.profileExists()).resolves.toBe(true);
+    await expect(v.isActive()).resolves.toBe(true);
+    await v.down();
+    expect(nm.calls[nm.calls.length - 1].args).toEqual(['connection', 'down', 'uuid', uuid]);
+    await expect(v.isActive()).resolves.toBe(false);
+  });
+
+  it('refuses to guess between duplicate profiles it did not stage', async () => {
+    await nm.addProfile(ID, 'nivuus-guest-vpn_a');
+    await nm.addProfile(ID, 'nivuus-guest-vpn_b');
+    const v = vpn();
+    await expect(v.up()).rejects.toThrow(/2 profiles named nivuus-guest-vpn/);
+    await expect(v.isActive()).rejects.toThrow(/2 profiles named/);
+    expect(nm.find(a => a[1] === 'up')).toHaveLength(0);
+    await expect(v.profileExists()).resolves.toBe(true);
   });
 
   it('a failing query throws instead of reporting false', async () => {
     nm.override = () => fail('Error: NetworkManager is not running.');
-    await expect(new NmGuestVpn(nm.cfg, nm.env).isActive()).rejects.toThrow(/connection show failed: .*not running/);
-    await expect(new NmGuestVpn(nm.cfg, nm.env).profileExists()).rejects.toThrow(/not running/);
+    await expect(vpn().isActive()).rejects.toThrow(/connection show failed: .*not running/);
+    await expect(vpn().profileExists()).rejects.toThrow(/not running/);
   });
 
   it('never invokes firewall-cmd nor touches bridge-publicBridge', async () => {
     await nm.addProfile(ID, 'nivuus-guest-vpn_a', true);
     await writeDesiredEnabled(nm.cfg.stateFile, true);
-    const vpn = new NmGuestVpn(nm.cfg, nm.env);
-    await vpn.importProfile({ ovpn: OVPN, username: 'u', password: 'p' });
-    await vpn.down();
-    await vpn.up();
+    const v = vpn();
+    await v.importProfile({ ovpn: OVPN, username: 'u', password: 'p' });
+    await v.down();
+    await v.up();
     expect(nm.calls.length).toBeGreaterThan(5);
     expect(nm.calls.every(c => c.file === 'nmcli')).toBe(true);
-    for (const c of nm.calls) expect(c.args.some(a => a.includes('bridge-publicBridge'))).toBe(false);
+    for (const c of nm.calls) {
+      expect(c.args.some(a => a.includes('bridge-publicBridge') || a.startsWith('ffffffff'))).toBe(false);
+    }
   });
 });

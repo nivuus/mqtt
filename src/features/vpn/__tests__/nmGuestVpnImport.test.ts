@@ -78,7 +78,8 @@ describe('NmGuestVpn.importProfile: profile and settings', () => {
   it('import applies the bench settings to the staging profile', async () => {
     await importIt();
     const args = settingsArgs();
-    expect(args.slice(0, 4)).toEqual(['connection', 'modify', 'id', 'nivuus-guest-vpn_a']);
+    // Addressed by the UUID of the staged import, now the live profile.
+    expect(args.slice(0, 4)).toEqual(['connection', 'modify', 'uuid', nm.uuidsOf('nivuus-guest-vpn')[0]]);
     expect(setting(args, 'connection.zone')).toBe('external');
     expect(setting(args, 'connection.autoconnect')).toBe('no');
     expect(setting(args, 'ipv4.route-table')).toBe('200');
@@ -91,7 +92,7 @@ describe('NmGuestVpn.importProfile: profile and settings', () => {
     expect(setting(args, 'ipv6.ignore-auto-routes')).toBe('yes');
     const vpnData = args.flatMap((a, i) => (a === '+vpn.data' ? [args[i + 1]] : []));
     expect(vpnData).toEqual(['dev=nvguest0', 'dev-type=tun', 'ping-exit=60']);
-    const keyfile = nm.profiles.get('nivuus-guest-vpn') as string;
+    const keyfile = nm.profiles.get(nm.uuidsOf('nivuus-guest-vpn')[0])!.keyfile;
     const text = await fs.readFile(keyfile, 'utf8');
     expect(text).toContain('username=guest@example.com');
     expect(text).toContain(`[vpn-secrets]\npassword=${PASSWORD}`);

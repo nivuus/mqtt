@@ -1,7 +1,8 @@
 /**
  * Test double for `execute_argv('nmcli', ...)`: records every call and keeps just enough
- * NetworkManager state for NmGuestVpn (profiles with their keyfiles, active ids, the tun
- * device in a fake /sys/class/net, NM's certificate copies). Nothing runs on the host.
+ * NetworkManager state for NmGuestVpn (profiles by UUID with their id and keyfile, active
+ * UUIDs, the tun device in a fake /sys/class/net, NM's certificate copies). Like NM, it
+ * allows several profiles with the same id. Nothing runs on the host.
  */
 import { promises as fs } from 'fs';
 import * as os from 'os';
@@ -12,6 +13,7 @@ import { DEFAULT_GUEST_VPN_CONFIG, GuestVpnConfig, NmEnv } from '../nmGuestVpn';
 export type Call = { file: string; args: string[] };
 export type Result = { stdout: string; stderr: string; exitCode: number };
 export type Staged = { file: string; content: string; fileMode: number; dirMode: number };
+type Profile = { id: string; keyfile: string };
 
 export const KEYFILE = '[connection]\nid=ID\n\n[vpn]\npassword-flags=1\n\n[ipv4]\nmethod=auto\n';
 
@@ -20,8 +22,7 @@ export const fail = (stderr: string): Result => ({ stdout: '', stderr, exitCode:
 
 export class FakeNm {
   calls: Call[] = [];
-  /** id -> keyfile path */
-  profiles = new Map<string, string>();
+  profiles = new Map<string, Profile>();
   active = new Set<string>();
   staged: Staged[] = [];
   override: ((args: string[]) => Result | undefined) | undefined;
@@ -30,6 +31,7 @@ export class FakeNm {
   dir = '';
   cfg: GuestVpnConfig = DEFAULT_GUEST_VPN_CONFIG;
   env: NmEnv = { sysClassNet: '', certDir: '', sleep: async () => undefined, deviceGoneTimeoutMs: 1000, pollMs: 100 };
+  private serial = 0;
 
   async install(exec: jest.Mocked<typeof execModule>): Promise<void> {
     this.dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nm-guest-vpn-'));
@@ -47,13 +49,26 @@ export class FakeNm {
   }
 
   /** A profile as a previous import left it: keyfile, NM's CA copy, optionally active. */
-  async addProfile(id: string, base: string, active = false): Promise<string> {
-    const keyfile = path.join(this.dir, 'system-connections', `${base}.nmconnection`);
+  async addProfile(id: string, base: string, active = false): Promise<{ uuid: string; keyfile: string }> {
+    const uuid = this.newProfile(id, path.join(this.dir, 'system-connections', `${base}.nmconnection`));
+    const keyfile = this.profiles.get(uuid)!.keyfile;
     await fs.writeFile(keyfile, KEYFILE.replace('ID', id), { mode: 0o600 });
     await fs.writeFile(path.join(this.env.certDir, `${base}-ca.pem`), 'old');
-    this.profiles.set(id, keyfile);
-    if (active) await this.activate(id);
-    return keyfile;
+    if (active) await this.activate(uuid);
+    return { uuid, keyfile };
+  }
+
+  ids(): string[] {
+    return [...this.profiles.values()].map(p => p.id);
+  }
+
+  uuidsOf(id: string): string[] {
+    return [...this.profiles].filter(([, p]) => p.id === id).map(([u]) => u);
+  }
+
+  keyfileBase(id: string): string {
+    const [uuid] = this.uuidsOf(id);
+    return path.basename(this.profiles.get(uuid)!.keyfile, '.nmconnection');
   }
 
   device(): string {
@@ -75,9 +90,23 @@ export class FakeNm {
     });
   }
 
-  private async activate(id: string): Promise<void> {
-    this.active.add(id);
+  private newProfile(id: string, keyfile: string): string {
+    const uuid = `00000000-0000-4000-8000-${String(++this.serial).padStart(12, '0')}`;
+    this.profiles.set(uuid, { id, keyfile });
+    return uuid;
+  }
+
+  private async activate(uuid: string): Promise<void> {
+    this.active.add(uuid);
     await fs.mkdir(this.device(), { recursive: true });
+  }
+
+  /** UUIDs addressed by `uuid <u>` or `id <name>` in argv. */
+  private targets(args: string[]): string[] {
+    const u = args.indexOf('uuid');
+    if (u >= 0) return this.profiles.has(args[u + 1]) ? [args[u + 1]] : [];
+    const i = args.indexOf('id');
+    return i >= 0 ? this.uuidsOf(args[i + 1]) : [];
   }
 
   private async answer(args: string[]): Promise<Result> {
@@ -85,33 +114,33 @@ export class FakeNm {
     if (forced) return forced;
     const at = args.indexOf('connection');
     const verb = args.slice(at, at + 2).join(' ');
-    const id = args[args.indexOf('id') + 1];
+    const targets = this.targets(args);
     if (verb === 'connection import') return this.import(args[args.indexOf('file') + 1]);
-    if (verb === 'connection show' && args.includes('--active')) {
-      return ok([...this.active].map(a => `${a}:activated\n`).join(''));
-    }
+    if (verb === 'connection show' && args.includes('--active')) return ok([...this.active].map(u => `${u}\n`).join(''));
     if (verb === 'connection show' && args.includes('GENERAL.FILENAME')) {
-      const keyfile = this.profiles.get(id);
-      return keyfile ? ok(`${keyfile}\n`) : fail(`Error: ${id} - no such connection profile.`);
+      return targets.length ? ok(`${this.profiles.get(targets[0])!.keyfile}\n`) : fail('Error: no such connection profile.');
     }
-    if (verb === 'connection show') return ok(['bridge-publicBridge', ...this.profiles.keys()].join('\n') + '\n');
+    if (verb === 'connection show') {
+      const rows = [['bridge-publicBridge', 'ffffffff-0000-4000-8000-000000000000'],
+        ...[...this.profiles].map(([u, p]) => [p.id, u])];
+      return ok(rows.map(r => r.join(':')).join('\n') + '\n');
+    }
+    if (['connection delete', 'connection modify', 'connection up', 'connection down'].includes(verb) && !targets.length) {
+      return fail('Error: unknown connection.');
+    }
     if (verb === 'connection delete') {
-      const keyfile = this.profiles.get(id);
-      if (!keyfile) return fail(`Error: unknown connection '${id}'.`);
-      await fs.rm(keyfile, { force: true });
-      this.profiles.delete(id);
-      this.active.delete(id);
+      for (const u of targets) {
+        await fs.rm(this.profiles.get(u)!.keyfile, { force: true });
+        this.profiles.delete(u);
+        this.active.delete(u);
+      }
     }
     if (verb === 'connection modify' && args.includes('connection.id')) {
-      this.profiles.set(args[args.indexOf('connection.id') + 1], this.profiles.get(id) as string);
-      this.profiles.delete(id);
+      this.profiles.get(targets[0])!.id = args[args.indexOf('connection.id') + 1];
     }
-    if (verb === 'connection up') {
-      if (!this.profiles.has(id)) return fail(`Error: unknown connection '${id}'.`);
-      await this.activate(id);
-    }
+    if (verb === 'connection up') await this.activate(targets[0]);
     if (verb === 'connection down') {
-      this.active.delete(id);
+      this.active.delete(targets[0]);
       if (this.downRemovesDevice) await fs.rm(this.device(), { recursive: true, force: true });
     }
     return ok();
@@ -129,7 +158,7 @@ export class FakeNm {
     const keyfile = path.join(this.dir, 'system-connections', `${base}.nmconnection`);
     await fs.writeFile(keyfile, KEYFILE.replace('ID', base), { mode: 0o600 });
     if (content.includes('<ca>')) await fs.writeFile(path.join(this.env.certDir, `${base}-ca.pem`), 'new');
-    this.profiles.set(base, keyfile);
+    this.newProfile(base, keyfile);
     return ok();
   }
 }
