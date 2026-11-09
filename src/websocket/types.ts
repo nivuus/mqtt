@@ -15,7 +15,8 @@ export type FeatureName =
   | 'pppoe'
   | 'vm'
   | 'system'
-  | 'wizard';
+  | 'wizard'
+  | 'vpn';
 
 // Actions per feature
 export interface FeatureActions {
@@ -26,6 +27,7 @@ export interface FeatureActions {
   vm: 'list_vms' | 'start_vm' | 'stop_vm' | 'restart_vm' | 'get_state';
   system: 'check_updates' | 'apply_updates' | 'get_status' | 'get_info';
   wizard: 'get_state' | 'set_step' | 'complete' | 'reset';
+  vpn: 'import_profile' | 'get_status';
 }
 
 /**

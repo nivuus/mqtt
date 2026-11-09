@@ -32,6 +32,13 @@ describe('GuestVpn supervisor', () => {
     await h.nm.remove();
   });
 
+  it('getStatus reuses the last tick snapshot instead of probing again, and ticks once if none exists', async () => {
+    await h.feature.getStatus();
+    expect(mockedStatus).toHaveBeenCalledTimes(1);
+    await h.feature.getStatus();
+    expect(mockedStatus).toHaveBeenCalledTimes(1);
+  });
+
   it('supervisor: desired on + profile inactive → up() once per tick, state connecting/error with last_error published', async () => {
     await writeDesiredEnabled(h.nm.cfg.stateFile, true);
     await h.nm.addProfile('nivuus-guest-vpn', 'nivuus-guest-vpn');

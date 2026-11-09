@@ -31,6 +31,7 @@ import { WindowsDiskUsage } from '../features/disk/WindowsDiskUsage';
 import { UpsMonitor } from '../features/ups/UpsMonitor';
 import { HardwareHealth } from '../features/health/HardwareHealth';
 import { GuestVpn } from '../features/vpn/GuestVpn';
+import { registerGuestVpnHandlers } from '../features/vpn/vpnWebSocketHandlers';
 import { discoveryTopic } from '../homeassistant/discovery/discoveryTopic';
 
 type FeatureConstructor = new (mqttClient: MqttClientInterface, featureName: string) => BaseFeature;
@@ -108,6 +109,7 @@ export class Agent {
         }
       }
     }
+    registerGuestVpnHandlers(this.wizardHandler, this.features);
   }
 
   private async initializeWebSocketServer(): Promise<void> {

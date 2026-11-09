@@ -28,6 +28,14 @@ export class WizardHandler {
   }
 
   /**
+   * Adds a feature whose handlers depend on something created at runtime (e.g. an
+   * optional agent feature). Commands for it go through the same own-property guard.
+   */
+  public registerFeature(name: FeatureName, handlers: FeatureHandlers): void {
+    this.handlers.set(name, handlers);
+  }
+
+  /**
    * Handle an incoming wizard command
    */
   public async handleCommand(command: WizardCommand): Promise<unknown> {

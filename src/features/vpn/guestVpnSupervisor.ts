@@ -93,6 +93,11 @@ export class GuestVpnSupervisor {
     });
   }
 
+  /** The status of the last supervision pass; runs a pass only if none has happened yet. */
+  async currentStatus(): Promise<GuestVpnStatus> {
+    return this.last?.status ?? (await this.tick()).status;
+  }
+
   idle(): Promise<void> {
     return this.queue.idle();
   }

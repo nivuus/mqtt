@@ -47,6 +47,11 @@ export class GuestVpn extends BaseFeature {
     return this.supervisor.importProfile(input);
   }
 
+  /** The status of the last supervision pass (at most one tick old), without a new probe. */
+  getStatus(): Promise<GuestVpnStatus> {
+    return this.supervisor.currentStatus();
+  }
+
   /** Resolves once every queued tick, switch command and import has finished. */
   whenIdle(): Promise<void> {
     return this.supervisor.idle();
