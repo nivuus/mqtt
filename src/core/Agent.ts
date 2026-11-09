@@ -5,7 +5,7 @@ import { getConfigManager } from '../config';
 import logger from '../utils/logger';
 import { BaseFeature } from './BaseFeature';
 import { MqttClient } from '../mqtt/MqttClient'; // Import the actual MqttClient
-import { WebSocketServer, WizardHandler, resolveWebSocketConfig } from '../websocket';
+import { WebSocketServer, WizardHandler, resolveWebSocketConfig, describeTokenSource } from '../websocket';
 
 // Feature imports
 import { CpuTemperature } from '../features/cpu/CpuTemperature';
@@ -115,13 +115,15 @@ export class Agent {
     } catch (error) {
       // Refuse to expose the wizard channel rather than run it unprotected; the
       // rest of the agent (monitoring, UPS shutdown) must keep running.
-      logger.error(`WebSocket server not started: ${(error as Error).message}`);
+      const source = describeTokenSource(this.config.websocket ?? {});
+      logger.error(`WebSocket server not started (token source: ${source}): ${(error as Error).message}`);
       return;
     }
     if (!webSocketConfig) {
       logger.info('WebSocket server is disabled in config');
       return;
     }
+    logger.info(`WebSocket token read from ${describeTokenSource(this.config.websocket ?? {})}`);
 
     this.wizardHandler = new WizardHandler();
     const server = new WebSocketServer(webSocketConfig, this.wizardHandler);

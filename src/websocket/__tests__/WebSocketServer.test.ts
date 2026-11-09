@@ -123,16 +123,29 @@ describe('WebSocketServer', () => {
     client.ws.close();
   });
 
-  it('never writes the token to the logs', async () => {
+  const allLogs = () => (['debug', 'info', 'warn', 'error'] as const)
+    .flatMap((level) => (logger[level] as jest.Mock).mock.calls.flat())
+    .map(String).join('\n');
+
+  it('never writes the token to the logs on success', async () => {
     const port = await startWith(baseConfig());
     const client = connect(port);
     await client.next();
     client.ws.send(JSON.stringify({ type: 'auth', token: TOKEN }));
     await client.next();
-    const logged = (['debug', 'info', 'warn', 'error'] as const)
-      .flatMap((level) => (logger[level] as jest.Mock).mock.calls.flat())
-      .map(String).join('\n');
-    expect(logged).not.toContain(TOKEN);
+    expect(allLogs()).not.toContain(TOKEN);
     client.ws.close();
+  });
+
+  it('never writes the expected or presented token to the logs on failure', async () => {
+    const port = await startWith(baseConfig());
+    const client = connect(port);
+    await client.next();
+    const wrong = 'wrong-token-presented-by-the-client-0123';
+    client.ws.send(JSON.stringify({ type: 'auth', token: wrong }));
+    await client.closed;
+    expect(allLogs()).toContain('authentication failed');
+    expect(allLogs()).not.toContain(TOKEN);
+    expect(allLogs()).not.toContain(wrong);
   });
 });

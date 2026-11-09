@@ -1,11 +1,12 @@
 // src/websocket/__tests__/serverConfig.test.ts
 
 import {
-  resolveWebSocketConfig, WebSocketConfigError, DEFAULT_HOST, DEFAULT_MAX_PAYLOAD_BYTES, TOKEN_ENV_VAR,
+  resolveWebSocketConfig, describeTokenSource, WebSocketConfigError, DEFAULT_HOST, DEFAULT_MAX_PAYLOAD_BYTES,
+  MAX_AUTH_TIMEOUT_MS, TOKEN_ENV_VAR,
 } from '../serverConfig';
 import { tokensMatch, isAuthMessage, isWizardCommand, isOriginAllowed } from '../messageGuards';
 
-const GOOD_TOKEN = 'a'.repeat(64);
+const GOOD_TOKEN = '3f9c1e7a5b2d4c6e8f0a1b3c5d7e9f1a2b4c6d8e0f1a3b5c7d9e1f2a4b6c8d0e';
 
 describe('resolveWebSocketConfig', () => {
   it('returns null when the section is missing or disabled', () => {
@@ -33,6 +34,10 @@ describe('resolveWebSocketConfig', () => {
     ['the repository placeholder', 'CHANGE_ME_WIZARD_TOKEN'],
     ['an unresolved env reference', '${NIVUUS_WS_TOKEN}'],
     ['too short', 'x'.repeat(31)],
+    ['a lower-case placeholder', 'change_me_wizard_token_0123456789abcdef'],
+    ['a single repeated character', 'a'.repeat(64)],
+    ['padded with leading whitespace', ' ' + GOOD_TOKEN],
+    ['padded with a trailing newline', GOOD_TOKEN + '\n'],
   ])('refuses a token that is %s', (_label, token) => {
     expect(() => resolveWebSocketConfig({ enabled: true, auth: { token } }, {}))
       .toThrow(WebSocketConfigError);
@@ -49,6 +54,32 @@ describe('resolveWebSocketConfig', () => {
     expect(() => resolveWebSocketConfig({ ...base, port: 70000 }, {})).toThrow(WebSocketConfigError);
     expect(() => resolveWebSocketConfig({ ...base, allowed_origins: [1 as unknown as string] }, {}))
       .toThrow(WebSocketConfigError);
+  });
+
+  it('caps the auth timeout so setTimeout cannot overflow', () => {
+    const base = { enabled: true, auth: { token: GOOD_TOKEN } };
+    expect(() => resolveWebSocketConfig({ ...base, auth_timeout_ms: MAX_AUTH_TIMEOUT_MS + 1 }, {}))
+      .toThrow(WebSocketConfigError);
+    expect(resolveWebSocketConfig({ ...base, auth_timeout_ms: MAX_AUTH_TIMEOUT_MS }, {})?.authTimeoutMs)
+      .toBe(MAX_AUTH_TIMEOUT_MS);
+  });
+});
+
+describe('describeTokenSource', () => {
+  const raw = { enabled: true, auth: { token: GOOD_TOKEN } };
+
+  it('names the environment when it supplies the token', () => {
+    expect(describeTokenSource(raw, { [TOKEN_ENV_VAR]: GOOD_TOKEN })).toBe(`environment (${TOKEN_ENV_VAR})`);
+  });
+
+  it('says when an empty environment variable was ignored in favour of agent.yaml', () => {
+    expect(describeTokenSource(raw, { [TOKEN_ENV_VAR]: '' })).toBe(`agent.yaml (${TOKEN_ENV_VAR} is set but empty)`);
+    expect(describeTokenSource(raw, {})).toBe('agent.yaml');
+  });
+
+  it('never contains the token itself', () => {
+    expect(describeTokenSource(raw, { [TOKEN_ENV_VAR]: GOOD_TOKEN })).not.toContain(GOOD_TOKEN);
+    expect(describeTokenSource(raw, {})).not.toContain(GOOD_TOKEN);
   });
 });
 

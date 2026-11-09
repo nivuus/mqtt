@@ -31,8 +31,14 @@ export function sendAuthRequired(ws: WebSocket): void {
   });
 }
 
+/**
+ * Send the close frame, then drop the TCP connection at once. A plain close()
+ * leaves the socket CLOSING for up to 30 s waiting for the peer's close frame,
+ * and `ws` keeps emitting `message` for whatever the peer sends meanwhile.
+ */
 export function closeUnauthenticated(ws: WebSocket, reason: string): void {
   ws.close(POLICY_VIOLATION, reason);
+  ws.terminate();
 }
 
 /** Before authentication only a correct auth message is accepted; anything else closes. */
@@ -68,6 +74,10 @@ export async function handleClientMessage(
   token: string,
   handler: CommandHandler,
 ): Promise<void> {
+  // A connection the server has started closing (failed auth, auth deadline,
+  // shutdown) must not act on anything else it receives, even frames that
+  // arrived in the same TCP read as the one that got it closed.
+  if (ws.readyState !== WebSocket.OPEN) return;
   client.lastActivity = new Date();
   let message: unknown;
   try {

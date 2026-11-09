@@ -62,7 +62,10 @@ export class WebSocketServer {
     this.pingInterval = null;
     this.clients.forEach((client, ws) => {
       clearTimeout(client.authTimer);
+      // Close frame first, then drop the socket: waiting for every peer's
+      // close acknowledgement could hold a systemd stop for up to 30 s.
       ws.close(1001, 'Server shutting down');
+      ws.terminate();
     });
     this.clients.clear();
     this.wss?.close();
@@ -87,13 +90,19 @@ export class WebSocketServer {
 
   private handleUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
     socket.on('error', (error) => logger.warn(`WebSocket upgrade socket error: ${error.message}`));
+    const wss = this.wss;
+    if (!wss) {
+      // Stopped: nothing will ever answer this upgrade.
+      socket.destroy();
+      return;
+    }
     const origin = req.headers.origin;
     if (!isOriginAllowed(origin, this.config.allowedOrigins)) {
       logger.warn(`WebSocket upgrade refused from ${socket.remoteAddress}: origin ${JSON.stringify(origin)} not allowed`);
       socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
       return;
     }
-    this.wss?.handleUpgrade(req, socket, head, (ws) => this.wss?.emit('connection', ws, req));
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
   }
 
   private handleConnection(ws: WebSocket, req: IncomingMessage): void {
