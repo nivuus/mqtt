@@ -21,10 +21,29 @@ export async function isUuidActive(uuid: string): Promise<boolean> {
   return out.split('\n').includes(uuid);
 }
 
+/**
+ * The keyfile NM keeps the profile in, read from the list form: on one profile,
+ * `-g GENERAL.FILENAME` prints nothing while it is inactive and is an invalid field while it
+ * is active (nmcli 1.52, bench captures `*.nmcli-filename`).
+ */
 export async function keyfileOf(uuid: string): Promise<string> {
-  const file = (await nmcli(['-g', 'GENERAL.FILENAME', 'connection', 'show', 'uuid', uuid])).trim();
+  const out = await nmcli(['-g', 'UUID,FILENAME', 'connection', 'show']);
+  // A UUID holds no ':', so the first one ends it; -g escapes ':' and '\' in the path.
+  const row = out.split('\n').find(line => line.slice(0, line.indexOf(':')) === uuid);
+  const file = row === undefined ? '' : row.slice(row.indexOf(':') + 1).replace(/\\(.)/g, '$1');
   if (!path.isAbsolute(file)) throw new Error(`NetworkManager reported no keyfile for ${uuid}: "${file}"`);
   return file;
+}
+
+/**
+ * NM's activation state of the profile (`activating`, `activated`, `deactivating`), or
+ * undefined when it is not active. For a VPN, NM derives it from the VPN's own state
+ * (nm-vpn-connection.c, `_state_to_ac_state`): prepare to ip-config-get are `activating`.
+ */
+export async function activationStateOf(uuid: string): Promise<string | undefined> {
+  const out = await nmcli(['-t', '-f', 'GENERAL.STATE', 'connection', 'show', 'uuid', uuid]);
+  const line = out.split('\n').find(l => l.startsWith('GENERAL.STATE:'));
+  return line?.slice('GENERAL.STATE:'.length);
 }
 
 export async function deleteUuid(uuid: string): Promise<void> {

@@ -29,12 +29,15 @@ export interface GuestVpnStatus {
   tunnelFault?: string;
 }
 
-const SHOW_FIELDS = 'vpn.data,GENERAL.STATE,VPN.VPN-STATE,IP4.DNS';
-
-// NMVpnConnectionState: 1 prepare, 2 need-auth, 3 connect, 4 ip-config-get, 5 activated, 6 failed.
-const VPN_ACTIVATED = 5;
-const VPN_FAILED = 6;
-const isVpnConnecting = (s: number) => s >= 1 && s <= 4;
+/**
+ * The VPN's own state (`VPN.VPN-STATE`) cannot be selected with `-f` in nmcli 1.52: the `VPN`
+ * group collides with the `vpn` setting and the query fails with rc 2 (bench captures
+ * `*.nmcli-status`). It is not needed: for a VPN, NM derives GENERAL.STATE from the VPN state
+ * (nm-vpn-connection.c, `_state_to_ac_state`): prepare to ip-config-get are `activating`,
+ * connected is `activated`, and a failed or disconnected VPN leaves the active list, so an
+ * inactive profile prints `vpn.data` alone.
+ */
+const SHOW_FIELDS = 'vpn.data,GENERAL.STATE,IP4.DNS';
 
 export async function readGuestVpnStatus(cfg: GuestVpnConfig, lastActivationError?: string): Promise<GuestVpnStatus> {
   const uuids = await uuidsNamed(cfg.connectionId);
@@ -52,17 +55,10 @@ export async function readGuestVpnStatus(cfg: GuestVpnConfig, lastActivationErro
   const remote = parseVpnData(fields.get('vpn.data')?.[0] ?? '').get('remote');
   const dns = fields.get('IP4.DNS') ?? [];
   const general = fields.get('GENERAL.STATE')?.[0];
-  const vpnStateText = fields.get('VPN.VPN-STATE')?.[0];
-  const vpnState = vpnStateText === undefined ? undefined : parseInt(vpnStateText, 10);
   const base = { ...(remote !== undefined && { remote }), dns };
 
-  if (vpnState === VPN_FAILED) {
-    return { state: 'error', lastError: lastActivationError ?? `NetworkManager reports ${vpnStateText}`, ...base };
-  }
-  // VPN-STATE 5 with GENERAL.STATE not (yet or any more) activated is a transition: it falls
-  // through to the connecting / inactive checks below, never to `connected`.
-  if (vpnState === VPN_ACTIVATED && general === 'activated') return connected(cfg, base);
-  if (general === 'activating' || (vpnState !== undefined && isVpnConnecting(vpnState))) {
+  if (general === 'activated') return connected(cfg, base);
+  if (general === 'activating') {
     return { state: 'connecting', ...(lastActivationError !== undefined && { lastError: lastActivationError }), ...base };
   }
 

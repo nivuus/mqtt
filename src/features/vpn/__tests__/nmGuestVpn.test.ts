@@ -40,6 +40,25 @@ describe('NmGuestVpn', () => {
     expect(v.lastActivationError()).toBeUndefined();
   });
 
+  it('up fails when NM drops the VPN after nmcli returned 0 (wrong password)', async () => {
+    await nm.addProfile(ID, 'nivuus-guest-vpn_a');
+    nm.upOutcome = 'dropped';
+    const v = vpn();
+    await expect(v.up()).rejects.toThrow(/dropped the VPN while activating/);
+    expect(v.lastActivationError()).toMatch(/dropped the VPN while activating/);
+  });
+
+  it('up still activating at the bound cancels the activation and fails', async () => {
+    const { uuid } = await nm.addProfile(ID, 'nivuus-guest-vpn_a');
+    nm.upOutcome = 'stuck';
+    const v = vpn();
+    await expect(v.up()).rejects.toThrow(/still activating after 1 s/);
+    expect(nm.find(a => a[1] === 'down')[0].args).toEqual(['connection', 'down', 'uuid', uuid]);
+    expect(nm.active.has(uuid)).toBe(false);
+    // 1000 ms bound at 100 ms polls: 11 reads, never an unbounded wait.
+    expect(nm.find(a => a.includes('GENERAL.STATE'))).toHaveLength(11);
+  });
+
   it('up without a profile fails and records why', async () => {
     const v = vpn();
     await expect(v.up()).rejects.toThrow(/no nivuus-guest-vpn profile/);

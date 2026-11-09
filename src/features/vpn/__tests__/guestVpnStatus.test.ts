@@ -20,11 +20,14 @@ const VPN_DATA = 'vpn.data:ca = /root/.local/share/networkmanagement/certificate
   + 'connection-type = password, dev = nvguest0, dev-type = tun, ping-exit = 60, '
   + 'remote = nl-alk.zoogvpn.com\\:1194\\:udp, username = guest';
 
-/** `nmcli -t -f vpn.data,GENERAL.STATE,VPN.VPN-STATE,IP4.DNS connection show uuid <u>` output. */
-function details(active?: { general: string; vpn: string; dns?: string[] }): string {
+/**
+ * `nmcli -t -f vpn.data,GENERAL.STATE,IP4.DNS connection show uuid <u>` output, shaped like the
+ * bench captures (`*.nmcli-status-no-vpnstate`): an inactive profile prints `vpn.data` alone.
+ */
+function details(active?: { general: string; dns?: string[] }): string {
   const lines = [VPN_DATA];
   if (active) {
-    lines.push(`GENERAL.STATE:${active.general}`, `VPN.VPN-STATE:${active.vpn}`);
+    lines.push(`GENERAL.STATE:${active.general}`);
     (active.dns ?? []).forEach((d, i) => lines.push(`IP4.DNS[${i + 1}]:${d}`));
   }
   return `${lines.join('\n')}\n`;
@@ -99,12 +102,12 @@ describe('readGuestVpnStatus', () => {
   it('queries the profile by UUID in terse mode', async () => {
     await readGuestVpnStatus(cfg);
     const show = calls.find(c => c.args.includes('uuid'))!;
-    expect(show.args).toEqual(['-t', '-f', 'vpn.data,GENERAL.STATE,VPN.VPN-STATE,IP4.DNS', 'connection', 'show', 'uuid', UUID]);
+    expect(show.args).toEqual(['-t', '-f', 'vpn.data,GENERAL.STATE,IP4.DNS', 'connection', 'show', 'uuid', UUID]);
   });
 
   it('activating → connecting', async () => {
     await writeDesiredEnabled(cfg.stateFile, true);
-    shown = details({ general: 'activating', vpn: '3 - VPN connecting (prepare)' });
+    shown = details({ general: 'activating' });
     await expect(readGuestVpnStatus(cfg)).resolves.toEqual({
       state: 'connecting', remote: 'nl-alk.zoogvpn.com:1194:udp', dns: [],
     });
@@ -112,7 +115,7 @@ describe('readGuestVpnStatus', () => {
   });
 
   it('activated → connected with dns from IP4.DNS and remote from vpn.data', async () => {
-    shown = details({ general: 'activated', vpn: '5 - VPN connected', dns: ['10.20.128.1', '10.20.128.2'] });
+    shown = details({ general: 'activated', dns: ['10.20.128.1', '10.20.128.2'] });
     await expect(readGuestVpnStatus(cfg)).resolves.toEqual({
       state: 'connected', remote: 'nl-alk.zoogvpn.com:1194:udp',
       dns: ['10.20.128.1', '10.20.128.2'], exitIp: '5.255.103.96',
@@ -121,8 +124,8 @@ describe('readGuestVpnStatus', () => {
 
   it('status maps failed activation to error', async () => {
     await writeDesiredEnabled(cfg.stateFile, true);
-    const reason = 'Error: Connection activation failed: the VPN service returned invalid configuration';
-    shown = details({ general: 'deactivating', vpn: '6 - VPN connection failed' });
+    const reason = 'NetworkManager dropped the VPN while activating';
+    shown = details({ general: 'deactivating' });
     await expect(readGuestVpnStatus(cfg, reason)).resolves.toEqual({
       state: 'error', lastError: reason, remote: 'nl-alk.zoogvpn.com:1194:udp', dns: [],
     });
@@ -130,13 +133,6 @@ describe('readGuestVpnStatus', () => {
     shown = details();
     await expect(readGuestVpnStatus(cfg, reason)).resolves.toMatchObject({ state: 'error', lastError: reason });
     expect(curlCalls()).toEqual([]);
-  });
-
-  it('a failed VPN state without a recorded reason still reports error', async () => {
-    shown = details({ general: 'activated', vpn: '6 - VPN connection failed' });
-    const status = await readGuestVpnStatus(cfg);
-    expect(status.state).toBe('error');
-    expect(status.lastError).toMatch(/VPN connection failed/);
   });
 
   it('desired on but inactive without a recorded reason → error: guests are on the uplink', async () => {
@@ -152,7 +148,7 @@ describe('readGuestVpnStatus', () => {
   });
 
   it('activated but unhealthy (table 200 lost) → error with the fault, no exit IP probe', async () => {
-    shown = details({ general: 'activated', vpn: '5 - VPN connected', dns: ['10.20.128.1'] });
+    shown = details({ general: 'activated', dns: ['10.20.128.1'] });
     mockedHealth.mockResolvedValue('no default route via nvguest0 in table 200');
     const status = await readGuestVpnStatus(cfg);
     expect(mockedHealth).toHaveBeenCalledWith(cfg, ['10.20.128.1']);
@@ -163,7 +159,7 @@ describe('readGuestVpnStatus', () => {
   });
 
   it('healthy but the exit IP service fails → still connected, the failure is only reported', async () => {
-    shown = details({ general: 'activated', vpn: '5 - VPN connected', dns: ['10.20.128.1'] });
+    shown = details({ general: 'activated', dns: ['10.20.128.1'] });
     curl = fail('curl: (28) Connection timed out after 10001 milliseconds');
     const status = await readGuestVpnStatus(cfg);
     expect(status.state).toBe('connected');
@@ -172,19 +168,13 @@ describe('readGuestVpnStatus', () => {
     expect(status.exitIpError).toMatch(/timed out/);
   });
 
-  it('VPN-STATE 5 while GENERAL.STATE is not activated is never connected', async () => {
-    shown = details({ general: 'activating', vpn: '5 - VPN connected' });
-    await expect(readGuestVpnStatus(cfg)).resolves.toMatchObject({ state: 'connecting' });
-    expect(curlCalls()).toEqual([]);
-  });
-
   it('nmcli failures propagate', async () => {
     mockedExec.execute_argv.mockResolvedValue(fail('Error: NetworkManager is not running.'));
     await expect(readGuestVpnStatus(cfg)).rejects.toThrow(/NetworkManager is not running/);
   });
 
   it('never runs anything but nmcli and curl', async () => {
-    shown = details({ general: 'activated', vpn: '5 - VPN connected' });
+    shown = details({ general: 'activated' });
     await readGuestVpnStatus(cfg);
     expect(new Set(calls.map(c => c.file))).toEqual(new Set(['nmcli', 'curl']));
   });

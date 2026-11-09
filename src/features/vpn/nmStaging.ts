@@ -19,6 +19,8 @@ export interface NmEnv {
   sleep: (ms: number) => Promise<void>;
   /** Bound on the wait for the tun device to go after `connection down`. */
   deviceGoneTimeoutMs: number;
+  /** Bound on the wait for a VPN activation to succeed or fail (nmActivation.ts). */
+  activationTimeoutMs: number;
   pollMs: number;
 }
 
@@ -29,6 +31,7 @@ export function defaultNmEnv(): NmEnv {
     certDir: path.join(dataHome, 'networkmanagement', 'certificates', 'nm-openvpn'),
     sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
     deviceGoneTimeoutMs: 15000,
+    activationTimeoutMs: 90000,
     pollMs: 250,
   };
 }

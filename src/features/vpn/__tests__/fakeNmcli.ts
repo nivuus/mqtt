@@ -28,9 +28,16 @@ export class FakeNm {
   override: ((args: string[]) => Result | undefined) | undefined;
   /** When false, `connection down` leaves the tun device in place. */
   downRemovesDevice = true;
+  /**
+   * What NM does after `connection up`, which (like nmcli 1.52 on the guest bridge) always
+   * returns 0: the VPN activates, NM drops it (wrong password), or it stays activating.
+   */
+  upOutcome: 'activated' | 'dropped' | 'stuck' = 'activated';
+  private activating = new Set<string>();
   dir = '';
   cfg: GuestVpnConfig = DEFAULT_GUEST_VPN_CONFIG;
-  env: NmEnv = { sysClassNet: '', certDir: '', sleep: async () => undefined, deviceGoneTimeoutMs: 1000, pollMs: 100 };
+  env: NmEnv = { sysClassNet: '', certDir: '', sleep: async () => undefined, deviceGoneTimeoutMs: 1000, pollMs: 100,
+    activationTimeoutMs: 1000 };
   private serial = 0;
 
   async install(exec: jest.Mocked<typeof execModule>): Promise<void> {
@@ -117,8 +124,13 @@ export class FakeNm {
     const targets = this.targets(args);
     if (verb === 'connection import') return this.import(args[args.indexOf('file') + 1]);
     if (verb === 'connection show' && args.includes('--active')) return ok([...this.active].map(u => `${u}\n`).join(''));
-    if (verb === 'connection show' && args.includes('GENERAL.FILENAME')) {
-      return targets.length ? ok(`${this.profiles.get(targets[0])!.keyfile}\n`) : fail('Error: no such connection profile.');
+    if (verb === 'connection show' && args.includes('UUID,FILENAME')) {
+      return ok([...this.profiles].map(([u, p]) => `${u}:${p.keyfile}\n`).join(''));
+    }
+    if (verb === 'connection show' && args.includes('GENERAL.STATE')) {
+      if (!targets.length) return fail('Error: no such connection profile.');
+      if (this.activating.has(targets[0])) return ok('GENERAL.STATE:activating\n');
+      return ok(this.active.has(targets[0]) ? 'GENERAL.STATE:activated\n' : '');
     }
     if (verb === 'connection show') {
       const rows = [['bridge-publicBridge', 'ffffffff-0000-4000-8000-000000000000'],
@@ -138,9 +150,14 @@ export class FakeNm {
     if (verb === 'connection modify' && args.includes('connection.id')) {
       this.profiles.get(targets[0])!.id = args[args.indexOf('connection.id') + 1];
     }
-    if (verb === 'connection up') await this.activate(targets[0]);
+    if (verb === 'connection up' && this.upOutcome === 'activated') await this.activate(targets[0]);
+    if (verb === 'connection up' && this.upOutcome === 'stuck') {
+      this.active.add(targets[0]);
+      this.activating.add(targets[0]);
+    }
     if (verb === 'connection down') {
       this.active.delete(targets[0]);
+      this.activating.delete(targets[0]);
       if (this.downRemovesDevice) await fs.rm(this.device(), { recursive: true, force: true });
     }
     return ok();

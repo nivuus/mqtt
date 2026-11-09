@@ -142,5 +142,35 @@
     "command": "nmcli -g UUID connection show --active",
     "rc": 0,
     "stderr": ""
+  },
+  "activation.nmcli-up": {
+    "state": "right after up, wrong or right password alike (18-26 ms)",
+    "command": "nmcli connection up uuid <u> ifname publicBridge",
+    "rc": 0,
+    "stderr": ""
+  },
+  "activating.nmcli-general-state": {
+    "state": "VPN activating (first ~1.5 s, or until AUTH_FAILED)",
+    "command": "nmcli -t -f GENERAL.STATE connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "active.nmcli-general-state": {
+    "state": "tunnel up and healthy",
+    "command": "nmcli -t -f GENERAL.STATE connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "auth-failed.nmcli-general-state": {
+    "state": "wrong password: OpenVPN AUTH_FAILED, NM removed the active connection 2.6 s after up",
+    "command": "nmcli -t -f GENERAL.STATE connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
+  },
+  "activating.nmcli-status-no-vpnstate": {
+    "state": "VPN activating",
+    "command": "nmcli -t -f vpn.data,GENERAL.STATE,IP4.DNS connection show uuid <u>",
+    "rc": 0,
+    "stderr": ""
   }
 }

@@ -7,6 +7,7 @@
  * failure throws with nmcli's stderr.
  */
 import { readDesiredEnabled } from './desiredState';
+import { waitForActivation } from './nmActivation';
 import { nmcli, NmcliError, withStagedFile } from './nmcli';
 import { writeVpnCredentials } from './nmSecrets';
 import { GuestVpnConfig, profileSettingsArgs } from './nmProfileSettings';
@@ -114,11 +115,15 @@ export class NmGuestVpn {
     }
   }
 
-  /** Activates the VPN on the guest bridge (the WAN is not NM-managed, so NM needs a base). */
+  /**
+   * Activates the VPN on the guest bridge (the WAN is not NM-managed, so NM needs a base) and
+   * resolves only once NM reports it activated; nmcli returns before that (nmActivation.ts).
+   */
   async up(): Promise<void> {
     try {
       const uuid = await this.requireLiveUuid();
       await nmcli(['connection', 'up', 'uuid', uuid, 'ifname', this.cfg.bridge], UP_TIMEOUT_MS);
+      await waitForActivation(this.env, uuid);
       this.lastError = undefined;
     } catch (err) {
       this.lastError = err instanceof NmcliError ? err.stderr : (err as Error).message;

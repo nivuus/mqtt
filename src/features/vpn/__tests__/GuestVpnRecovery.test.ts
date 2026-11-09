@@ -119,7 +119,8 @@ describe('GuestVpn recovery', () => {
   it('failed activations back off 15 s, 30 s, 60 s... and publish next_attempt', async () => {
     await writeDesiredEnabled(h.nm.cfg.stateFile, true);
     await h.nm.addProfile(ID, ID);
-    h.nm.override = args => (args.includes('up') ? fail('Error: auth failed') : undefined);
+    // As on the bench with a wrong password: `nmcli connection up` returns 0, NM drops the VPN.
+    h.nm.upOutcome = 'dropped';
     const attemptsAt: number[] = [];
     for (let t = 0; t <= 120; t += 15) {
       const before = h.upCalls();
