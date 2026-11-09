@@ -438,7 +438,10 @@ wizard's vm handlers; `runVmAction` throws when virsh fails (`execute_argv` neve
 
 **`postinst` enables the unit by name** (`systemctl enable mqtt-system-agent.service`), never
 by path: enabling `/lib/systemd/system/...` links a foreign unit into `/etc/systemd/system`,
-and `dpkg -P` then fails (reproduced and fixed on the bench, 2026-11-09).
+and `dpkg -P` then fails (reproduced and fixed on the bench, 2026-11-09). `postinst.sh` runs on
+install and upgrade (`--after-install` and `--after-upgrade`), so an upgrade repairs an old
+path-enabled host. fpm calls the `prerm.sh` body with no arguments, on removal only: never
+test `$1` there.
 
 **RF coexistence (do not break):** hostapd 2.4 GHz is **pinned to channel 6** with `[HT40+]`
 deliberately removed, because Zigbee sits on ch 25 (2475 MHz) and Thread on ch 21

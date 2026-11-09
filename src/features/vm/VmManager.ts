@@ -151,14 +151,15 @@ export class VmManager extends BaseFeature {
     try {
       // Passed as argv (no shell) so the VM name cannot inject a command; throws on failure.
       const cmdResult = await runVmAction(action, vmName);
+      if (cmdResult.stderr.trim()) logger.warn(`VM '${vmName}': ${action} stderr: ${cmdResult.stderr.trim()}`);
       logger.info(`VM '${vmName}': ${action} sent. Triggering update. Output: ${cmdResult.stdout.trim()}`);
       await this.updateVmState(vmName);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`VM '${vmName}': ${action} failed: ${errorMessage}`);
-      const vmObjectId = vmName.replace(/[^a-zA-Z0-9_-]/g, '_');
-      await this.publishState(`${this.featureName}/${vmObjectId}/state`, 'error', true);
-      await this.publishAttributes(`${this.featureName}/${vmObjectId}/attributes`, { error: `Command failed: ${errorMessage}` }, true);
+      // The VM's real state is unchanged by a refused command (e.g. START on a running VM):
+      // publish it, with the failure as an attribute.
+      await this.updateVmState(vmName, undefined, `Command failed: ${errorMessage}`);
     }
   }
 
@@ -191,10 +192,10 @@ export class VmManager extends BaseFeature {
     }
   }
 
-  private async updateVmState(vmName: string, state?: string): Promise<void> {
+  private async updateVmState(vmName: string, state?: string, commandError?: string): Promise<void> {
     const vmObjectId = vmName.replace(/[^a-zA-Z0-9_-]/g, '_');
     let currentState = state;
-    let attributes: { [key: string]: any } = {};
+    let attributes: { [key: string]: any } = commandError ? { error: commandError } : {};
 
     if (!currentState) { // If state not provided, fetch it
         try {

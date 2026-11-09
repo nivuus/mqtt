@@ -36,6 +36,8 @@ echo "Ensured /opt/mqtt-system-agent/config directory exists."
 echo "Reloading systemd daemon..."
 systemctl daemon-reload
 
+# fpm runs this script on install (--after-install) AND upgrade (--after-upgrade), so an
+# upgrade also repairs a host enabled by path by an older package.
 # Enable by unit NAME, never by path: with merged /usr, /lib/systemd/system is not a unit
 # search path, so `systemctl enable /lib/...` links the unit into /etc/systemd/system as a
 # foreign file; `systemctl disable` (prerm) then refuses it and `dpkg -P` fails.
