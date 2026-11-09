@@ -5,7 +5,7 @@ import { MqttClient, FeatureConfig, HaDiscoveryPayload } from '../../core/types'
 import { execute_stream_command } from '../../utils/exec_stream'; // Changed import
 import { ChildProcess } from 'child_process';
 import logger from '../../utils/logger';
-import { parseClamdDetection, DetectionDeduper } from './clamavDetection';
+import { parseClamdDetection, DetectionDeduper, CLAMD_JOURNAL_FOLLOW_ARGS } from './clamavDetection';
 
 interface EventMonitorFeatureConfig extends FeatureConfig {
   fail2ban_log?: string;
@@ -264,10 +264,21 @@ export class EventMonitor extends BaseFeature {
 
   private startLogWatcher(logPath: string, eventTypePrefix: string, lineParser: (line: string) => object | null): void {
     if (!logPath) return;
+    this.startStreamWatcher(logPath, 'tail', ['-F', '-n', '0', logPath], eventTypePrefix, lineParser); // -n 0 to only get new lines
+  }
 
+  // Runs a long-lived command that prints one log line per line on stdout
+  // (tail -F on a file, journalctl -f on the journal) and feeds each line to the parser.
+  private startStreamWatcher(
+    source: string,
+    command: string,
+    args: string[],
+    eventTypePrefix: string,
+    lineParser: (line: string) => object | null
+  ): void {
     try {
-      logger.info(`Starting log watcher for ${logPath} (${eventTypePrefix})`);
-      const tailProcess = execute_stream_command('tail', ['-F', '-n', '0', logPath]); // -n 0 to only get new lines
+      logger.info(`Starting log watcher for ${source} (${eventTypePrefix})`);
+      const tailProcess = execute_stream_command(command, args);
       this.logWatchers.push(tailProcess);
 
       tailProcess.stdout?.on('data', (data: Buffer) => {
@@ -286,21 +297,21 @@ export class EventMonitor extends BaseFeature {
       });
 
       tailProcess.stderr?.on('data', (data: Buffer) => {
-        logger.warn(`Stderr from tail for ${logPath}: ${data.toString()}`);
+        logger.warn(`Stderr from log watcher for ${source}: ${data.toString()}`);
       });
 
       tailProcess.on('exit', (code, signal) => {
-        logger.info(`Log watcher for ${logPath} exited with code ${code}, signal ${signal}.`);
+        logger.info(`Log watcher for ${source} exited with code ${code}, signal ${signal}.`);
         // Optionally, try to restart it, or remove from this.logWatchers
         this.logWatchers = this.logWatchers.filter(p => p !== tailProcess);
         // Basic restart logic (could be improved with backoff)
         if (!this.shuttingDown) {
-            logger.info(`Restarting log watcher for ${logPath}...`);
-            setTimeout(() => this.startLogWatcher(logPath, eventTypePrefix, lineParser), 5000);
+            logger.info(`Restarting log watcher for ${source}...`);
+            setTimeout(() => this.startStreamWatcher(source, command, args, eventTypePrefix, lineParser), 5000);
         }
       });
     } catch (error) {
-      logger.error(`Failed to start log watcher for ${logPath}:`, error);
+      logger.error(`Failed to start log watcher for ${source}:`, error);
     }
   }
 
@@ -371,10 +382,13 @@ export class EventMonitor extends BaseFeature {
         return null;
       });
     }
-    // ClamAV detections, live. clamd logs to syslog every detection, on-demand
-    // and on-access alike, twice per detection (hence the deduper). Published
-    // as event type "clamav_virus", which feeds last_clamav_virus_event.
-    this.startLogWatcher(DEFAULT_SYSLOG, 'clamav', (line) => {
+    // ClamAV detections, live. clamd logs every detection, on-demand and
+    // on-access alike, twice per detection (hence the deduper). Published as
+    // event type "clamav_virus", which feeds last_clamav_virus_event.
+    // Read from the journal, not /var/log/syslog: rsyslog may buffer that file
+    // (OMFileFlushInterval 60 on the reference host delayed alerts by up to a
+    // minute), while journalctl -f hands each entry over within a second.
+    this.startStreamWatcher('journal (clamd)', 'journalctl', CLAMD_JOURNAL_FOLLOW_ARGS, 'clamav', (line) => {
       const detection = parseClamdDetection(line);
       if (!detection || this.clamavDeduper.isDuplicate(detection)) return null;
       return { subType: 'virus', ...detection };
