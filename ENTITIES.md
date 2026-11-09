@@ -90,6 +90,29 @@ For each WiFi network (e.g., network_1, network_2):
 
 ---
 
+## Guest VPN
+
+**Feature:** `guest_vpn` (`src/features/vpn/GuestVpn.ts`). Topics are under `system_agent/nivuus/guest_vpn/`.
+The `.ovpn` profile is uploaded over the WebSocket API, never through MQTT.
+
+| Entity ID | Type | Topic | Description |
+|-----------|------|-------|-------------|
+| `switch.nivuus_network_guest_vpn_switch` | Switch | `switch/state`, command `switch/set` (`ON`/`OFF`) | Owner's on/off choice (`None` = on/off file unreadable) |
+| `sensor.nivuus_network_guest_vpn_state_sensor` | Sensor (enum) | `state/state`, `state/attributes` | `connected` (NM activated **and** healthy: table-200 default route, rule 100, pushed DNS answers through the tun), `connecting`, `disabled`, `no_config`, `error`. Untranslated codes in HA (MQTT discovery has no translation keys) |
+| `sensor.nivuus_network_guest_vpn_exit_ip_sensor` | Sensor | `exit_ip/state` | Exit IP measured through the tunnel (unknown unless connected). Reported only: an ipify failure never changes the state |
+| `binary_sensor.nivuus_network_guest_vpn_on_orange_sensor` | Binary Sensor | `on_orange/state` | ON whenever the state is not `connected` (guests leave through Orange) |
+
+**State Sensor Attributes:**
+- `last_error`: NetworkManager's reason for the last failure (activation, duplicate profiles), or the failed health check of an activated tunnel
+- `remote`: VPN server of the profile
+- `dns`: DNS servers the tunnel pushed
+- `exit_ip_error`: why the exit IP could not be measured (reported only)
+- `dns_error`: the guest DNS table could not be applied, or guests resolve outside the tunnel
+- `action_error`: a failed switch command, supervision step or on/off file read or write (a failed write stays until a later write succeeds)
+- `next_attempt`: ISO time of the next activation attempt while failures back off (15 s doubling, 5 min cap)
+
+---
+
 ## Firewall Management
 
 **Feature:** `firewalld_manager`

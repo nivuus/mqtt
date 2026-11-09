@@ -1,0 +1,11 @@
+cb69ed8d-87c0-4f61-b4f8-c0c32af4b8b7:/etc/NetworkManager/system-connections/bridge-localBridge.nmconnection
+6a4a63db-cc49-443f-91f8-e31575763de8:/etc/NetworkManager/system-connections/bridge-publicBridge.nmconnection
+92e984fe-f220-44b9-bc75-1e52fd3e3917:/etc/NetworkManager/system-connections/bridge-internalBridge.nmconnection
+d5aa835b-1409-4351-8cbe-4f9382cf89b8:/etc/NetworkManager/system-connections/nivuus-guest-vpn_a.nmconnection
+19f292a7-dcb1-4134-9dd2-29d328113151:/etc/NetworkManager/system-connections/bridge-slave-enp15s0.nmconnection
+ca4c7893-4c46-4241-b103-5069e2f3dec7:/etc/NetworkManager/system-connections/enp5s0.nmconnection
+248a3210-4324-4436-b8bd-5f2f561a8671:/etc/NetworkManager/system-connections/enp5s0.835.nmconnection
+d2de4efc-ddc4-414c-830f-098015a6f5ab:/etc/NetworkManager/system-connections/vnet17.nmconnection
+cd64efaf-9ee9-465c-840a-bd4cf2337c40:/run/NetworkManager/system-connections/nvguest0.nmconnection
+a9c7adcb-1b89-481d-a250-93c32cf2a533:/run/NetworkManager/system-connections/lo.nmconnection
+cf25d7d2-6828-4d5a-bb8b-12eb7f0e17ff:/run/NetworkManager/system-connections/docker0.nmconnection

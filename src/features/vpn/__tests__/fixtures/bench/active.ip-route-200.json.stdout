@@ -1,0 +1,1 @@
+[{"dst":"default","gateway":"10.20.172.17","dev":"nvguest0","protocol":"static","metric":50,"flags":[]},{"dst":"10.20.172.1","gateway":"10.20.172.17","dev":"nvguest0","protocol":"static","metric":50,"flags":[]},{"dst":"10.20.172.17","dev":"nvguest0","protocol":"kernel","scope":"link","prefsrc":"10.20.172.18","metric":50,"flags":[]}]
