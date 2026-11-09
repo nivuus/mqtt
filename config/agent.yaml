@@ -108,8 +108,9 @@ features:
     # pap_secrets_path: "/etc/ppp/pap-secrets"
   guest_vpn:
     enabled: true
-    # Each tick publishes the state, re-applies the DNS table and, while the owner switched
-    # the VPN on and the profile is inactive, runs one activation attempt.
+    # Each tick checks the tunnel's health, publishes the state, re-applies the DNS table and,
+    # while the owner switched the VPN on and the profile is inactive, runs one activation
+    # attempt when the backoff allows it. Two unhealthy ticks in a row restart the tunnel.
     update_interval_seconds: 15
     bridge: publicBridge
     # state_file: "/var/lib/mqtt-system-agent/guest-vpn.json" # the owner's on/off choice

@@ -304,17 +304,37 @@ Topic notes in `docs/claude/`:
 ### Guest VPN (`src/features/vpn/`, key `guest_vpn`)
 Routes the `publicBridge` guest network through an OpenVPN tunnel. Entities: `ENTITIES.md`; bench
 findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/claude/guest-vpn-host-notes.md).
-- Config (`config/agent.yaml`): `interval` 15 s, `bridge: publicBridge`, optional `state_file`.
+- Config (`config/agent.yaml`): `update_interval_seconds` 15, `bridge: publicBridge`, optional `state_file`.
 - NM profile `nivuus-guest-vpn`, always addressed by UUID; staging copies use the basenames `_a`/`_b`.
 - Tunnel `nvguest0` (dev-type tun), routing table 200, `ip rule`s on `iif publicBridge`. The tun sits
   in the existing zone `external`: no zone or policy of its own, and the agent never calls `firewall-cmd`.
 - nft table `inet nivuus_guest_vpn` (guest DNS DNAT) is owned and rewritten by the agent only.
 - The owner's on/off choice lives in `/var/lib/mqtt-system-agent/guest-vpn.json`; the supervisor
-  enforces it every tick in both directions (up when wanted, down when not).
+  enforces it every tick in both directions (up when wanted, down when not). Failed activations back
+  off (15 s doubling, cap 5 min, `next_attempt` attribute; reset by a switch command or an import).
+- `connected` = NM activated **and** healthy (`tunnelHealth.ts`): default route via `nvguest0` in
+  table 200, rule 100 `iif publicBridge lookup 200`, and the first pushed IPv4 DNS answers a root NS
+  query from a socket bound to the tun (`dnsProbe.ts`, python3 `SO_BINDTODEVICE`; `dig -b` would
+  follow the main table out of the uplink). NM can stay "activated" after OpenVPN reopened the tun and
+  NM lost table 200 (bench), and `curl --interface` still succeeds then. The DNS DNAT follows health;
+  the ipify exit IP is reported only. Two unhealthy ticks in a row → `down()`, next due tick `up()`.
+- Expected guest fallback when the provider dies silently: DNS table emptied on the first failing
+  tick, tunnel down on the second, so guests are on Orange 15–30 s (+ up to 2×3 s probe timeouts)
+  after the outage; OpenVPN alone (`ping-restart` 120 s + `ping-exit` 60 s) took ~3 min.
+- Rule 99 `iif publicBridge lookup main suppress_prefixlength 0` lets guest traffic to any on-link or
+  more specific main-table prefix (the WAN /23, Docker pools, other LANs) bypass the tunnel; guest
+  isolation from those networks is firewalld's job, not the routing's.
+- The tunnel address is reachable inbound for whatever zone `external` opens: same exposure as the
+  WAN (ruled trade-off of joining `external` rather than a zone of its own).
+- State enum values (`connected`, `no_config`...) are codes shown untranslated in HA: MQTT discovery
+  has no translation keys.
+- `prerm` on `remove` (not `upgrade`) takes the profile down and deletes the nft table, guarded.
 - WebSocket: `vpn.import_profile` (uploads the `.ovpn`; never over MQTT) and `vpn.get_status`.
 - **Never reload firewalld live.** On 2026-11-09 (12:09) a `firewall-cmd --reload` cut the home LAN
   (see host notes); this includes `FirewallManager` and the wizard handlers. Restart-time only.
-- Package depends on `network-manager-openvpn` (`package:deb`).
+- Package depends on `network-manager-openvpn`, `python3` (DNS probe) and `iproute2` (`package:deb`).
+- Tick commands that only read (`nmcli connection show`, `ip -j`, probes) pass `quiet` to `execute_argv`
+  (attempt logged at debug); every other caller keeps the info line.
 
 ### Common Patterns Across Features
 
