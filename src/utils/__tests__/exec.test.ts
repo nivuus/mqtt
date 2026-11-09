@@ -1,6 +1,6 @@
 // src/utils/__tests__/exec.test.ts
 
-import { execute_argv, execute_command } from '../exec';
+import { execute_argv, execute_argv_input, execute_command } from "../exec";
 import logger from '../logger';
 
 beforeEach(() => {
@@ -47,6 +47,15 @@ describe('execute_argv — shell metacharacters are inert', () => {
     expect(result.exitCode).toBe(1);
   });
 
+  it('reports a program that cannot be spawned as spawnError, distinct from an exit code', async () => {
+    const missing = await execute_argv('definitely-not-a-real-program-xyz', []);
+    expect(missing).toMatchObject({ exitCode: 1, spawnError: 'ENOENT' });
+    const failed = await execute_argv('false', []);
+    expect(failed.spawnError).toBeUndefined();
+    const missingWithInput = await execute_argv_input('definitely-not-a-real-program-xyz', [], 'x');
+    expect(missingWithInput.spawnError).toBe('ENOENT');
+  });
+
   it('returns exit code 1 when the program does not exist (ENOENT)', async () => {
     const result = await execute_argv('this-binary-does-not-exist-xyz', []);
     expect(result.exitCode).toBe(1);
@@ -80,4 +89,64 @@ describe('force-kill of a child that outlives its timeout', () => {
 
     expect(result.exitCode).not.toBe(0);
   }, TEST_TIMEOUT_MS);
+});
+
+describe("execute_argv_input — stdin is fed, never logged", () => {
+  it("feeds the input on stdin", async () => {
+    const result = await execute_argv_input("cat", [], "table inet t\n");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("table inet t\n");
+  });
+
+  it("propagates a non-zero exit code", async () => {
+    const result = await execute_argv_input("sh", ["-c", "cat >/dev/null; exit 3"], "x");
+    expect(result.exitCode).toBe(3);
+  });
+
+  it("never logs the input", async () => {
+    const secret = "do-not-log-this-input";
+    await execute_argv_input("sh", ["-c", "cat >/dev/null; exit 2"], secret);
+    const logged = [logger.debug, logger.info, logger.warn, logger.error]
+      .flatMap(fn => (fn as jest.Mock).mock.calls.flat().map(String));
+    expect(logged.some(line => line.includes(secret))).toBe(false);
+  });
+
+  const logged = () => [logger.debug, logger.info, logger.warn, logger.error]
+    .flatMap(fn => (fn as jest.Mock).mock.calls.flat().map(String));
+
+  it("never logs input a failing child echoes on stderr, but returns it", async () => {
+    const secret = "secret-echoed-on-stderr";
+    const result = await execute_argv_input("sh", ["-c", "cat >&2; exit 1"], secret);
+    expect(result).toEqual({ stdout: "", stderr: secret, exitCode: 1 });
+    expect(logged().some(line => line.includes(secret))).toBe(false);
+  });
+
+  it("never logs input a succeeding child echoes on stdout, but returns it", async () => {
+    const secret = "secret-echoed-on-stdout";
+    const result = await execute_argv_input("cat", [], secret);
+    expect(result.stdout).toBe(secret);
+    expect(logged().some(line => line.includes(secret))).toBe(false);
+  });
+});
+
+describe("quiet option — routine read-only calls log at debug", () => {
+  const attempted = (spy: jest.SpyInstance) =>
+    spy.mock.calls.filter(args => String(args[0]).startsWith("Attempting to execute"));
+
+  it("logs the attempt at info by default", async () => {
+    await execute_argv("true", []);
+    expect(attempted(logger.info as unknown as jest.SpyInstance)).toHaveLength(1);
+    expect(attempted(logger.debug as unknown as jest.SpyInstance)).toHaveLength(0);
+  });
+
+  it("logs the attempt at debug only when quiet", async () => {
+    await execute_argv("true", [], { quiet: true });
+    expect(attempted(logger.info as unknown as jest.SpyInstance)).toHaveLength(0);
+    expect(attempted(logger.debug as unknown as jest.SpyInstance)).toHaveLength(1);
+  });
+
+  it("still warns about a failure when quiet", async () => {
+    await execute_argv("false", [], { quiet: true });
+    expect(logger.warn).toHaveBeenCalled();
+  });
 });

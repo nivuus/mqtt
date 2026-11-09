@@ -1,0 +1,3 @@
+vpn.data:auth = SHA256, ca = /root/.local/share/networkmanagement/certificates/nm-openvpn/nivuus-guest-vpn_a-ca.pem, challenge-response-flags = 2, cipher = AES-256-GCM, connection-type = password, dev = nvguest0, dev-type = tun, password-flags = 0, ping-exit = 60, remote = nl2.webunlim.com:1194, remote-cert-tls = server, reneg-seconds = 0, ta = /root/.local/share/networkmanagement/certificates/nm-openvpn/nivuus-guest-vpn_a-tls-auth.pem, ta-dir = 1, username = guest@example.com
+GENERAL.STATE:activated
+IP4.DNS[1]:10.20.128.1
