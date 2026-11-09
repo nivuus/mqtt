@@ -11,6 +11,10 @@ export interface ClamdDetection {
   virus_name: string;
 }
 
+// journalctl arguments that follow clamd live: only entries written from now
+// on (-n 0), in short-iso, a format parseClamdDetection reads.
+export const CLAMD_JOURNAL_FOLLOW_ARGS = ['-f', '-n', '0', '-t', 'clamd', '--no-pager', '--output=short-iso'];
+
 // clamd line, syslog or journald prefix in front of it:
 //   clamd[3283275]: /root/x.txt: Eicar-Test-Signature(44d88612fea8a8f36de82e1278abb02f:68) FOUND
 // The "(hash:size)" suffix only appears with ExtendedDetectionInfo. The file

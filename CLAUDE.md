@@ -285,7 +285,10 @@ All entities are linked to a single device in HA with:
 ### ClamAV detections (`src/features/events/EventMonitor.ts`, `clamavDetection.ts`)
 
 - Source = **clamd's own log lines** (`clamd[pid]: <file>: <sig>[(hash:size)] FOUND`), live from
-  `/var/log/syslog`, last one at startup from `journalctl -t clamd --grep 'FOUND$'`. clamd sees
+  the journal (`journalctl -f -n 0 -t clamd`), last one at startup from
+  `journalctl -t clamd --grep 'FOUND$'`. **Not from `/var/log/syslog`**: rsyslog buffers that file
+  (`OMFileFlushInterval 60` in the host's `/etc/rsyslog.d/00-reduce-disk-writes.conf`), which
+  delayed alerts by up to a minute; `journalctl -f` delivers within a second. clamd sees
   every detection (clamdscan AND clamonacc, which delegates to clamd); `clamonacc.log` only ever
   saw on-access ones and its last 100 lines kept hours, not weeks. Published as event type
   `clamav_virus` → topic `.../events/clamav_virus` + sensor `last_clamav_virus_event`.
