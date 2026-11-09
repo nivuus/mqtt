@@ -63,10 +63,20 @@ describe("writeVpnCredentials", () => {
   });
 
   it("escapes values the way GKeyFile reads them, keeping any script intact", async () => {
-    await writeVpnCredentials(file, { username: "ユーザー", password: " a\\b\nc\tdéم" });
+    await writeVpnCredentials(file, { username: "ユーザー", password: " a\\b cdéمש " });
     const text = await fs.readFile(file, "utf8");
-    expect(section(text, "vpn-secrets")).toEqual(["password=\\sa\\\\b\\nc\\tdéم"]);
+    expect(section(text, "vpn-secrets")).toEqual(["password=\\sa\\\\b cdéمש "]);
     expect(section(text, "vpn")).toContain("username=ユーザー");
+  });
+
+  it.each([
+    ["password", { username: "u", password: "a\u0000b" }],
+    ["password", { username: "u", password: "line\nbreak" }],
+    ["username", { username: "u\tser", password: "p" }],
+    ["username", { username: "u\u001bser", password: "p" }],
+  ])("rejects control characters in the %s and leaves the file untouched", async (field, creds) => {
+    await expect(writeVpnCredentials(file, creds)).rejects.toThrow(new RegExp(`${field}.*control character`));
+    expect(await fs.readFile(file, "utf8")).toBe(KEYFILE);
   });
 
   it("refuses a file that is not a VPN keyfile", async () => {

@@ -1,6 +1,6 @@
 /**
- * What the guest VPN profile looks like in NetworkManager: the configuration, the settings
- * applied after import, and the preparation of the profile text.
+ * What the guest VPN profile looks like in NetworkManager: the configuration and the settings
+ * applied after import.
  *
  * Every value comes from the bench (docs/claude/guest-vpn-host-notes.md, steps 3 to 5).
  */
@@ -8,7 +8,7 @@
 export interface GuestVpnConfig {
   /** Guest bridge: activation base device and policy-rule selector. */
   bridge: string;
-  /** NM connection id; the uploaded profile is staged under this basename. */
+  /** NM connection id of the live profile; uploads are staged as `<id>_a` / `<id>_b`. */
   connectionId: string;
   /** Fixed tun name, so the permanent firewalld binding in external.xml can name it. */
   device: string;
@@ -62,19 +62,4 @@ export function profileSettingsArgs(cfg: GuestVpnConfig): string[] {
     // The provider pushes IPv6 routes that would carry guest IPv6 into the tunnel un-NATed.
     'ipv6.ignore-auto-routes', 'yes',
   ];
-}
-
-/**
- * Replaces the profile's `ca <file>` directive with an inline `<ca>` block. NM stores a
- * `ca <file>` as a reference to that path and copies nothing, so a CA staged in a temporary
- * directory would vanish; an inline block is copied by NM into its own certificate store.
- */
-export function inlineCa(profile: string, ca: string): string {
-  const pem = ca.replace(/^﻿/, '').replace(/\r\n?/g, '\n').trim();
-  return profile
-    .split('\n')
-    .map(line => (line.trim().split(/\s+/)[0].replace(/^--/, '').toLowerCase() === 'ca'
-      ? `<ca>\n${pem}\n</ca>`
-      : line))
-    .join('\n');
 }

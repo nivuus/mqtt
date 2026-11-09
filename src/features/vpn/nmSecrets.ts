@@ -7,7 +7,8 @@
  * other line stays byte for byte.
  *
  * Values are escaped as GLib's GKeyFile reads them (g_key_file_set_string), so a password in
- * any script, with backslashes or leading spaces, round-trips unchanged.
+ * any script, with backslashes or leading spaces, round-trips unchanged. C0 control
+ * characters are refused: NUL cannot be stored, and none belongs in a credential.
  */
 import { promises as fs } from 'fs';
 import { writeFileAtomic0600 } from './atomicFile';
@@ -57,7 +58,14 @@ function setKey(lines: string[], section: string, key: string, value: string): s
   return [...lines.slice(0, range.start + 1), ...body, ...lines.slice(range.end)];
 }
 
+// C0 control characters (NUL, line breaks, tab, ESC...). Every other code point, in any
+// script, is accepted as is.
+const C0_CONTROL = /[\u0000-\u001F]/;
+
 export async function writeVpnCredentials(keyfilePath: string, creds: VpnCredentials): Promise<void> {
+  for (const field of ['username', 'password'] as const) {
+    if (C0_CONTROL.test(creds[field])) throw new Error(`${field} contains a control character`);
+  }
   const original = await fs.readFile(keyfilePath, 'utf8');
   let lines = original.split('\n');
   if (!sectionRange(lines, 'vpn')) {
