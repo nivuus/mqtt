@@ -185,6 +185,10 @@ All entities are linked to a single device in HA with:
 └── bin/                   # Executable wrapper
 ```
 
+Topic notes in `docs/claude/`:
+- `guest-vpn-host-notes.md` — guest VPN bench findings: firewalld reload failure (12:09 incident), NM/OpenVPN behaviour
+- `guest-vpn-bench.md` — how to rebuild the isolated bench VM (`scripts/bench/`, not packaged)
+
 ## Critical Implementation Notes
 
 1. **Entity Consistency**: The `device_info.identifiers` must remain consistent between normal and error configurations to prevent duplicate Home Assistant entities
