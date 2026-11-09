@@ -25,6 +25,6 @@
     "node_modules", // Exclude node_modules
     "dist", // Exclude the output directory
     "**/*.test.ts", // Exclude test files from main build if tests are run separately
-    "src/mqtt/__tests__" // Exclude test directory if present
+    "src/**/__tests__" // Test helpers and fixtures never ship in the executable
   ]
 }
