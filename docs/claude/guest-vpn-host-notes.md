@@ -9,7 +9,9 @@ firewalld journal) taken before, during and after the VM runs is identical to th
 
 ## Read this first
 
-1. **Any `firewall-cmd --reload` on the live host today cuts the home LAN**, exactly as at 12:09,
+1. **Fixed on 2026-11-09, see [guest-vpn-live.md](guest-vpn-live.md): the stale `enp15s0` line
+   was removed and a controlled reload succeeded at 19:52.** Before that fix, any
+   `firewall-cmd --reload` on the live host cut the home LAN, exactly as at 12:09,
    with or without new zones or policies. This includes the mqtt agent's own `FirewallManager`
    and wizard handlers (`src/features/firewall/FirewallManager.ts`,
    `src/websocket/wizard/firewallHandlers.ts`), and Docker if its `docker` zone or
