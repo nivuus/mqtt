@@ -1,4 +1,5 @@
 // src/core/types.ts
+import { RawWebSocketConfig } from '../websocket/serverConfig';
 
 import { IClientPublishOptions, IClientSubscribeOptions, PacketCallback, ClientSubscribeCallback } from 'mqtt';
 import { EventEmitter } from 'node:events'; // Import EventEmitter
@@ -49,24 +50,6 @@ export interface FeatureConfig {
 }
 
 /**
- * WebSocket server configuration for the Wizard API.
- */
-export interface WebSocketConfig {
-  enabled: boolean;
-  port: number;
-  host: string;
-  auth: {
-    type: 'token' | 'none';
-    token?: string;
-  };
-  ssl?: {
-    enabled: boolean;
-    cert?: string;
-    key?: string;
-  };
-}
-
-/**
  * Main agent configuration structure, loaded from agent.yaml.
  */
 export interface AgentConfig {
@@ -89,7 +72,7 @@ export interface AgentConfig {
     username: string;
     password: string;
   };
-  websocket?: WebSocketConfig;
+  websocket?: RawWebSocketConfig;
   features: {
     [featureName: string]: FeatureConfig;
   };

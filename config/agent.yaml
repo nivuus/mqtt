@@ -31,14 +31,22 @@ device_info:
 # WebSocket Server Configuration for Wizard API
 # This allows direct communication between Home Assistant and the agent
 # without going through MQTT (useful for wizard/setup flows)
+# This channel runs root-level actions: the server refuses to start unless a real
+# token is set. Provide it as NIVUUS_WS_TOKEN in /etc/mqtt-system-agent.env
+# (mode 600, survives .deb upgrades), at least 32 characters, e.g. the output
+# of `openssl rand -hex 32`. The placeholder below is never accepted.
 websocket:
   enabled: true
   port: 8766
-  host: "0.0.0.0"  # Listen on all interfaces (use 127.0.0.1 for localhost only)
+  # Home Assistant runs with network_mode: host and reaches the agent over
+  # loopback. Do not widen this without a host firewall rule limiting 8766.
+  host: "127.0.0.1"
   auth:
-    type: "token"  # "token" or "none"
-    token: "CHANGE_ME_WIZARD_TOKEN"  # Change this in production!
-    # Alternatively, use environment variable: ${NIVUUS_WS_TOKEN}
+    type: "token"  # the only supported type
+    token: "CHANGE_ME_WIZARD_TOKEN"  # placeholder, overridden by NIVUUS_WS_TOKEN
+  max_payload_bytes: 1048576  # largest accepted message (bytes)
+  auth_timeout_ms: 10000      # unauthenticated connections are closed after this
+  allowed_origins: []         # browser Origins allowed to connect (HA sends none)
 
 # Windows VM WinRM connection for GPU monitoring and streaming status
 windows_vm:

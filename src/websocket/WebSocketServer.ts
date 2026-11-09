@@ -1,386 +1,161 @@
 // src/websocket/WebSocketServer.ts
 
-import { WebSocketServer as WSServer, WebSocket } from 'ws';
+import { WebSocketServer as WSServer, WebSocket, RawData } from 'ws';
 import { randomUUID } from 'crypto';
-import { createServer as createHttpsServer, Server as HttpsServer } from 'https';
-import { createServer as createHttpServer, Server as HttpServer } from 'http';
-import { readFileSync, existsSync } from 'fs';
+import { createServer, IncomingMessage, Server as HttpServer } from 'http';
+import { AddressInfo, Socket } from 'net';
 import logger from '../utils/logger';
+import { WebSocketConfig, ConnectedClient, WizardEvent } from './types';
+import { isOriginAllowed } from './messageGuards';
+import { isLoopbackHost } from './serverConfig';
 import {
-  WebSocketConfig,
-  ConnectedClient,
-  WizardCommand,
-  WizardResponse,
-  AuthMessage,
-  AuthResponse,
-  WizardEvent,
-} from './types';
-import { WizardHandler } from './WizardHandler';
+  CommandHandler, closeUnauthenticated, handleClientMessage, sendAuthRequired, sendJson,
+} from './sessionProtocol';
+
+export type { CommandHandler } from './sessionProtocol';
+
+const PING_INTERVAL_MS = 30_000;
+const IDLE_TIMEOUT_MS = 60_000;
 
 /**
- * WebSocket server for the Nivuus Wizard API
- * Provides bidirectional real-time communication for system configuration
- * Supports both WS and WSS (secure) connections
+ * WebSocket server for the Nivuus Wizard API (used by Home Assistant).
+ * Every connection must present the shared token before any command runs; a
+ * wrong token, or none within `authTimeoutMs`, closes the connection.
  */
 export class WebSocketServer {
-  private server: WSServer | null = null;
-  private httpServer: HttpServer | HttpsServer | null = null;
-  private readonly config: WebSocketConfig;
+  private httpServer: HttpServer | null = null;
+  private wss: WSServer | null = null;
   private readonly clients: Map<WebSocket, ConnectedClient> = new Map();
-  private readonly wizardHandler: WizardHandler;
   private pingInterval: NodeJS.Timeout | null = null;
 
-  constructor(config: WebSocketConfig, wizardHandler: WizardHandler) {
-    this.config = config;
-    this.wizardHandler = wizardHandler;
+  constructor(private readonly config: WebSocketConfig, private readonly handler: CommandHandler) {}
+
+  /** Start listening; resolves once bound, rejects if the address cannot be bound. */
+  public start(): Promise<void> {
+    const { host, port, maxPayloadBytes } = this.config;
+    if (!isLoopbackHost(host)) {
+      logger.warn(`WebSocket server bound to non-loopback address ${host}: restrict it with the host firewall`);
+    }
+    const wss = new WSServer({ noServer: true, maxPayload: maxPayloadBytes });
+    const httpServer = createServer((_req, res) => {
+      res.writeHead(426, { Connection: 'close' }).end();
+    });
+    httpServer.on('upgrade', (req, socket, head) => this.handleUpgrade(req, socket as Socket, head));
+    wss.on('connection', (ws: WebSocket, req: IncomingMessage) => this.handleConnection(ws, req));
+    this.wss = wss;
+    this.httpServer = httpServer;
+
+    return new Promise((resolve, reject) => {
+      httpServer.once('error', reject);
+      httpServer.listen(port, host, () => {
+        httpServer.off('error', reject);
+        httpServer.on('error', (error) => logger.error(`WebSocket server error: ${error.message}`));
+        this.pingInterval = setInterval(() => this.pingClients(), PING_INTERVAL_MS);
+        logger.info(`WebSocket server listening on ws://${host}:${this.port}`);
+        resolve();
+      });
+    });
   }
 
-  /**
-   * Start the WebSocket server
-   */
-  public start(): void {
-    if (!this.config.enabled) {
-      logger.info('WebSocket server is disabled in config');
+  public stop(): Promise<void> {
+    if (this.pingInterval) clearInterval(this.pingInterval);
+    this.pingInterval = null;
+    this.clients.forEach((client, ws) => {
+      clearTimeout(client.authTimer);
+      // Close frame first, then drop the socket: waiting for every peer's
+      // close acknowledgement could hold a systemd stop for up to 30 s.
+      ws.close(1001, 'Server shutting down');
+      ws.terminate();
+    });
+    this.clients.clear();
+    this.wss?.close();
+    this.wss = null;
+    const httpServer = this.httpServer;
+    this.httpServer = null;
+    return new Promise((resolve) => {
+      if (!httpServer?.listening) return resolve();
+      httpServer.closeAllConnections();
+      httpServer.close(() => {
+        logger.info('WebSocket server stopped');
+        resolve();
+      });
+    });
+  }
+
+  /** Port actually bound (differs from the configured one when it is 0). */
+  public get port(): number {
+    const address = this.httpServer?.address() as AddressInfo | null;
+    return address ? address.port : this.config.port;
+  }
+
+  private handleUpgrade(req: IncomingMessage, socket: Socket, head: Buffer): void {
+    socket.on('error', (error) => logger.warn(`WebSocket upgrade socket error: ${error.message}`));
+    const wss = this.wss;
+    if (!wss) {
+      // Stopped: nothing will ever answer this upgrade.
+      socket.destroy();
       return;
     }
-
-    // Check for SSL certificates
-    const sslConfig = this.config.ssl;
-    const useSSL = sslConfig?.enabled &&
-      sslConfig.cert && existsSync(sslConfig.cert) &&
-      sslConfig.key && existsSync(sslConfig.key);
-
-    if (useSSL && sslConfig) {
-      // Create HTTPS server for WSS
-      try {
-        const httpsOptions = {
-          cert: readFileSync(sslConfig.cert!),
-          key: readFileSync(sslConfig.key!),
-        };
-        this.httpServer = createHttpsServer(httpsOptions);
-        this.server = new WSServer({ server: this.httpServer });
-
-        this.httpServer.listen(this.config.port, this.config.host, () => {
-          logger.info(`WebSocket server listening on wss://${this.config.host}:${this.config.port}`);
-        });
-      } catch (error) {
-        logger.error(`Failed to start WSS server: ${error}`);
-        logger.info('Falling back to WS (insecure) mode');
-        this.startInsecure();
-        return;
-      }
-    } else {
-      this.startInsecure();
+    const origin = req.headers.origin;
+    if (!isOriginAllowed(origin, this.config.allowedOrigins)) {
+      logger.warn(`WebSocket upgrade refused from ${socket.remoteAddress}: origin ${JSON.stringify(origin)} not allowed`);
+      socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+      return;
     }
-
-    this.server!.on('connection', (ws: WebSocket) => this.handleConnection(ws));
-    this.server!.on('error', (error: Error) => this.handleServerError(error));
-
-    // Ping clients every 30 seconds to keep connections alive
-    this.pingInterval = setInterval(() => this.pingClients(), 30000);
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
   }
 
-  /**
-   * Start insecure WS server
-   */
-  private startInsecure(): void {
-    this.server = new WSServer({
-      port: this.config.port,
-      host: this.config.host,
-    });
-
-    this.server.on('listening', () => {
-      logger.info(`WebSocket server listening on ws://${this.config.host}:${this.config.port}`);
-    });
-  }
-
-  /**
-   * Stop the WebSocket server
-   */
-  public stop(): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.pingInterval) {
-        clearInterval(this.pingInterval);
-        this.pingInterval = null;
-      }
-
-      // Close all client connections
-      this.clients.forEach((_, ws) => {
-        ws.close(1001, 'Server shutting down');
-      });
-      this.clients.clear();
-
-      const closeServer = () => {
-        if (this.httpServer) {
-          this.httpServer.close(() => {
-            logger.info('WebSocket server stopped');
-            this.httpServer = null;
-            this.server = null;
-            resolve();
-          });
-        } else {
-          logger.info('WebSocket server stopped');
-          this.server = null;
-          resolve();
-        }
-      };
-
-      if (this.server) {
-        this.server.close(closeServer);
-      } else {
-        closeServer();
-      }
-    });
-  }
-
-  /**
-   * Handle new WebSocket connection
-   */
-  private handleConnection(ws: WebSocket): void {
-    const clientId = randomUUID();
+  private handleConnection(ws: WebSocket, req: IncomingMessage): void {
     const client: ConnectedClient = {
-      id: clientId,
-      authenticated: this.config.auth.type === 'none',
+      id: randomUUID(),
+      authenticated: false,
+      remoteAddress: req.socket.remoteAddress ?? 'unknown',
       connectedAt: new Date(),
       lastActivity: new Date(),
-      subscriptions: new Set(),
+      authTimer: setTimeout(() => {
+        logger.warn(`WebSocket client ${client.id} (${client.remoteAddress}) did not authenticate in time`);
+        closeUnauthenticated(ws, 'Authentication timeout');
+      }, this.config.authTimeoutMs),
     };
-
     this.clients.set(ws, client);
-    logger.info(`WebSocket client connected: ${clientId} (auth required: ${!client.authenticated})`);
+    logger.info(`WebSocket client connected: ${client.id} from ${client.remoteAddress}`);
 
-    ws.on('message', (data: Buffer) => this.handleMessage(ws, client, data));
-    ws.on('close', () => this.handleClose(ws, client));
-    ws.on('error', (error: Error) => this.handleClientError(ws, client, error));
-    ws.on('pong', () => {
-      client.lastActivity = new Date();
+    ws.on('message', (data: RawData) => void handleClientMessage(ws, client, data, this.config.token, this.handler));
+    ws.on('close', () => {
+      clearTimeout(client.authTimer);
+      this.clients.delete(ws);
+      logger.info(`WebSocket client disconnected: ${client.id}`);
     });
-
-    // Send welcome message
-    if (client.authenticated) {
-      this.sendResponse(ws, {
-        id: 'welcome',
-        success: true,
-        data: { message: 'Connected to Nivuus Wizard API', clientId },
-      });
-    } else {
-      this.sendAuthRequired(ws);
-    }
+    ws.on('error', (error: Error) => logger.warn(`WebSocket client error (${client.id}): ${error.message}`));
+    ws.on('pong', () => { client.lastActivity = new Date(); });
+    sendAuthRequired(ws);
   }
 
-  /**
-   * Handle incoming message from client
-   */
-  private async handleMessage(ws: WebSocket, client: ConnectedClient, data: Buffer): Promise<void> {
-    client.lastActivity = new Date();
-
-    let message: unknown;
-    try {
-      message = JSON.parse(data.toString());
-    } catch {
-      this.sendResponse(ws, {
-        id: 'error',
-        success: false,
-        error: 'Invalid JSON message',
-      });
-      return;
-    }
-
-    // Handle authentication
-    if (this.isAuthMessage(message)) {
-      await this.handleAuth(ws, client, message);
-      return;
-    }
-
-    // Require authentication for all other messages
-    if (!client.authenticated) {
-      this.sendAuthRequired(ws);
-      return;
-    }
-
-    // Handle wizard commands
-    if (this.isWizardCommand(message)) {
-      await this.handleCommand(ws, client, message);
-      return;
-    }
-
-    this.sendResponse(ws, {
-      id: 'error',
-      success: false,
-      error: 'Unknown message type',
-    });
-  }
-
-  /**
-   * Handle authentication message
-   */
-  private async handleAuth(ws: WebSocket, client: ConnectedClient, message: AuthMessage): Promise<void> {
-    const isValid = this.config.auth.type === 'none' ||
-      (this.config.auth.type === 'token' && message.token === this.config.auth.token);
-
-    if (isValid) {
-      client.authenticated = true;
-      logger.info(`WebSocket client authenticated: ${client.id}`);
-      this.sendAuthResponse(ws, { type: 'auth_result', success: true });
-      this.sendResponse(ws, {
-        id: 'welcome',
-        success: true,
-        data: { message: 'Authenticated successfully', clientId: client.id },
-      });
-    } else {
-      logger.warn(`WebSocket authentication failed for client: ${client.id}`);
-      this.sendAuthResponse(ws, { type: 'auth_result', success: false, error: 'Invalid token' });
-    }
-  }
-
-  /**
-   * Handle wizard command
-   */
-  private async handleCommand(ws: WebSocket, client: ConnectedClient, command: WizardCommand): Promise<void> {
-    logger.debug(`Received command from ${client.id}: ${command.feature}.${command.action}`);
-
-    try {
-      const result = await this.wizardHandler.handleCommand(command);
-      this.sendResponse(ws, {
-        id: command.id,
-        success: true,
-        data: result,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error(`Error handling command ${command.feature}.${command.action}: ${errorMessage}`);
-      this.sendResponse(ws, {
-        id: command.id,
-        success: false,
-        error: errorMessage,
-      });
-    }
-  }
-
-  /**
-   * Handle client disconnect
-   */
-  private handleClose(ws: WebSocket, client: ConnectedClient): void {
-    logger.info(`WebSocket client disconnected: ${client.id}`);
-    this.clients.delete(ws);
-  }
-
-  /**
-   * Handle client error
-   */
-  private handleClientError(ws: WebSocket, client: ConnectedClient, error: Error): void {
-    logger.error(`WebSocket client error (${client.id}): ${error.message}`);
-  }
-
-  /**
-   * Handle server error
-   */
-  private handleServerError(error: Error): void {
-    logger.error(`WebSocket server error: ${error.message}`);
-  }
-
-  /**
-   * Send response to client
-   */
-  private sendResponse(ws: WebSocket, response: WizardResponse): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(response));
-    }
-  }
-
-  /**
-   * Send auth required message
-   */
-  private sendAuthRequired(ws: WebSocket): void {
-    ws.send(JSON.stringify({
-      type: 'auth_required',
-      message: 'Authentication required. Send { "type": "auth", "token": "your_token" }',
-    }));
-  }
-
-  /**
-   * Send auth response
-   */
-  private sendAuthResponse(ws: WebSocket, response: AuthResponse): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(response));
-    }
-  }
-
-  /**
-   * Broadcast event to all authenticated clients
-   */
+  /** Broadcast an event to all authenticated clients. */
   public broadcast(event: WizardEvent): void {
-    const message = JSON.stringify(event);
     this.clients.forEach((client, ws) => {
-      if (client.authenticated && ws.readyState === WebSocket.OPEN) {
-        ws.send(message);
-      }
+      if (client.authenticated) sendJson(ws, event);
     });
   }
 
-  /**
-   * Ping all clients to keep connections alive
-   */
   private pingClients(): void {
     const now = Date.now();
     this.clients.forEach((client, ws) => {
-      // Disconnect clients that haven't responded to ping in 60 seconds
-      if (now - client.lastActivity.getTime() > 60000) {
+      if (now - client.lastActivity.getTime() > IDLE_TIMEOUT_MS) {
         logger.warn(`WebSocket client ${client.id} timed out, closing connection`);
         ws.terminate();
         this.clients.delete(ws);
         return;
       }
-
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.ping();
-      }
+      if (ws.readyState === WebSocket.OPEN) ws.ping();
     });
   }
 
-  /**
-   * Type guard for auth message
-   */
-  private isAuthMessage(message: unknown): message is AuthMessage {
-    return (
-      typeof message === 'object' &&
-      message !== null &&
-      'type' in message &&
-      (message as AuthMessage).type === 'auth' &&
-      'token' in message
-    );
-  }
-
-  /**
-   * Type guard for wizard command
-   */
-  private isWizardCommand(message: unknown): message is WizardCommand {
-    return (
-      typeof message === 'object' &&
-      message !== null &&
-      'id' in message &&
-      'type' in message &&
-      'feature' in message &&
-      'action' in message
-    );
-  }
-
-  /**
-   * Get connected clients count
-   */
   public get clientCount(): number {
     return this.clients.size;
   }
 
-  /**
-   * Get authenticated clients count
-   */
   public get authenticatedClientCount(): number {
-    let count = 0;
-    this.clients.forEach((client) => {
-      if (client.authenticated) count++;
-    });
-    return count;
+    return [...this.clients.values()].filter((client) => client.authenticated).length;
   }
 }

@@ -37,7 +37,6 @@ export interface WizardCommand {
   feature: FeatureName;
   action: string;
   params?: Record<string, unknown>;
-  token?: string;                // Auth token (optional if already authenticated)
 }
 
 /**
@@ -80,21 +79,15 @@ export interface AuthResponse {
 }
 
 /**
- * WebSocket configuration
+ * Validated WebSocket server configuration (see serverConfig.ts).
  */
 export interface WebSocketConfig {
-  enabled: boolean;
   port: number;
   host: string;
-  auth: {
-    type: 'token' | 'none';
-    token?: string;
-  };
-  ssl?: {
-    enabled: boolean;
-    cert?: string;
-    key?: string;
-  };
+  token: string;
+  maxPayloadBytes: number;
+  authTimeoutMs: number;
+  allowedOrigins: string[];
 }
 
 /**
@@ -103,9 +96,10 @@ export interface WebSocketConfig {
 export interface ConnectedClient {
   id: string;
   authenticated: boolean;
+  remoteAddress: string;
   connectedAt: Date;
   lastActivity: Date;
-  subscriptions: Set<string>;
+  authTimer: NodeJS.Timeout;   // closes the connection if no valid auth arrives in time
 }
 
 /**

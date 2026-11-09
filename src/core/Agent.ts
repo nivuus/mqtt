@@ -1,11 +1,11 @@
 // src/core/Agent.ts
 
-import { MqttClient as MqttClientInterface, AgentConfig, DeviceInfo, WebSocketConfig } from './types';
+import { MqttClient as MqttClientInterface, AgentConfig, DeviceInfo } from './types';
 import { getConfigManager } from '../config';
 import logger from '../utils/logger';
 import { BaseFeature } from './BaseFeature';
 import { MqttClient } from '../mqtt/MqttClient'; // Import the actual MqttClient
-import { WebSocketServer, WizardHandler } from '../websocket';
+import { WebSocketServer, WizardHandler, resolveWebSocketConfig, describeTokenSource } from '../websocket';
 
 // Feature imports
 import { CpuTemperature } from '../features/cpu/CpuTemperature';
@@ -108,39 +108,38 @@ export class Agent {
     }
   }
 
-  private initializeWebSocketServer(): void {
-    const wsConfig = this.config.websocket;
-    if (!wsConfig || !wsConfig.enabled) {
+  private async initializeWebSocketServer(): Promise<void> {
+    let webSocketConfig;
+    try {
+      webSocketConfig = resolveWebSocketConfig(this.config.websocket);
+    } catch (error) {
+      // Refuse to expose the wizard channel rather than run it unprotected; the
+      // rest of the agent (monitoring, UPS shutdown) must keep running.
+      const source = describeTokenSource(this.config.websocket ?? {});
+      logger.error(`WebSocket server not started (token source: ${source}): ${(error as Error).message}`);
+      return;
+    }
+    if (!webSocketConfig) {
       logger.info('WebSocket server is disabled in config');
       return;
     }
-
-    // Handle environment variable for token
-    let token = wsConfig.auth?.token;
-    if (token?.startsWith('${') && token?.endsWith('}')) {
-      const envVar = token.slice(2, -1);
-      token = process.env[envVar] || token;
-    }
-
-    const webSocketConfig: WebSocketConfig = {
-      enabled: wsConfig.enabled,
-      port: wsConfig.port || 8765,
-      host: wsConfig.host || '0.0.0.0',
-      auth: {
-        type: wsConfig.auth?.type || 'token',
-        token: token,
-      },
-    };
+    logger.info(`WebSocket token read from ${describeTokenSource(this.config.websocket ?? {})}`);
 
     this.wizardHandler = new WizardHandler();
-    this.webSocketServer = new WebSocketServer(webSocketConfig, this.wizardHandler);
-    this.webSocketServer.start();
+    const server = new WebSocketServer(webSocketConfig, this.wizardHandler);
+    try {
+      await server.start();
+      this.webSocketServer = server;
+    } catch (error) {
+      logger.error(`WebSocket server failed to listen: ${(error as Error).message}`);
+      await server.stop();
+    }
   }
 
   public async start(): Promise<void> {
     logger.info('Starting agent...');
     this.initializeMqttClient(); // Initialize (or mock) MQTT client
-    this.initializeWebSocketServer(); // Initialize WebSocket server for Wizard API
+    await this.initializeWebSocketServer(); // Initialize WebSocket server for Wizard API
 
     // Setup MQTT event handlers
     this.mqttClient.on('connect', async () => {

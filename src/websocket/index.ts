@@ -3,3 +3,4 @@
 export * from './types';
 export { WebSocketServer } from './WebSocketServer';
 export { WizardHandler } from './WizardHandler';
+export { resolveWebSocketConfig, describeTokenSource, WebSocketConfigError } from './serverConfig';
