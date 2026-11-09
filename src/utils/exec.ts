@@ -3,7 +3,7 @@ import { exec, execFile, ChildProcess } from 'child_process';
 import logger from './logger';
 import { isCommandAllowed } from './commandWhitelist';
 
-interface CommandResult {
+export interface CommandResult {
   stdout: string;
   stderr: string;
   exitCode: number | null;
