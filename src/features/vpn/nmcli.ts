@@ -15,9 +15,11 @@ export class NmcliError extends Error {
 }
 
 export async function nmcli(args: string[], timeoutMs?: number): Promise<string> {
-  const result = await execute_argv('nmcli', args, timeoutMs ? { timeoutMs } : {});
+  const verb = args.indexOf('connection');
+  // `connection show` only reads, and the supervisor runs it on every tick: logged at debug.
+  const quiet = verb >= 0 && args[verb + 1] === 'show';
+  const result = await execute_argv('nmcli', args, { ...(timeoutMs && { timeoutMs }), quiet });
   if (result.exitCode !== 0) {
-    const verb = args.indexOf('connection');
     throw new NmcliError(args.slice(verb, verb + 2).join(' '), result.stderr.trim());
   }
   return result.stdout;

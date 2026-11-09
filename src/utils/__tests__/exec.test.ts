@@ -119,3 +119,25 @@ describe("execute_argv_input — stdin is fed, never logged", () => {
     expect(logged().some(line => line.includes(secret))).toBe(false);
   });
 });
+
+describe("quiet option — routine read-only calls log at debug", () => {
+  const attempted = (spy: jest.SpyInstance) =>
+    spy.mock.calls.filter(args => String(args[0]).startsWith("Attempting to execute"));
+
+  it("logs the attempt at info by default", async () => {
+    await execute_argv("true", []);
+    expect(attempted(logger.info as unknown as jest.SpyInstance)).toHaveLength(1);
+    expect(attempted(logger.debug as unknown as jest.SpyInstance)).toHaveLength(0);
+  });
+
+  it("logs the attempt at debug only when quiet", async () => {
+    await execute_argv("true", [], { quiet: true });
+    expect(attempted(logger.info as unknown as jest.SpyInstance)).toHaveLength(0);
+    expect(attempted(logger.debug as unknown as jest.SpyInstance)).toHaveLength(1);
+  });
+
+  it("still warns about a failure when quiet", async () => {
+    await execute_argv("false", [], { quiet: true });
+    expect(logger.warn).toHaveBeenCalled();
+  });
+});

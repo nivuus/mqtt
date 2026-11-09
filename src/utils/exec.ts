@@ -11,6 +11,12 @@ interface CommandResult {
 
 interface ExecArgvOptions {
   timeoutMs?: number;
+  /**
+   * Logs the attempt at debug instead of info. For routine read-only commands run on every
+   * update tick, whose info lines would otherwise fill the journal (root disk full, 2026-11-03).
+   * Failures and timeouts are still logged at warn.
+   */
+  quiet?: boolean;
 }
 
 // How long a child that timed out gets to exit on the SIGTERM sent at its
@@ -78,7 +84,7 @@ export function execute_command(command: string, _requiresApproval: boolean, tim
  * @param opts Optional settings (timeoutMs, default 60000).
  */
 export function execute_argv(file: string, args: string[], opts: ExecArgvOptions = {}): Promise<CommandResult> {
-  return runFile(file, args, undefined, opts.timeoutMs ?? 60000);
+  return runFile(file, args, undefined, opts);
 }
 
 /**
@@ -86,15 +92,18 @@ export function execute_argv(file: string, args: string[], opts: ExecArgvOptions
  * never logged, so it may carry what argv must not.
  */
 export function execute_argv_input(file: string, args: string[], input: string, opts: ExecArgvOptions = {}): Promise<CommandResult> {
-  return runFile(file, args, input, opts.timeoutMs ?? 60000);
+  return runFile(file, args, input, opts);
 }
 
-function runFile(file: string, args: string[], input: string | undefined, timeoutMs: number): Promise<CommandResult> {
+function runFile(file: string, args: string[], input: string | undefined, opts: ExecArgvOptions): Promise<CommandResult> {
+  const timeoutMs = opts.timeoutMs ?? 60000;
   const label = `${file} ${args.join(' ')}`;
   // A child fed input may echo it (`nft -f -` quotes the failing line on stderr), and execFile
   // copies stderr into error.message: with input, outputs are logged by length only.
   const shown = (text: string) => (input === undefined ? text : `<${text.length} chars>`);
-  logger.info(`Attempting to execute argv command: ${label}`);
+  const attempt = `Attempting to execute argv command: ${label}`;
+  if (opts.quiet) logger.debug(attempt);
+  else logger.info(attempt);
 
   return new Promise((resolve) => {
     const childProcess = execFile(file, args, {
