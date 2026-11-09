@@ -352,6 +352,16 @@ placeholder is back but the env drop-in still wins.
 host's power). The battery test command is picked from `upscmd -l`, because models differ:
 the APC Back-UPS BX1600MI has no plain `test.battery.start`, only `.quick` and `.deep`.
 
+**Wizard WebSocket token follows the same rule** (`NIVUUS_WS_TOKEN` in
+`/etc/mqtt-system-agent.env`, ≥ 32 chars, `openssl rand -hex 32`). The channel
+(`src/websocket/`) runs root-level actions for the HA `nivuus_wizard` integration, so
+`serverConfig.ts` refuses to start it (agent keeps running, error logged) with a missing,
+placeholder (`CHANGE_ME*`, `${VAR}`) or short token, or `auth.type` other than `token`. It
+binds `127.0.0.1:8766` by default: HA runs with `network_mode: host`, so its integration must
+use host `127.0.0.1` (its default `192.168.0.1` no longer answers). Tokens are compared in
+constant time, a failed or late (10 s) auth closes the socket, messages are capped at 1 MiB,
+and any browser `Origin` not in `allowed_origins` is refused with 403.
+
 **Periodic quick battery test** (`src/features/ups/batteryTestSchedule.ts`): every
 `battery_test_interval_days` (default 30, 0 = off), only when `ups.status` carries the
 `OL` flag without `OB`/`LB` and the charge is ≥ 90 %. The last accepted run is stored in

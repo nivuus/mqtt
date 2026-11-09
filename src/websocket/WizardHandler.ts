@@ -31,7 +31,10 @@ export class WizardHandler {
       throw new Error(`Unknown feature: ${command.feature}`);
     }
 
-    const handler = featureHandlers[command.action];
+    // Own properties only: an action such as "constructor" or "toString" must
+    // not resolve to a method inherited from Object.prototype.
+    const isOwnAction = Object.prototype.hasOwnProperty.call(featureHandlers, command.action);
+    const handler = isOwnAction ? featureHandlers[command.action] : undefined;
     if (!handler) {
       throw new Error(`Unknown action: ${command.action} for feature ${command.feature}`);
     }
