@@ -188,6 +188,7 @@ All entities are linked to a single device in HA with:
 Topic notes in `docs/claude/`:
 - `guest-vpn-host-notes.md` — guest VPN bench findings: firewalld reload failure (12:09 incident), NM/OpenVPN behaviour
 - `guest-vpn-bench.md` — how to rebuild the isolated bench VM (`scripts/bench/`, not packaged)
+- `guest-vpn-live.md` — live rollout on the router (2026-11-09): steps, outage and recovery timings
 
 ## Critical Implementation Notes
 
