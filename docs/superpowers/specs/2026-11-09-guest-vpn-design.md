@@ -51,6 +51,31 @@ VPN, with no per-device exception.
 - Guests lose internet for more than a few seconds when the tunnel goes up or down.
 - A `firewall-cmd --reload` (triggered by the mqtt FirewallManager) or a NetworkManager restart
   silently drops the guest routing so guests leave through Orange while the VPN is "up".
+- Anything in this feature — install, enable, disable, profile upload, agent restart, tunnel
+  failure — cuts or degrades internet on `localBridge` or on the host itself (owner's explicit
+  requirement after the 2026-11-09 incident).
+
+## Safety on the live host (added after the 2026-11-09 incident)
+
+On 2026-11-09 12:09 a firewalld change made during a host spike failed
+(`python-nftables failed: Could not process rule: No such file or directory`) and left the
+router firewalled shut: `localBridge` lost internet until the owner rebooted. The failing
+transaction rebuilt existing zone chains (including policy `docker-forwarding`, which also logs
+`NAME_CONFLICT` at every boot), not the new objects. Root cause not yet known. Owner's rule:
+**do not break internet on `localBridge`.** Therefore:
+
+- The agent never reloads firewalld and never creates zones or policies. The tunnel joins the
+  existing zone `external` (`connection.zone external` on the VPN profile): it is an uplink like
+  the Orange WAN, already masqueraded, and policy `internet-traffic` (ANY → external, ACCEPT)
+  already allows guest egress through it. No new firewalld object exists in this design.
+- Even binding an interface to a zone is a firewalld runtime change. Before any such change
+  happens on the live host, the 12:09 failure must be understood and shown not to recur
+  (bench first, see plan Task 1).
+- Every step on the live host runs behind a dead-man switch: a transient systemd timer armed
+  first that reverts the step (`nmcli connection down`/`delete` of the VPN profile, `nft delete
+  table` of the agent's table) unless explicitly disarmed after `localBridge` internet is verified.
+- `localBridge` internet (a `localBridge`-sourced HTTP request, plus the host's own) is checked
+  before, during and after each live step.
 
 ## Constraints and facts
 
@@ -91,6 +116,7 @@ VPN, with no per-device exception.
 | Provider pushed routes | ignore `redirect-gateway` for the main table (`ipv4.never-default` / route-table on the VPN connection) so the server itself never routes through the VPN | Claude |
 | Retry | NM's own autoconnect with unlimited retries (`connection.autoconnect-retries 0`) plus OpenVPN's built-in reconnect; no custom retry loop in the agent | Claude |
 | Credentials input | same HA form as the file upload, password field; the HA side forwards them to the agent and does **not** persist them in its config entry | Claude |
+| Tunnel firewall zone | existing zone `external` via `connection.zone`; no own zone, no own policy, no reload ever | Claude, after incident |
 | Optional CA file | the HA form accepts an optional second file (`ca.crt`) for providers that ship it separately | Claude |
 | Exit IP | measured by the agent through the tunnel (bind to the tun device), not inferred | Claude |
 | Every device on the guest network | goes through the VPN, no exception | owner |
@@ -100,7 +126,7 @@ VPN, with no per-device exception.
 | Guest IPv6 while up | if ZoogVPN carries no IPv6 (expected), the VPN table holds an IPv6 `unreachable` default: guests get an immediate ICMPv6 error and Happy Eyeballs falls back to IPv4 through the tunnel. Nothing to change in `nivuus-wan-orange-lan6` | Claude |
 | Guests → other local subnets | the guest network stays isolated from the home networks (existing guest isolation, 2026-11-08); policy rule must still let replies and host services on 192.168.2.1 (DHCP, DNS) work, e.g. a higher-priority `lookup main suppress_prefixlength 0` rule | Claude |
 | HA integration | no versioned source exists for `nivuus_wizard` (no repo; only a copy under HA's `custom_components`), so the upload lives in a **new small integration** (`nivuus_vpn`, options flow, admin-only as HA options flows are), versioned in `home-manager`, which owns the HA config | Claude |
-| Upload channel auth | reuse the agent's WebSocket server and its shared token. Restricting the listener (bound to `0.0.0.0:8766`) to the HA container's address is worthwhile hardening but a separate task | Claude |
+| Upload channel auth | reuse the agent's WebSocket server: since mqtt #33 (deployed 2026-11-09) it listens on `127.0.0.1:8766` only, token from `NIVUUS_WS_TOKEN`; HA (network_mode host) connects to `127.0.0.1` | Claude |
 | File size limit | the mqtt repo's own rule is 200 lines per source file (stricter than the suite's 500); the agent feature is split accordingly | repo rule |
 
 ## Leaks the builder must close
@@ -114,9 +140,10 @@ VPN, with no per-device exception.
   IPv6, guests must not get global IPv6 while the VPN is up (e.g. stop advertising it on
   `publicBridge`, or reject public → external IPv6 so clients fall back to IPv4 fast). Pick the
   option that gives guests the fastest fallback, and say which in the plan.
-- **Firewall**: traffic from zone `public` must be allowed to egress through the tun interface
-  (give the tun its own firewalld zone or policy, masquerade on it). Must survive
-  `firewall-cmd --reload` and `systemctl restart firewalld`.
+- **Firewall**: traffic from zone `public` must be allowed to egress through the tun interface:
+  the tun is bound to the existing zone `external` (masquerade, `internet-traffic` policy) by its
+  NM profile — no new zone or policy (see "Safety on the live host"). Must survive a firewalld
+  restart (NM re-binds the interface).
 
 ## HA side
 
