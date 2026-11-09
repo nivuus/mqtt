@@ -18,7 +18,7 @@ const UUID = '00000000-0000-4000-8000-000000000001';
 const OTHER = '00000000-0000-4000-8000-000000000002';
 const VPN_DATA = 'vpn.data:ca = /root/.local/share/networkmanagement/certificates/nm-openvpn/nivuus-guest-vpn_a-ca.pem, '
   + 'connection-type = password, dev = nvguest0, dev-type = tun, ping-exit = 60, '
-  + 'remote = nl-alk.zoogvpn.com\\:1194\\:udp, username = guest';
+  + 'remote = nl-alk.zoogvpn.com:1194, username = guest';
 
 /**
  * `nmcli -t -f vpn.data,GENERAL.STATE,IP4.DNS connection show uuid <u>` output, shaped like the
@@ -84,7 +84,7 @@ describe('readGuestVpnStatus', () => {
   it('profile, desired off, inactive → disabled with the remote', async () => {
     await writeDesiredEnabled(cfg.stateFile, false);
     await expect(readGuestVpnStatus(cfg)).resolves.toEqual({
-      state: 'disabled', remote: 'nl-alk.zoogvpn.com:1194:udp', dns: [],
+      state: 'disabled', remote: 'nl-alk.zoogvpn.com:1194', dns: [],
     });
     expect(curlCalls()).toEqual([]);
   });
@@ -109,7 +109,7 @@ describe('readGuestVpnStatus', () => {
     await writeDesiredEnabled(cfg.stateFile, true);
     shown = details({ general: 'activating' });
     await expect(readGuestVpnStatus(cfg)).resolves.toEqual({
-      state: 'connecting', remote: 'nl-alk.zoogvpn.com:1194:udp', dns: [],
+      state: 'connecting', remote: 'nl-alk.zoogvpn.com:1194', dns: [],
     });
     expect(curlCalls()).toEqual([]);
   });
@@ -117,7 +117,7 @@ describe('readGuestVpnStatus', () => {
   it('activated → connected with dns from IP4.DNS and remote from vpn.data', async () => {
     shown = details({ general: 'activated', dns: ['10.20.128.1', '10.20.128.2'] });
     await expect(readGuestVpnStatus(cfg)).resolves.toEqual({
-      state: 'connected', remote: 'nl-alk.zoogvpn.com:1194:udp',
+      state: 'connected', remote: 'nl-alk.zoogvpn.com:1194',
       dns: ['10.20.128.1', '10.20.128.2'], exitIp: '5.255.103.96',
     });
   });
@@ -127,7 +127,7 @@ describe('readGuestVpnStatus', () => {
     const reason = 'NetworkManager dropped the VPN while activating';
     shown = details({ general: 'deactivating' });
     await expect(readGuestVpnStatus(cfg, reason)).resolves.toEqual({
-      state: 'error', lastError: reason, remote: 'nl-alk.zoogvpn.com:1194:udp', dns: [],
+      state: 'error', lastError: reason, remote: 'nl-alk.zoogvpn.com:1194', dns: [],
     });
     // Once NM has dropped the failed profile, the recorded activation error still rules.
     shown = details();

@@ -17,6 +17,7 @@ export interface NmEnv {
   /** nm-openvpn's certificate store of the importing user (the agent: root). */
   certDir: string;
   sleep: (ms: number) => Promise<void>;
+  now: () => number;
   /** Bound on the wait for the tun device to go after `connection down`. */
   deviceGoneTimeoutMs: number;
   /** Bound on the wait for a VPN activation to succeed or fail (nmActivation.ts). */
@@ -30,6 +31,7 @@ export function defaultNmEnv(): NmEnv {
     sysClassNet: '/sys/class/net',
     certDir: path.join(dataHome, 'networkmanagement', 'certificates', 'nm-openvpn'),
     sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
+    now: () => Date.now(),
     deviceGoneTimeoutMs: 15000,
     activationTimeoutMs: 90000,
     pollMs: 250,

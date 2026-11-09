@@ -112,7 +112,8 @@ describe('bench captures (nmcli 1.52.1)', () => {
   });
 
   describe('NmGuestVpn.up (D3: `connection up … ifname publicBridge` returns 0 at once)', () => {
-    const env = { sleep: async () => undefined, pollMs: 500, activationTimeoutMs: 90000 };
+    let clockMs = 0;
+    const env = { sleep: async (ms: number) => { clockMs += ms; }, now: () => clockMs, pollMs: 500, activationTimeoutMs: 90000 };
 
     it('waits until NM reports the VPN activated', async () => {
       const uuid = uuidOf('active');

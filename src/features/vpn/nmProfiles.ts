@@ -40,8 +40,8 @@ export async function keyfileOf(uuid: string): Promise<string> {
  * undefined when it is not active. For a VPN, NM derives it from the VPN's own state
  * (nm-vpn-connection.c, `_state_to_ac_state`): prepare to ip-config-get are `activating`.
  */
-export async function activationStateOf(uuid: string): Promise<string | undefined> {
-  const out = await nmcli(['-t', '-f', 'GENERAL.STATE', 'connection', 'show', 'uuid', uuid]);
+export async function activationStateOf(uuid: string, timeoutMs?: number): Promise<string | undefined> {
+  const out = await nmcli(['-t', '-f', 'GENERAL.STATE', 'connection', 'show', 'uuid', uuid], timeoutMs);
   const line = out.split('\n').find(l => l.startsWith('GENERAL.STATE:'));
   return line?.slice('GENERAL.STATE:'.length);
 }

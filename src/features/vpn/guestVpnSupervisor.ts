@@ -121,7 +121,7 @@ export class GuestVpnSupervisor {
   /**
    * Brings the tunnel to the owner's choice: one `up()` when on, inactive and due, `down()`
    * when off and active. True when it ends there. The DNS table is emptied before `up()`,
-   * which can take two minutes. A failed `up()` is kept by NmGuestVpn and surfaces as the
+   * which waits up to 90 s for the activation. A failed `up()` is kept by NmGuestVpn and surfaces as the
    * status' last error; the backoff decides when the next one runs.
    */
   private async converge(on: boolean): Promise<boolean> {

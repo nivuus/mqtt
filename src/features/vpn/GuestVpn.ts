@@ -73,8 +73,8 @@ export class GuestVpn extends BaseFeature {
   }
 
   /**
-   * Starts one supervision tick and returns without waiting for it. An `up()` can take up to
-   * two minutes: awaited, it would hold the Agent's sequential feature start-up (UPS included)
+   * Starts one supervision tick and returns without waiting for it. An `up()` waits up to 90 s for the activation
+   * (30 s for nmcli itself): awaited, it would hold the Agent's sequential feature start-up (UPS included)
    * that long. A tick that finds the previous one still running is dropped rather than queued,
    * so missed ticks never turn into back-to-back activations. The tick publishes its own
    * outcome; `whenIdle()` waits for it.

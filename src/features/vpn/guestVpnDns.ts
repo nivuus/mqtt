@@ -83,7 +83,7 @@ export async function reconcileDnsRedirect(cfg: GuestVpnConfig, status: GuestVpn
 /**
  * Applies the empty table: guests resolve through the router. Run before every activation
  * and right after an import took the old tunnel down, so the table never DNATs to a provider
- * DNS while the tunnel's routes are gone (an `up()` can take two minutes). Throws a
+ * DNS while the tunnel's routes are gone (an `up()` waits up to 90 s). Throws a
  * GuestVpnDnsError when nft fails.
  */
 export async function clearDnsRedirect(cfg: GuestVpnConfig): Promise<void> {

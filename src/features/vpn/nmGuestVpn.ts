@@ -38,8 +38,9 @@ export type ImportResult =
   | { activation: 'activated' }
   | { activation: 'failed'; error: string };
 
-// nmcli's own activation wait is 90 s; leave it room to report its error.
-const UP_TIMEOUT_MS = 120000;
+// `connection up` returns in milliseconds here (bench, nmcli 1.52): the activation wait is
+// nmActivation's (90 s deadline). This bounds a hung nmcli alone.
+const UP_TIMEOUT_MS = 30000;
 
 export class NmGuestVpn {
   private lastError: string | undefined;

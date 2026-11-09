@@ -15,27 +15,49 @@ import { activationStateOf } from './nmProfiles';
 
 export interface ActivationEnv {
   sleep: (ms: number) => Promise<void>;
+  /** Wall clock in ms; injected so that tests can drive the deadline. */
+  now: () => number;
   pollMs: number;
   /** Bound on the wait; NM's own VPN service timeout defaults to 60 s (`vpn.timeout 0`). */
   activationTimeoutMs: number;
 }
 
+/** One poll is a local D-Bus read (milliseconds); a hung NetworkManager must not hold the queue. */
+export const POLL_TIMEOUT_MS = 10000;
+
+async function cancelActivation(uuid: string): Promise<string> {
+  try {
+    await nmcli(['connection', 'down', 'uuid', uuid], POLL_TIMEOUT_MS);
+    return '';
+  } catch (err) {
+    return (err as Error).message;
+  }
+}
+
 export async function waitForActivation(env: ActivationEnv, uuid: string): Promise<void> {
-  const polls = Math.ceil(env.activationTimeoutMs / env.pollMs);
-  for (let i = 0; i <= polls; i++) {
-    const state = await activationStateOf(uuid);
+  // The wait ends by the clock, not by a poll count: it is at most the deadline plus one poll timeout.
+  const deadline = env.now() + env.activationTimeoutMs;
+  for (;;) {
+    let state: string | undefined;
+    try {
+      state = await activationStateOf(uuid, POLL_TIMEOUT_MS);
+    } catch (err) {
+      // The activation may still be running behind a failed read: cancel it before reporting.
+      const failed = await cancelActivation(uuid);
+      if (failed) {
+        throw new Error(`${(err as Error).message}; cancelling the activation failed too: ${failed}`);
+      }
+      throw err;
+    }
     if (state === 'activated') return;
     if (state === undefined || state === 'deactivating' || state === 'deactivated') {
       throw new Error('NetworkManager dropped the VPN while activating (wrong credentials, unreachable '
         + 'server or rejected configuration; NetworkManager\'s journal has the reason)');
     }
-    if (i < polls) await env.sleep(env.pollMs);
+    if (env.now() >= deadline) break;
+    await env.sleep(env.pollMs);
   }
-  let cancelled = '';
-  try {
-    await nmcli(['connection', 'down', 'uuid', uuid]);
-  } catch (err) {
-    cancelled = `; cancelling it failed: ${(err as Error).message}`;
-  }
+  const failed = await cancelActivation(uuid);
+  const cancelled = failed ? `; cancelling it failed: ${failed}` : '';
   throw new Error(`the VPN was still activating after ${env.activationTimeoutMs / 1000} s${cancelled}`);
 }

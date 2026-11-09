@@ -36,8 +36,10 @@ export class FakeNm {
   private activating = new Set<string>();
   dir = '';
   cfg: GuestVpnConfig = DEFAULT_GUEST_VPN_CONFIG;
-  env: NmEnv = { sysClassNet: '', certDir: '', sleep: async () => undefined, deviceGoneTimeoutMs: 1000, pollMs: 100,
-    activationTimeoutMs: 1000 };
+  /** Fake clock of `env`: only `env.sleep` moves it. */
+  clockMs = 0;
+  env: NmEnv = { sysClassNet: '', certDir: '', sleep: async ms => { this.clockMs += ms; }, now: () => this.clockMs,
+    deviceGoneTimeoutMs: 1000, pollMs: 100, activationTimeoutMs: 1000 };
   private serial = 0;
 
   async install(exec: jest.Mocked<typeof execModule>): Promise<void> {
