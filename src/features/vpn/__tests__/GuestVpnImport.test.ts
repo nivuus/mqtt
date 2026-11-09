@@ -3,6 +3,8 @@ import logger from '../../../utils/logger';
 import { writeDesiredEnabled } from '../desiredState';
 import { reconcileDnsRedirect } from '../guestVpnDns';
 import { readGuestVpnStatus } from '../guestVpnStatus';
+import { GuestVpnSupervisor } from '../guestVpnSupervisor';
+import { NmGuestVpn } from '../nmGuestVpn';
 import { fail } from './fakeNmcli';
 import { fakeStatus, Harness, makeHarness } from './guestVpnHarness';
 
@@ -120,5 +122,23 @@ describe('GuestVpn.importProfile', () => {
     await Promise.all([imported, ticked]);
     await h.feature.whenIdle();
     expect(h.upCalls()).toBe(1);
+  });
+
+  it('publishes connecting while an enabled import activates, never for a rejected upload', async () => {
+    await writeDesiredEnabled(h.nm.cfg.stateFile, true);
+    const published = h.payloads('state/state').length;
+    await expect(h.feature.importProfile({ ...INPUT, ovpn: 'client' })).rejects.toThrow('no remote directive');
+    expect(h.payloads('state/state').slice(published)).not.toContain('connecting');
+    await h.feature.importProfile(INPUT);
+    expect(h.payloads('state/state').slice(published).slice(-2)).toEqual(['connecting', 'connected']);
+  });
+
+  it('rethrows the import error even when publishing the state afterwards fails', async () => {
+    const supervisor = new GuestVpnSupervisor(h.nm.cfg, new NmGuestVpn(h.nm.cfg, h.nm.env), async () => {
+      throw new Error('broker gone');
+    });
+    await expect(supervisor.importProfile({ ...INPUT, ovpn: `${OVPN}\nplugin x.so` }))
+      .rejects.toThrow('directive "plugin" is not allowed');
+    expect(logged.join('\n')).toContain('broker gone');
   });
 });

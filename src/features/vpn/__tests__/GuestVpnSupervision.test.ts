@@ -141,4 +141,34 @@ describe('GuestVpn supervisor', () => {
     expect(order).toEqual(['up', 'down']);
     expect(h.last('state/state')).toBe('disabled');
   });
+
+  it('desired off + profile active → down() on tick, state disabled', async () => {
+    await writeDesiredEnabled(h.nm.cfg.stateFile, false);
+    await h.nm.addProfile('nivuus-guest-vpn', 'nivuus-guest-vpn', true);
+    await tick(h);
+    expect(h.nm.find(a => a.includes('down'))).toHaveLength(1);
+    expect(h.upCalls()).toBe(0);
+    expect(h.last('state/state')).toBe('disabled');
+    expect(h.last('on_orange/state')).toBe('ON');
+    await tick(h);
+    expect(h.nm.find(a => a.includes('down'))).toHaveLength(1);
+  });
+
+  it('a failed switch stays visible until a tick converges to the owner\'s choice', async () => {
+    await h.nm.addProfile('nivuus-guest-vpn', 'nivuus-guest-vpn', true);
+    await writeDesiredEnabled(h.nm.cfg.stateFile, true);
+    await h.start();
+    h.nm.override = args => (args.includes('down') ? fail('Error: device busy') : undefined);
+    await h.send('OFF');
+    expect(h.attributes().action_error).toBe('switching off failed: nmcli connection down failed: Error: device busy');
+
+    await tick(h);
+    expect(h.attributes().action_error).toContain('switching off failed');
+    expect(h.attributes().action_error).toContain('supervision failed: nmcli connection down failed');
+
+    h.nm.override = undefined;
+    await tick(h);
+    expect(h.attributes().action_error).toBeNull();
+    expect(h.last('state/state')).toBe('disabled');
+  });
 });

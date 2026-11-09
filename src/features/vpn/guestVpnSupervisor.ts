@@ -3,15 +3,17 @@
  *
  * NM never re-activates a VPN profile by itself (bench, 2026-11-09), so every tick, while the
  * owner wants the VPN on and a profile exists that is not active, the supervisor runs one
- * `up()`. Every attempt is published (`connecting`, then the state NM reports with its error):
- * supervision, not a loop that hides failures. Ticks, switch commands and imports go through
- * one queue, and each ends by reconciling the DNS table and publishing a snapshot inside it.
+ * `up()`, and while the owner wants it off and the profile is active, one `down()`. Every
+ * attempt is published (`connecting`, then the state NM reports with its error): supervision,
+ * not a loop that hides failures. Ticks, switch commands and imports go through one queue,
+ * and each ends by reconciling the DNS table and publishing a snapshot inside it.
  */
 import logger from '../../utils/logger';
 import { readDesiredEnabled, writeDesiredEnabled } from './desiredState';
 import { reconcileDnsRedirect } from './guestVpnDns';
 import { GuestVpnStatus, readGuestVpnStatus } from './guestVpnStatus';
 import { GuestVpnConfig, ImportResult, NmGuestVpn, ProfileInput } from './nmGuestVpn';
+import { prepareProfileText } from './profileText';
 import { SerialQueue } from './serialQueue';
 
 export interface GuestVpnSnapshot {
@@ -45,9 +47,10 @@ export class GuestVpnSupervisor {
     return this.queue.run(async () => {
       const desired = await this.readDesired();
       this.tickError = undefined;
-      if (desired.value) {
+      if (desired.value !== undefined) {
         try {
-          if ((await this.nm.profileExists()) && !(await this.nm.isActive())) await this.activate();
+          // A switch command that failed is moot once the tunnel matches the owner's choice.
+          if (await this.converge(desired.value)) this.switchError = undefined;
         } catch (err) {
           this.tickError = `supervision failed: ${message(err)}`;
         }
@@ -60,11 +63,7 @@ export class GuestVpnSupervisor {
     return this.queue.run(async () => {
       try {
         await writeDesiredEnabled(this.cfg.stateFile, on);
-        if (on) {
-          if ((await this.nm.profileExists()) && !(await this.nm.isActive())) await this.activate();
-        } else if (await this.nm.isActive()) {
-          await this.nm.down();
-        }
+        await this.converge(on);
         this.switchError = undefined;
       } catch (err) {
         this.switchError = `switching ${on ? 'on' : 'off'} failed: ${message(err)}`;
@@ -78,11 +77,15 @@ export class GuestVpnSupervisor {
     return this.queue.run(async () => {
       let result: ImportResult;
       try {
+        // Validated before anything is announced: a rejected upload never shows `connecting`.
+        prepareProfileText(input.ovpn, input.ca);
+        if ((await this.readDesired()).value) await this.announceConnecting();
         result = await this.nm.importProfile(input);
       } catch (err) {
         logger.error(`${TAG} profile import failed: ${message(err)}`);
         // A failure after the old tunnel went down changes the state: show it as it is.
-        await this.refresh();
+        await this.refresh().catch(refreshErr =>
+          logger.error(`${TAG} publishing the state after the failed import failed: ${message(refreshErr)}`));
         throw err;
       }
       logger.info(`${TAG} profile imported, activation ${result.activation}`);
@@ -94,8 +97,29 @@ export class GuestVpnSupervisor {
     return this.queue.idle();
   }
 
-  /** One `up()`; its failure is kept by NmGuestVpn and surfaces as the status' last error. */
-  private async activate(): Promise<void> {
+  /**
+   * Brings the tunnel to the owner's choice: one `up()` when on and inactive, `down()` when
+   * off and active. True when it ends there; a failed `up()` is kept by NmGuestVpn and
+   * surfaces as the status' last error, then is retried next tick.
+   */
+  private async converge(on: boolean): Promise<boolean> {
+    if (!(await this.nm.profileExists())) return !on;
+    const active = await this.nm.isActive();
+    if (on && !active) {
+      await this.announceConnecting();
+      try {
+        await this.nm.up();
+      } catch {
+        // Recorded by up() (lastActivationError) and published by refresh().
+        return false;
+      }
+    } else if (!on && active) {
+      await this.nm.down();
+    }
+    return true;
+  }
+
+  private async announceConnecting(): Promise<void> {
     const previous = this.last?.status;
     await this.publish({
       ...this.last,
@@ -107,11 +131,6 @@ export class GuestVpnSupervisor {
         dns: [],
       },
     });
-    try {
-      await this.nm.up();
-    } catch {
-      // Recorded by up() (lastActivationError) and published by refresh(); retried next tick.
-    }
   }
 
   private async readDesired(): Promise<Desired> {
