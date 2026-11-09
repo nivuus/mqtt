@@ -90,6 +90,27 @@ For each WiFi network (e.g., network_1, network_2):
 
 ---
 
+## Guest VPN
+
+**Feature:** `guest_vpn` (`src/features/vpn/GuestVpn.ts`). Topics are under `system_agent/nivuus/guest_vpn/`.
+The `.ovpn` profile is uploaded over the WebSocket API, never through MQTT.
+
+| Entity ID | Type | Topic | Description |
+|-----------|------|-------|-------------|
+| `switch.nivuus_network_guest_vpn_switch` | Switch | `switch/state`, command `switch/set` (`ON`/`OFF`) | Owner's on/off choice (`None` = on/off file unreadable) |
+| `sensor.nivuus_network_guest_vpn_state_sensor` | Sensor (enum) | `state/state`, `state/attributes` | `connected`, `connecting`, `disabled`, `no_config`, `error` |
+| `sensor.nivuus_network_guest_vpn_exit_ip_sensor` | Sensor | `exit_ip/state` | Exit IP measured through the tunnel (unknown unless connected) |
+| `binary_sensor.nivuus_network_guest_vpn_on_orange_sensor` | Binary Sensor | `on_orange/state` | ON whenever the state is not `connected` (guests leave through Orange) |
+
+**State Sensor Attributes:**
+- `last_error`: NetworkManager's reason for the last failure (activation, duplicate profiles, no traffic)
+- `remote`: VPN server of the profile
+- `dns`: DNS servers the tunnel pushed
+- `dns_error`: the guest DNS table could not be applied, or guests resolve outside the tunnel
+- `action_error`: a failed switch command, supervision step or on/off file read
+
+---
+
 ## Firewall Management
 
 **Feature:** `firewalld_manager`
