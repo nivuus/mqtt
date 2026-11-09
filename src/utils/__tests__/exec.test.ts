@@ -1,6 +1,6 @@
 // src/utils/__tests__/exec.test.ts
 
-import { execute_argv, execute_command } from '../exec';
+import { execute_argv, execute_argv_input, execute_command } from "../exec";
 import logger from '../logger';
 
 beforeEach(() => {
@@ -80,4 +80,25 @@ describe('force-kill of a child that outlives its timeout', () => {
 
     expect(result.exitCode).not.toBe(0);
   }, TEST_TIMEOUT_MS);
+});
+
+describe("execute_argv_input — stdin is fed, never logged", () => {
+  it("feeds the input on stdin", async () => {
+    const result = await execute_argv_input("cat", [], "table inet t\n");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("table inet t\n");
+  });
+
+  it("propagates a non-zero exit code", async () => {
+    const result = await execute_argv_input("sh", ["-c", "cat >/dev/null; exit 3"], "x");
+    expect(result.exitCode).toBe(3);
+  });
+
+  it("never logs the input", async () => {
+    const secret = "do-not-log-this-input";
+    await execute_argv_input("sh", ["-c", "cat >/dev/null; exit 2"], secret);
+    const logged = [logger.debug, logger.info, logger.warn, logger.error]
+      .flatMap(fn => (fn as jest.Mock).mock.calls.flat().map(String));
+    expect(logged.some(line => line.includes(secret))).toBe(false);
+  });
 });
