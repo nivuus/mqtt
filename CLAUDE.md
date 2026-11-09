@@ -301,6 +301,21 @@ Topic notes in `docs/claude/`:
   profile, which denies `execve(/bin/sh)`; the agent binary (pkg, mode 751) is unreadable by
   `clamav`; ClamAV ≥ 1.0 replaces `%f` with a fixed warning sentence. Removed on 2026-11-09.
 
+### Guest VPN (`src/features/vpn/`, key `guest_vpn`)
+Routes the `publicBridge` guest network through an OpenVPN tunnel. Entities: `ENTITIES.md`; bench
+findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/claude/guest-vpn-host-notes.md).
+- Config (`config/agent.yaml`): `interval` 15 s, `bridge: publicBridge`, optional `state_file`.
+- NM profile `nivuus-guest-vpn`, always addressed by UUID; staging copies use the basenames `_a`/`_b`.
+- Tunnel `nvguest0` (dev-type tun), routing table 200, `ip rule`s on `iif publicBridge`. The tun sits
+  in the existing zone `external`: no zone or policy of its own, and the agent never calls `firewall-cmd`.
+- nft table `inet nivuus_guest_vpn` (guest DNS DNAT) is owned and rewritten by the agent only.
+- The owner's on/off choice lives in `/var/lib/mqtt-system-agent/guest-vpn.json`; the supervisor
+  enforces it every tick in both directions (up when wanted, down when not).
+- WebSocket: `vpn.import_profile` (uploads the `.ovpn`; never over MQTT) and `vpn.get_status`.
+- **Never reload firewalld live.** On 2026-11-09 (12:09) a `firewall-cmd --reload` cut the home LAN
+  (see host notes); this includes `FirewallManager` and the wizard handlers. Restart-time only.
+- Package depends on `network-manager-openvpn` (`package:deb`).
+
 ### Common Patterns Across Features
 
 **Input entity initialization:**
@@ -383,6 +398,7 @@ the diagnostic sensor `UPS Battery Test Result`. On the BX1600MI a running test 
 | `HostapdManager` | `/etc/hostapd/2.4Ghz.conf`, `/etc/hostapd/5Ghz.conf` |
 | `PppoeCredentials` | `/etc/NetworkManager/system-connections/pppoe-enp6s0.835.nmconnection` (mode 600, needs sudo) |
 | `FirewallManager` | `firewall-cmd` (firewalld, **nftables** backend) |
+| `GuestVpn` | `/var/lib/mqtt-system-agent/guest-vpn.json` (on/off choice), NM profile `nivuus-guest-vpn` (`nmcli`), nft table `inet nivuus_guest_vpn`, routing table 200 + `ip rule` on `iif publicBridge` |
 | `VmManager` | `virsh` on domain `Windows` |
 
 **firewalld uses the nftables backend** — `iptables -t nat -S` looks empty but isn't; check
