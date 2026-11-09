@@ -282,6 +282,18 @@ All entities are linked to a single device in HA with:
 - **internal**: enp15s0 + internalBridge + vnet17 + enp14s0, 11 services
 - **public**: publicBridge, masquerade enabled, target REJECT
 
+### ClamAV detections (`src/features/events/EventMonitor.ts`, `clamavDetection.ts`)
+
+- Source = **clamd's own log lines** (`clamd[pid]: <file>: <sig>[(hash:size)] FOUND`), live from
+  `/var/log/syslog`, last one at startup from `journalctl -t clamd --grep 'FOUND$'`. clamd sees
+  every detection (clamdscan AND clamonacc, which delegates to clamd); `clamonacc.log` only ever
+  saw on-access ones and its last 100 lines kept hours, not weeks. Published as event type
+  `clamav_virus` → topic `.../events/clamav_virus` + sensor `last_clamav_virus_event`.
+- clamd writes each detection **twice** in the same second → `DetectionDeduper` (5 s window).
+- Do NOT go back to ClamAV's `VirusEvent`: clamd runs it as user `clamav` under its AppArmor
+  profile, which denies `execve(/bin/sh)`; the agent binary (pkg, mode 751) is unreadable by
+  `clamav`; ClamAV ≥ 1.0 replaces `%f` with a fixed warning sentence. Removed on 2026-11-09.
+
 ### Common Patterns Across Features
 
 **Input entity initialization:**
