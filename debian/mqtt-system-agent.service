@@ -22,7 +22,9 @@ Environment=NODE_ENV=production
 NoNewPrivileges=no
 PrivateTmp=false
 ProtectSystem=false
-ReadWritePaths=/opt/mqtt-system-agent/cache
+# No ReadWritePaths: with ProtectSystem=false nothing is read-only, so it granted nothing, and
+# a listed path that does not exist (a fresh install has no cache/) fails the unit with 226/NAMESPACE.
+# The agent creates /opt/mqtt-system-agent/cache itself (OnlineMacVendorLookup).
 ProtectHome=false
 
 [Install]

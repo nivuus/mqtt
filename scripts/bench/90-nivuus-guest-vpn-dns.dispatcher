@@ -1,0 +1,43 @@
+#!/bin/sh
+# Bench NM dispatcher hook (install as
+# /etc/NetworkManager/dispatcher.d/90-nivuus-guest-vpn-dns, root:root 0755).
+# Task 1 step 6 mechanism: while nivuus-guest-vpn is up, every guest DNS query
+# (udp/tcp 53 arriving on publicBridge, whatever its destination) is DNATed to
+# the DNS server pushed by the VPN, and guest IPv6 DNS is rejected. The table
+# is not firewalld's, so a firewalld reload/restart does not touch it.
+# $1 = interface, $2 = action.
+[ "$CONNECTION_ID" = nivuus-guest-vpn ] || exit 0
+TABLE=nivuus_guest_vpn
+
+case "$2" in
+  vpn-up)
+    dns="${VPN_IP4_NAMESERVERS%% *}"
+    [ -n "$dns" ] || { logger -t nivuus-guest-vpn "vpn-up without a pushed IPv4 DNS"; exit 1; }
+    nft -f - <<EOF
+table inet $TABLE
+delete table inet $TABLE
+table inet $TABLE {
+  chain prerouting {
+    type nat hook prerouting priority dstnat - 10; policy accept;
+    iifname "publicBridge" meta nfproto ipv4 udp dport 53 dnat ip to $dns
+    iifname "publicBridge" meta nfproto ipv4 tcp dport 53 dnat ip to $dns
+  }
+  chain input {
+    type filter hook input priority filter - 10; policy accept;
+    iifname "publicBridge" meta nfproto ipv6 udp dport 53 reject
+    iifname "publicBridge" meta nfproto ipv6 tcp dport 53 reject with tcp reset
+  }
+  chain forward {
+    type filter hook forward priority filter - 10; policy accept;
+    iifname "publicBridge" meta nfproto ipv6 udp dport 53 reject
+    iifname "publicBridge" meta nfproto ipv6 tcp dport 53 reject with tcp reset
+  }
+}
+EOF
+    logger -t nivuus-guest-vpn "guest DNS redirected to $dns"
+    ;;
+  vpn-down|vpn-pre-down)
+    nft delete table inet "$TABLE" 2>/dev/null || true
+    logger -t nivuus-guest-vpn "guest DNS redirect removed ($2)"
+    ;;
+esac

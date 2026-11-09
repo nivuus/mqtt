@@ -106,6 +106,14 @@ features:
     update_interval_seconds: 21600 # Check every 6 hours
     # chap_secrets_path: "/etc/ppp/chap-secrets"
     # pap_secrets_path: "/etc/ppp/pap-secrets"
+  guest_vpn:
+    enabled: true
+    # Each tick checks the tunnel's health, publishes the state, re-applies the DNS table and,
+    # while the owner switched the VPN on and the profile is inactive, runs one activation
+    # attempt when the backoff allows it. Two unhealthy ticks in a row restart the tunnel.
+    update_interval_seconds: 15
+    bridge: publicBridge
+    # state_file: "/var/lib/mqtt-system-agent/guest-vpn.json" # the owner's on/off choice
   smart_status:
     enabled: true
     update_interval_seconds: 7200 # Check SMART status every 2 hours

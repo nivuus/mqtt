@@ -9,8 +9,8 @@
     "test": "jest",
     "build": "tsc",
     "start": "node dist/index.js",
-    "package:executable": "npm run build && rm -f dist/mqtt-system-agent && pkg . --targets node22-linux-x64 --output dist/mqtt-system-agent",
-    "package:deb": "npm run package:executable && fpm --force -s dir -t deb -n mqtt-system-agent -v $(node -p \"require('./package.json').version\") --architecture amd64 --maintainer \"Your Name <your.email@example.com>\" --description \"MQTT System Agent for Home Assistant Integration\" --license \"PolyForm-Noncommercial-1.0.0\" --url \"https://github.com/your-repo/mqtt-system-agent\" --deb-systemd debian/mqtt-system-agent.service --after-install debian/postinst.sh --before-remove debian/prerm.sh dist/mqtt-system-agent=/opt/mqtt-system-agent/mqtt-system-agent dist/mqtt-system-agent=/usr/bin/mqtt-system-agent config/agent.yaml=/opt/mqtt-system-agent/config/agent.yaml scripts/ups-shutdown.sh=/opt/mqtt-system-agent/scripts/ups-shutdown.sh"
+    "package:executable": "rm -rf dist && npm run build && pkg . --targets node22-linux-x64 --output dist/mqtt-system-agent",
+    "package:deb": "npm run package:executable && fpm --force -s dir -t deb -n mqtt-system-agent -v $(node -p \"require('./package.json').version\") --architecture amd64 --maintainer \"Your Name <your.email@example.com>\" --description \"MQTT System Agent for Home Assistant Integration\" --license \"PolyForm-Noncommercial-1.0.0\" --url \"https://github.com/your-repo/mqtt-system-agent\" --depends network-manager-openvpn --depends python3 --depends iproute2 --deb-systemd debian/mqtt-system-agent.service --after-install debian/postinst.sh --before-remove debian/prerm.sh dist/mqtt-system-agent=/opt/mqtt-system-agent/mqtt-system-agent dist/mqtt-system-agent=/usr/bin/mqtt-system-agent config/agent.yaml=/opt/mqtt-system-agent/config/agent.yaml scripts/ups-shutdown.sh=/opt/mqtt-system-agent/scripts/ups-shutdown.sh"
   },
   "author": "Your Name <your.email@example.com>",
   "license": "PolyForm-Noncommercial-1.0.0",
