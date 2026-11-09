@@ -5,6 +5,7 @@ import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_argv } from '../../utils/exec';
 import { Validators, rejectInvalid } from '../../utils/validators';
 import logger from '../../utils/logger';
+import { runVmAction } from './virshLifecycle';
 
 interface VmManagerFeatureConfig extends FeatureConfig {
   vm_names?: string[]; // Optional: specific VMs to manage by name
@@ -141,48 +142,23 @@ export class VmManager extends BaseFeature {
       return;
     }
 
-    // NOTE: "--mode acpi" is mandatory for stop/restart. On libvirt 11.x the
-    // default shutdown/reboot mode does NOT deliver the ACPI power-button event
-    // to a Windows guest without a qemu-guest-agent (it reports "in progress"
-    // then nothing happens). "--mode acpi" maps to QMP system_powerdown, which
-    // the guest honours (verified 2026-07-17). Guests with qemu-ga could also use
-    // "--mode agent"; this VM has no agent channel, so ACPI is the reliable path.
-    let virshArgs: string[] = [];
-    switch (action) {
-      case 'start':
-        virshArgs = ['start', vmName];
-        break;
-      case 'stop': // graceful ACPI power-off (virsh destroy would be forceful)
-        virshArgs = ['shutdown', '--mode', 'acpi', vmName];
-        break;
-      case 'restart':
-        virshArgs = ['reboot', '--mode', 'acpi', vmName];
-        break;
-      default:
-        logger.warn(`Unknown action '${action}' for VM '${vmName}'.`);
-        return;
+    // MQTT exposes start/stop/restart only; virshLifecycle holds the argv and the ACPI note.
+    if (action !== 'start' && action !== 'stop' && action !== 'restart') {
+      logger.warn(`Unknown action '${action}' for VM '${vmName}'.`);
+      return;
     }
 
-    const virshCommand = `virsh -c qemu:///system ${virshArgs.join(' ')}`;
     try {
-      logger.info(`Executing: ${virshCommand}`);
-      // Passed as argv (no shell) so the VM name cannot inject a command.
-      const cmdResult = await execute_argv('virsh', ['-c', 'qemu:///system', ...virshArgs]);
-      if (cmdResult.stderr) {
-        logger.warn(`[${this.featureName}] Stderr from '${virshCommand}': ${cmdResult.stderr}`);
-        // Potentially publish an error attribute or event
-      }
-      logger.info(`Command '${virshCommand}' executed for VM '${vmName}'. Triggering update. Output: ${cmdResult.stdout}`);
-      // Trigger an immediate update to reflect new state
+      // Passed as argv (no shell) so the VM name cannot inject a command; throws on failure.
+      const cmdResult = await runVmAction(action, vmName);
+      logger.info(`VM '${vmName}': ${action} sent. Triggering update. Output: ${cmdResult.stdout.trim()}`);
       await this.updateVmState(vmName);
-    } catch (error: any) {
-      const errorMessage = error.message || 'Unknown error';
-      const errorDetails = error.stderr || '';
-      logger.error(`Error executing command '${virshCommand}' for VM '${vmName}':`, errorMessage, errorDetails);
-      // Publish error state to VM sensor if possible
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`VM '${vmName}': ${action} failed: ${errorMessage}`);
       const vmObjectId = vmName.replace(/[^a-zA-Z0-9_-]/g, '_');
       await this.publishState(`${this.featureName}/${vmObjectId}/state`, 'error', true);
-      await this.publishAttributes(`${this.featureName}/${vmObjectId}/attributes`, { error: `Command failed: ${errorMessage} ${errorDetails}`.trim() }, true);
+      await this.publishAttributes(`${this.featureName}/${vmObjectId}/attributes`, { error: `Command failed: ${errorMessage}` }, true);
     }
   }
 

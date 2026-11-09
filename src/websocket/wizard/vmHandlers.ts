@@ -3,6 +3,7 @@
 import { FeatureHandlers, ActionHandler } from '../types';
 import { execute_argv } from '../../utils/exec';
 import { Validators } from '../../utils/validators';
+import { runVmAction, VmAction } from '../../features/vm/virshLifecycle';
 
 /** Read and validate the wizard-controlled VM name before it reaches virsh. */
 function requireVmName(params: Record<string, unknown>): string {
@@ -12,11 +13,11 @@ function requireVmName(params: Record<string, unknown>): string {
   return vmName;
 }
 
-/** A lifecycle action: one `virsh <subcommand> <vm>` call. */
-function virshAction(subcommand: string, action: string): ActionHandler {
+/** A lifecycle action through virshLifecycle, which throws when virsh fails. */
+function lifecycleAction(action: VmAction): ActionHandler {
   return async (params) => {
     const vmName = requireVmName(params);
-    await execute_argv('virsh', [subcommand, vmName]);
+    await runVmAction(action, vmName);
     return { success: true, vmName, action };
   };
 }
@@ -82,15 +83,18 @@ export function createVmHandlers(): FeatureHandlers {
 
     get_state: async (params) => {
       const vmName = requireVmName(params);
-      const result = await execute_argv('virsh', ['domstate', vmName]);
+      const result = await execute_argv('virsh', ['-c', 'qemu:///system', 'domstate', vmName]);
+      if (result.exitCode !== 0) {
+        throw new Error(`virsh domstate failed: ${result.stderr.trim() || `exit code ${result.exitCode}`}`);
+      }
       return { vmName, state: result.stdout.trim() };
     },
 
-    start_vm: virshAction('start', 'start'),
-    stop_vm: virshAction('shutdown', 'stop'),
-    restart_vm: virshAction('reboot', 'restart'),
-    force_stop_vm: virshAction('destroy', 'force_stop'),
-    pause_vm: virshAction('suspend', 'pause'),
-    resume_vm: virshAction('resume', 'resume'),
+    start_vm: lifecycleAction('start'),
+    stop_vm: lifecycleAction('stop'),
+    restart_vm: lifecycleAction('restart'),
+    force_stop_vm: lifecycleAction('force_stop'),
+    pause_vm: lifecycleAction('pause'),
+    resume_vm: lifecycleAction('resume'),
   };
 }

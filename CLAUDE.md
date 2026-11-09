@@ -431,9 +431,14 @@ the diagnostic sensor `UPS Battery Test Result`. On the BX1600MI a running test 
 `/etc/ppp/ip-up.d/firewalld-external` on every link-up.
 
 **`virsh` output is localized** — scripts must use `LC_ALL=C`. And **plain `virsh shutdown`
-does not deliver the ACPI event** on libvirt 11.x without a guest agent: `VmManager.ts`
-stop/restart pass `--mode acpi`, which is the only reliable path (`virsh destroy` is the
-forceful fallback).
+does not deliver the ACPI event** on libvirt 11.x without a guest agent: stop/restart pass
+`--mode acpi`, the only reliable path (`virsh destroy` is the forceful fallback). The argv
+lives in one place, `src/features/vm/virshLifecycle.ts`, shared by `VmManager` and the
+wizard's vm handlers; `runVmAction` throws when virsh fails (`execute_argv` never rejects).
+
+**`postinst` enables the unit by name** (`systemctl enable mqtt-system-agent.service`), never
+by path: enabling `/lib/systemd/system/...` links a foreign unit into `/etc/systemd/system`,
+and `dpkg -P` then fails (reproduced and fixed on the bench, 2026-11-09).
 
 **RF coexistence (do not break):** hostapd 2.4 GHz is **pinned to channel 6** with `[HT40+]`
 deliberately removed, because Zigbee sits on ch 25 (2475 MHz) and Thread on ch 21
