@@ -68,6 +68,7 @@ export function snapshotPayloads(feature: string, s: GuestVpnSnapshot): Array<[s
     last_error: s.status.lastError ?? null,
     remote: s.status.remote ?? null,
     dns: s.status.dns,
+    exit_ip_error: s.status.exitIpError ?? null,
     dns_error: s.dnsError ?? null,
     action_error: s.actionError ?? null,
   };
@@ -76,7 +77,7 @@ export function snapshotPayloads(feature: string, s: GuestVpnSnapshot): Array<[s
     [t.state, s.status.state],
     [t.attributes, JSON.stringify(attributes)],
     [t.exitIp, s.status.exitIp ?? PAYLOAD_NONE],
-    // Guests leave through Orange whenever the tunnel is not measured as carrying traffic.
+    // Guests leave through Orange whenever the tunnel fails its health checks (tunnelHealth.ts).
     [t.onOrange, s.status.state === 'connected' ? 'OFF' : 'ON'],
   ];
 }

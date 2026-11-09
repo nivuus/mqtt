@@ -1,17 +1,19 @@
 /**
- * What the guest VPN is doing right now, read from NetworkManager, plus the exit IP measured
- * through the tunnel.
+ * What the guest VPN is doing right now, read from NetworkManager and, while NM reports it
+ * activated, checked for real (tunnelHealth.ts) and measured (exitIp.ts).
  *
  * Read-only: one `nmcli` listing, one `nmcli connection show` of the live profile by UUID and,
- * only while connected, one `curl` bound to the tun device. The tun's `oif` rule exists only
- * while the VPN is up, so the exit IP is never measured otherwise (it would be the uplink's).
+ * only while activated, the health checks, then the exit IP once healthy. `connected` means
+ * healthy: guests leave through the tunnel and their DNS can be DNATed into it.
  */
-import { isIP } from 'net';
-import { execute_argv } from '../../utils/exec';
 import { readDesiredEnabled } from './desiredState';
+import { measureExitIp } from './exitIp';
 import { nmcli } from './nmcli';
 import { GuestVpnConfig } from './nmProfileSettings';
 import { uuidsNamed } from './nmProfiles';
+import { checkTunnelHealth } from './tunnelHealth';
+
+export { EXIT_IP_SERVICE } from './exitIp';
 
 export type GuestVpnState = 'connected' | 'connecting' | 'disabled' | 'no_config' | 'error';
 
@@ -21,13 +23,11 @@ export interface GuestVpnStatus {
   remote?: string;
   dns: string[];
   exitIp?: string;
+  /** Why the exit IP could not be measured; reported only, never a state change. */
+  exitIpError?: string;
+  /** Set when NM reports the tunnel activated but it fails the health checks. */
+  tunnelFault?: string;
 }
-
-/** Answers with the caller's public IP as plain text. */
-export const EXIT_IP_SERVICE = 'https://api.ipify.org';
-const EXIT_IP_MAX_TIME_S = 10;
-// curl's own --max-time fires first; this only bounds a curl that ignores it.
-const EXIT_IP_KILL_MS = (EXIT_IP_MAX_TIME_S + 5) * 1000;
 
 const SHOW_FIELDS = 'vpn.data,GENERAL.STATE,VPN.VPN-STATE,IP4.DNS';
 
@@ -76,24 +76,19 @@ export async function readGuestVpnStatus(cfg: GuestVpnConfig, lastActivationErro
 }
 
 async function connected(cfg: GuestVpnConfig, base: { remote?: string; dns: string[] }): Promise<GuestVpnStatus> {
-  const result = await execute_argv('curl', [
-    '--silent', '--show-error', '--fail',
-    '--interface', cfg.device,
-    '--max-time', String(EXIT_IP_MAX_TIME_S),
-    EXIT_IP_SERVICE,
-  ], { timeoutMs: EXIT_IP_KILL_MS });
-  // `connected` means measured: an activated tunnel that carries no traffic (e.g. NM lost the
-  // table routes after OpenVPN reopened the tun) leaves guests on the uplink, so it is an error.
-  const noTraffic = `the tunnel is active but carries no traffic (no exit IP measured through ${cfg.device})`;
-  if (result.exitCode !== 0) {
-    const why = result.stderr.trim() || `curl exited with ${result.exitCode}`;
-    return { state: 'error', lastError: `${noTraffic}: ${why}`, ...base };
+  const fault = await checkTunnelHealth(cfg, base.dns);
+  if (fault !== undefined) {
+    return {
+      state: 'error',
+      lastError: `the tunnel is activated but does not carry guest traffic (${fault}); guests use the uplink`,
+      tunnelFault: fault,
+      ...base,
+    };
   }
-  const exitIp = result.stdout.trim();
-  if (isIP(exitIp) === 0) {
-    return { state: 'error', lastError: `${noTraffic}: ${EXIT_IP_SERVICE} returned no IP address`, ...base };
-  }
-  return { state: 'connected', ...base, exitIp };
+  const measured = await measureExitIp(cfg.device);
+  return 'exitIp' in measured
+    ? { state: 'connected', ...base, exitIp: measured.exitIp }
+    : { state: 'connected', ...base, exitIpError: measured.error };
 }
 
 /**

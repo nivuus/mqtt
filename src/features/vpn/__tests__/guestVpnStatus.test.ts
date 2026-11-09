@@ -4,11 +4,14 @@ import * as path from 'path';
 import * as execModule from '../../../utils/exec';
 import { writeDesiredEnabled } from '../desiredState';
 import { DEFAULT_GUEST_VPN_CONFIG, GuestVpnConfig } from '../nmProfileSettings';
-import { EXIT_IP_SERVICE, readGuestVpnStatus } from '../guestVpnStatus';
+import { readGuestVpnStatus } from '../guestVpnStatus';
+import { checkTunnelHealth } from '../tunnelHealth';
 import { fail, ok, Result } from './fakeNmcli';
 
 jest.mock('../../../utils/exec');
+jest.mock('../tunnelHealth');
 const mockedExec = execModule as jest.Mocked<typeof execModule>;
+const mockedHealth = checkTunnelHealth as jest.MockedFunction<typeof checkTunnelHealth>;
 
 const ID = 'nivuus-guest-vpn';
 const UUID = '00000000-0000-4000-8000-000000000001';
@@ -42,6 +45,8 @@ describe('readGuestVpnStatus', () => {
     shown = details();
     curl = ok('5.255.103.96');
     calls = [];
+    mockedHealth.mockReset();
+    mockedHealth.mockResolvedValue(undefined);
     mockedExec.execute_argv.mockImplementation(async (file, args, opts) => {
       calls.push({ file, args: [...args], timeoutMs: opts?.timeoutMs });
       if (file === 'curl') return curl;
@@ -146,34 +151,25 @@ describe('readGuestVpnStatus', () => {
     await expect(readGuestVpnStatus(cfg, 'old failure')).resolves.toMatchObject({ state: 'disabled' });
   });
 
-  it('exitIp read with curl --interface nvguest0 --max-time 10 only when connected', async () => {
+  it('activated but unhealthy (table 200 lost) → error with the fault, no exit IP probe', async () => {
     shown = details({ general: 'activated', vpn: '5 - VPN connected', dns: ['10.20.128.1'] });
-    await readGuestVpnStatus(cfg);
-    expect(curlCalls()).toHaveLength(1);
-    const [c] = curlCalls();
-    expect(c.args).toEqual(expect.arrayContaining(['--interface', 'nvguest0', '--max-time', '10', EXIT_IP_SERVICE]));
-    expect(c.args[c.args.indexOf('--interface') + 1]).toBe('nvguest0');
-    expect(c.args[c.args.indexOf('--max-time') + 1]).toBe('10');
-    expect(EXIT_IP_SERVICE).toBe('https://api.ipify.org');
-    expect(c.timeoutMs).toBeGreaterThan(10000);
+    mockedHealth.mockResolvedValue('no default route via nvguest0 in table 200');
+    const status = await readGuestVpnStatus(cfg);
+    expect(mockedHealth).toHaveBeenCalledWith(cfg, ['10.20.128.1']);
+    expect(status).toMatchObject({ state: 'error', tunnelFault: 'no default route via nvguest0 in table 200' });
+    expect(status.lastError).toMatch(/activated but does not carry guest traffic.*no default route/);
+    expect(status.exitIp).toBeUndefined();
+    expect(curlCalls()).toEqual([]);
   });
 
-  it('exitIp absent and no throw when curl fails: error, never connected', async () => {
+  it('healthy but the exit IP service fails → still connected, the failure is only reported', async () => {
     shown = details({ general: 'activated', vpn: '5 - VPN connected', dns: ['10.20.128.1'] });
     curl = fail('curl: (28) Connection timed out after 10001 milliseconds');
     const status = await readGuestVpnStatus(cfg);
-    expect(status.state).toBe('error');
+    expect(status.state).toBe('connected');
     expect(status.exitIp).toBeUndefined();
-    expect(status.lastError).toMatch(/active but carries no traffic.*no exit IP measured.*timed out/);
-  });
-
-  it('a non-IP body from the exit IP service: error, no exitIp', async () => {
-    shown = details({ general: 'activated', vpn: '5 - VPN connected' });
-    curl = ok('<html>captive portal</html>');
-    const status = await readGuestVpnStatus(cfg);
-    expect(status.state).toBe('error');
-    expect(status.exitIp).toBeUndefined();
-    expect(status.lastError).toMatch(/active but carries no traffic.*returned no IP address/);
+    expect(status.lastError).toBeUndefined();
+    expect(status.exitIpError).toMatch(/timed out/);
   });
 
   it('VPN-STATE 5 while GENERAL.STATE is not activated is never connected', async () => {

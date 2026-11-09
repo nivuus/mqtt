@@ -103,6 +103,18 @@ describe('GuestVpn feature', () => {
     expect(h.upCalls()).toBe(0);
   });
 
+  it('a failed exit IP measurement is an attribute only: connected, on_orange OFF, DNS reconciled as connected', async () => {
+    await writeDesiredEnabled(h.nm.cfg.stateFile, true);
+    await h.nm.addProfile('nivuus-guest-vpn', 'nivuus-guest-vpn', true);
+    mockedStatus.mockResolvedValue({ state: 'connected', dns: ['10.8.0.1'], exitIpError: 'no exit IP measured: timeout' });
+    await h.start();
+    expect(h.last('state/state')).toBe('connected');
+    expect(h.last('exit_ip/state')).toBe('None');
+    expect(h.last('on_orange/state')).toBe('OFF');
+    expect(h.attributes()).toMatchObject({ exit_ip_error: 'no exit IP measured: timeout', last_error: null });
+    expect(mockedReconcile).toHaveBeenLastCalledWith(h.nm.cfg, expect.objectContaining({ state: 'connected' }));
+  });
+
   it('publishes no exit IP and on_orange ON while not connected', async () => {
     await h.start();
     expect(h.last('state/state')).toBe('no_config');
