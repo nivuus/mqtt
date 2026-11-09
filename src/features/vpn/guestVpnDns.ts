@@ -11,7 +11,7 @@
  * transaction that replaces the whole table atomically.
  */
 import { isIPv4 } from 'net';
-import { execute_argv, execute_argv_input } from '../../utils/exec';
+import { execute_argv_input } from '../../utils/exec';
 import { GuestVpnStatus } from './guestVpnStatus';
 import { GuestVpnConfig } from './nmProfileSettings';
 
@@ -62,39 +62,27 @@ export function renderDnsTable(bridge: string, dns: string[] | null): string {
   ].join('\n');
 }
 
-// The script last applied successfully. A table found in place with this content needs no
-// re-apply; it is forgotten on agent restart, which then re-applies once.
-let applied: string | undefined;
-
 /**
  * Brings the table in line with `status`; run on every tick and right after a switch or an
- * import. Throws a GuestVpnDnsError when nft fails, and when the tunnel is connected without
- * an IPv4 DNS (the empty table is applied first: guests then resolve through the router,
- * outside the tunnel, which the caller must surface).
+ * import. The script is idempotent and atomic, so it is applied every time: a table removed
+ * or altered by anyone else is restored on the next tick. Throws a GuestVpnDnsError when nft
+ * fails, and when the tunnel is connected without an IPv4 DNS (the empty table is applied
+ * first: guests then resolve through the router, outside the tunnel, which the caller must
+ * surface).
  */
 export async function reconcileDnsRedirect(cfg: GuestVpnConfig, status: GuestVpnStatus): Promise<void> {
   const connected = status.state === 'connected';
   const script = renderDnsTable(cfg.bridge, connected ? status.dns : null);
 
-  if (!(applied === script && (await tablePresent()))) {
-    const result = await execute_argv_input('nft', ['-f', '-'], script);
-    if (result.exitCode !== 0) {
-      applied = undefined;
-      throw new GuestVpnDnsError(`nft could not apply table inet ${DNS_TABLE}: ${why(result)}`);
-    }
-    applied = script;
+  const result = await execute_argv_input('nft', ['-f', '-'], script);
+  if (result.exitCode !== 0) {
+    throw new GuestVpnDnsError(`nft could not apply table inet ${DNS_TABLE}: ${why(result)}`);
   }
 
   if (connected && firstIPv4(status.dns) === undefined) {
     const pushed = status.dns.length ? `only ${status.dns.join(', ')}` : 'none';
     throw new GuestVpnDnsError(`the tunnel pushed no IPv4 DNS (${pushed}); guest DNS is not routed into the tunnel`);
   }
-}
-
-async function tablePresent(): Promise<boolean> {
-  const result = await execute_argv('nft', ['list', 'tables']);
-  if (result.exitCode !== 0) throw new GuestVpnDnsError(`nft could not list tables: ${why(result)}`);
-  return result.stdout.split('\n').some(line => line.trim() === `table inet ${DNS_TABLE}`);
 }
 
 function firstIPv4(dns: string[]): string | undefined {

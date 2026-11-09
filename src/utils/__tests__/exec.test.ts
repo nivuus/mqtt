@@ -101,4 +101,21 @@ describe("execute_argv_input — stdin is fed, never logged", () => {
       .flatMap(fn => (fn as jest.Mock).mock.calls.flat().map(String));
     expect(logged.some(line => line.includes(secret))).toBe(false);
   });
+
+  const logged = () => [logger.debug, logger.info, logger.warn, logger.error]
+    .flatMap(fn => (fn as jest.Mock).mock.calls.flat().map(String));
+
+  it("never logs input a failing child echoes on stderr, but returns it", async () => {
+    const secret = "secret-echoed-on-stderr";
+    const result = await execute_argv_input("sh", ["-c", "cat >&2; exit 1"], secret);
+    expect(result).toEqual({ stdout: "", stderr: secret, exitCode: 1 });
+    expect(logged().some(line => line.includes(secret))).toBe(false);
+  });
+
+  it("never logs input a succeeding child echoes on stdout, but returns it", async () => {
+    const secret = "secret-echoed-on-stdout";
+    const result = await execute_argv_input("cat", [], secret);
+    expect(result.stdout).toBe(secret);
+    expect(logged().some(line => line.includes(secret))).toBe(false);
+  });
 });

@@ -91,6 +91,9 @@ export function execute_argv_input(file: string, args: string[], input: string, 
 
 function runFile(file: string, args: string[], input: string | undefined, timeoutMs: number): Promise<CommandResult> {
   const label = `${file} ${args.join(' ')}`;
+  // A child fed input may echo it (`nft -f -` quotes the failing line on stderr), and execFile
+  // copies stderr into error.message: with input, outputs are logged by length only.
+  const shown = (text: string) => (input === undefined ? text : `<${text.length} chars>`);
   logger.info(`Attempting to execute argv command: ${label}`);
 
   return new Promise((resolve) => {
@@ -105,7 +108,8 @@ function runFile(file: string, args: string[], input: string | undefined, timeou
         if (anyError.killed) {
           logger.warn(`Command "${label}" timed out after ${timeoutMs / 1000}s and was killed`);
         } else {
-          logger.warn(`Error executing command "${label}": ${error.message}. Exit code: ${anyError.code}. Stderr: ${stderr}`);
+          const message = input === undefined ? `${error.message}. ` : '';
+          logger.warn(`Error executing command "${label}": ${message}Exit code: ${anyError.code}. Stderr: ${shown(stderr)}`);
         }
         // execFile reports the exit code in error.code (number). A string code
         // (e.g. 'ENOENT') means the program could not be spawned → treat as 1.
@@ -113,13 +117,13 @@ function runFile(file: string, args: string[], input: string | undefined, timeou
         resolve({ stdout, stderr, exitCode });
         return;
       }
-      logger.debug(`Command "${label}" executed successfully. Stdout: ${stdout}`);
+      logger.debug(`Command "${label}" executed successfully. Stdout: ${shown(stdout)}`);
       resolve({ stdout, stderr, exitCode: 0 });
     });
     // A child that exits before reading its whole input fails the write with EPIPE; its
     // exit code, resolved above, is the outcome that matters.
     if (input !== undefined) {
-      childProcess.stdin?.on('error', () => undefined);
+      childProcess.stdin?.on('error', (err) => logger.debug(`stdin of "${label}" closed early: ${err.message}`));
       childProcess.stdin?.end(input);
     }
 
