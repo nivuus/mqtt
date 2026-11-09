@@ -23,9 +23,9 @@ export class TunnelRecovery {
     return this.backoff.due(now);
   }
 
-  /** An activation that started at `startedAt` failed, or the tunnel was restarted unhealthy. */
-  activationFailed(startedAt: number): void {
-    this.backoff.failed(startedAt);
+  /** An activation failed, at `endedAt`, or the tunnel was restarted unhealthy. */
+  activationFailed(endedAt: number): void {
+    this.backoff.failed(endedAt);
   }
 
   /**

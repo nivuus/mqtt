@@ -103,6 +103,8 @@ export class GuestVpnSupervisor {
         throw err;
       }
       logger.info(`${TAG} profile imported, activation ${result.activation}`);
+      // The import's own activation is an attempt like a tick's: a failure backs off too.
+      if (result.activation === 'failed') this.recovery.activationFailed(Date.now());
       return (await this.refresh()).status;
     });
   }
@@ -126,15 +128,14 @@ export class GuestVpnSupervisor {
     if (!(await this.nm.profileExists())) return !on;
     const active = await this.nm.isActive();
     if (on && !active) {
-      const startedAt = Date.now();
-      if (!this.recovery.mayActivate(startedAt)) return false;
+      if (!this.recovery.mayActivate(Date.now())) return false;
       await clearDnsRedirect(this.cfg);
       await this.announceConnecting();
       try {
         await this.nm.up();
       } catch {
         // Recorded by up() (lastActivationError) and published by refresh().
-        this.recovery.activationFailed(startedAt);
+        this.recovery.activationFailed(Date.now());
         return false;
       }
     } else if (!on && active) {

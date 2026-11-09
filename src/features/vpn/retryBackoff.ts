@@ -4,7 +4,9 @@
  * otherwise log in to the provider every 15 s forever (account lock risk, log spam).
  *
  * The supervisor resets it on a switch command, an import, and once the tunnel is healthy.
- * Times are milliseconds since the epoch, measured from the start of the failed attempt.
+ * Times are milliseconds since the epoch, measured from the END of the failed attempt: an
+ * activation can wait up to 90 s (nmActivation.ts), and spacing counted from its start would
+ * publish a next attempt already in the past (bench, 2026-11-09).
  */
 export const BACKOFF_BASE_MS = 15000;
 export const BACKOFF_CAP_MS = 5 * 60 * 1000;
@@ -16,11 +18,11 @@ export class RetryBackoff {
   private failures = 0;
   private next: number | undefined;
 
-  /** Records a failed attempt that started at `startedAt`. */
-  failed(startedAt: number): void {
+  /** Records a failed attempt that ended at `endedAt`. */
+  failed(endedAt: number): void {
     this.failures++;
     const delay = Math.min(BACKOFF_BASE_MS * 2 ** (this.failures - 1), BACKOFF_CAP_MS);
-    this.next = startedAt + delay;
+    this.next = endedAt + delay;
   }
 
   reset(): void {

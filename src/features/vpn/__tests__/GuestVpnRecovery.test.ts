@@ -140,10 +140,12 @@ describe('GuestVpn recovery', () => {
     await at(15); // next attempt at 45 s
     await h.send('ON');
     expect(h.upCalls()).toBe(3);
-    await h.feature.importProfile(INPUT);
+    await h.feature.importProfile(INPUT); // resets, then its own failed activation at 15 s counts
     expect(h.upCalls()).toBe(4);
     h.nm.override = undefined;
     await at(20);
+    expect(h.upCalls()).toBe(4);
+    await at(30);
     expect(h.upCalls()).toBe(5);
     expect(h.last('state/state')).toBe('connected');
     expect(h.attributes().next_attempt).toBeNull();
