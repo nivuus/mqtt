@@ -218,24 +218,32 @@ Topic notes in `docs/claude/`:
 
 ## Feature-Specific Implementation Details
 
-### WiFi/Hostapd Management (`src/features/wifi/HostapdManager.ts`)
+### WiFi/Hostapd Management (`src/features/wifi/`)
 
-**Key Features:**
-- **Per-network configuration**: Each WiFi network (SSID) gets its own set of 6 entities:
-  - Text inputs for SSID name and password (mode: text for visibility)
-  - Select dropdown for security type (WPA2-PSK, WPA3-SAE, WPA2/WPA3-Mixed, Open)
-  - Apply and Delete buttons
-  - Status sensor showing active bands (2.4GHz, 5GHz, or both)
-- **Numeric network IDs**: Uses `network_1`, `network_2`, etc. instead of sanitized SSID names to avoid special character issues
-- **Dual-band merging**: Networks with same SSID in both 2.4GHz and 5GHz configs are merged into single entity set
-- **Config file preservation**: All hostapd parameters (bridge, interface, access_network_type) are preserved when updating networks
-- **Security type mapping**: Complete mapping from HA select options to hostapd config parameters (wpa, wpa_key_mgmt, rsn_pairwise, etc.)
+Split along its seams (2026-11-09): `securityProfiles.ts` (HA security types → hostapd lines,
+validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tested),
+`hostapdService.ts` (file I/O, `systemctl reload|restart hostapd` with the real result),
+`hostapdEntities.ts` (HA entity specs), `HostapdManager.ts` (MQTT wiring).
 
-**Critical Implementation Points:**
-- Password inputs use `mode: 'text'` not `mode: 'password'` for editability
-- Entity IDs use numeric counter (1, 2, 3...) to avoid special characters in SSID names
-- Changes are applied atomically: backup → temp file → atomic move → reload hostapd
-- Config paths: `/etc/hostapd/2.4Ghz.conf` and `/etc/hostapd/5Ghz.conf`
+- One entity set per SSID (`network_<n>`: SSID, password, security, Apply, Delete, status);
+  same SSID on both radios is merged. A rename keeps the numeric id.
+- **Add network** form: SSID, password, security (default WPA2/WPA3-Mixed) and **bridge**
+  (options = bridges found in the files; default = a bridge no radio's main network uses, i.e.
+  the guest one). The new BSS copies `ctrl_interface`, `ap_isolate`, `access_network_type`
+  and the 802.11k/v keys from an existing BSS on the same bridge. Interface name =
+  radio `interface=` base + next free number. An empty form is refused (it used to create
+  `NewNetwork`/`password123` on `localBridge`).
+- **Apply** = `systemctl reload` (SIGHUP; every client re-associates, ~25 s); **add/delete** =
+  `restart` (new or removed virtual interface, ~15 s outage). The last-action sensor shows
+  "saved but NOT applied" when systemctl fails — `execute_argv` never throws, so check
+  `exitCode`. Before 2026-11-09 the host unit had no `ExecReload` and every reload failed
+  while HA said "reloaded successfully".
+- Delete removes the whole `bss=` section; a radio's main network cannot be deleted.
+- SSID limit is 32 **bytes** (UTF-8), not characters; SAE passwords may use any script, WPA2
+  and mixed-mode passphrases must be 8-63 printable ASCII (802.11i).
+- Known issues left open on purpose: `docs/claude/wifi-known-issues.md` (world-readable files
+  after an HA change; passwords in retained MQTT states).
+- Config paths: `/etc/hostapd/2.4Ghz.conf` and `/etc/hostapd/5Ghz.conf`.
 
 ### PPPoE Credentials Management (`src/features/network/PppoeCredentials.ts`)
 
@@ -446,8 +454,10 @@ test `$1` there.
 **RF coexistence (do not break):** hostapd 2.4 GHz is **pinned to channel 6** with `[HT40+]`
 deliberately removed, because Zigbee sits on ch 25 (2475 MHz) and Thread on ch 21
 (2455 MHz). ACS or a 40 MHz secondary channel would cover them. 5 GHz is ch 36, VHT80.
-Note `systemctl reload hostapd` **cannot** apply channel or BSS changes — those need a
-`restart` (~10 s outage, clients re-attach automatically).
+`systemctl reload hostapd` (SIGHUP) applies SSID/security changes but **cannot** apply
+channel or BSS changes — those need a `restart` (~15 s outage, clients re-attach automatically).
+Host-side Wi-Fi setup (unit, post-start isolation/txpower/802.11k unit) is documented in
+`nivuus/installer` `configs/network/hostapd-config.md`.
 
 **Deployment target**: the agent runs on the Nivuus host as `mqtt-system-agent.service`,
 with device ID `nivuus` in Home Assistant.
