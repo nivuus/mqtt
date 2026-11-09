@@ -72,16 +72,28 @@ export function renderDnsTable(bridge: string, dns: string[] | null): string {
  */
 export async function reconcileDnsRedirect(cfg: GuestVpnConfig, status: GuestVpnStatus): Promise<void> {
   const connected = status.state === 'connected';
-  const script = renderDnsTable(cfg.bridge, connected ? status.dns : null);
-
-  const result = await execute_argv_input('nft', ['-f', '-'], script);
-  if (result.exitCode !== 0) {
-    throw new GuestVpnDnsError(`nft could not apply table inet ${DNS_TABLE}: ${why(result)}`);
-  }
+  await applyTable(renderDnsTable(cfg.bridge, connected ? status.dns : null));
 
   if (connected && firstIPv4(status.dns) === undefined) {
     const pushed = status.dns.length ? `only ${status.dns.join(', ')}` : 'none';
     throw new GuestVpnDnsError(`the tunnel pushed no IPv4 DNS (${pushed}); guest DNS is not routed into the tunnel`);
+  }
+}
+
+/**
+ * Applies the empty table: guests resolve through the router. Run before every activation
+ * and right after an import took the old tunnel down, so the table never DNATs to a provider
+ * DNS while the tunnel's routes are gone (an `up()` can take two minutes). Throws a
+ * GuestVpnDnsError when nft fails.
+ */
+export async function clearDnsRedirect(cfg: GuestVpnConfig): Promise<void> {
+  await applyTable(renderDnsTable(cfg.bridge, null));
+}
+
+async function applyTable(script: string): Promise<void> {
+  const result = await execute_argv_input('nft', ['-f', '-'], script);
+  if (result.exitCode !== 0) {
+    throw new GuestVpnDnsError(`nft could not apply table inet ${DNS_TABLE}: ${why(result)}`);
   }
 }
 

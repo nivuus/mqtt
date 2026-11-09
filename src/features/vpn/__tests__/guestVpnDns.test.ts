@@ -1,5 +1,5 @@
 import * as execModule from '../../../utils/exec';
-import { reconcileDnsRedirect, renderDnsTable } from '../guestVpnDns';
+import { clearDnsRedirect, reconcileDnsRedirect, renderDnsTable } from '../guestVpnDns';
 import { GuestVpnStatus } from '../guestVpnStatus';
 import { DEFAULT_GUEST_VPN_CONFIG } from '../nmProfileSettings';
 import { ok, Result } from './fakeNmcli';
@@ -142,6 +142,19 @@ describe('guest DNS redirect', () => {
       expect(exec.execute_command).not.toHaveBeenCalled();
       expect(exec.execute_argv).not.toHaveBeenCalled();
       expect(calls.some(c => [c.file, ...c.args, c.input ?? ''].join(' ').includes('firewall-cmd'))).toBe(false);
+    });
+  });
+
+  describe("clearDnsRedirect", () => {
+    it("applies the empty table whatever was there", async () => {
+      await reconcileDnsRedirect(cfg, status("connected"));
+      await clearDnsRedirect(cfg);
+      expect(applied()).toEqual([EXPECTED_WITH_DNS, EXPECTED_EMPTY]);
+    });
+
+    it("throws when nft fails, so no activation proceeds with a stale DNAT", async () => {
+      applyResult = { stdout: "", stderr: "Error: boom", exitCode: 1 };
+      await expect(clearDnsRedirect(cfg)).rejects.toThrow(/could not apply.*boom/);
     });
   });
 });

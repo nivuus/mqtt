@@ -127,6 +127,32 @@ describe('NmGuestVpn.importProfile: replacing the live profile', () => {
     expect(nm.find(a => a[1] === 'up')[0].args).toEqual(['connection', 'up', 'uuid', fresh, 'ifname', 'publicBridge']);
   });
 
+  it('calls onLiveTunnelDown once the old tunnel is gone, before the rename and any activation', async () => {
+    await nm.addProfile(ID, 'nivuus-guest-vpn_a', true);
+    await writeDesiredEnabled(nm.cfg.stateFile, true);
+    const seen: string[][] = [];
+    await vpn().importProfile({ ovpn: OVPN, username: 'u', password: 'p' }, async () => { seen.push(nm.verbs()); });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain('connection down');
+    expect(seen[0]).not.toContain('connection up');
+    expect(seen[0].filter(v => v === 'connection modify')).toHaveLength(1); // settings only, not the rename
+  });
+
+  it('calls onLiveTunnelDown even when no tunnel was up (the table may still hold a DNAT)', async () => {
+    await nm.addProfile(ID, 'nivuus-guest-vpn_a');
+    const onDown = jest.fn(async () => undefined);
+    await vpn().importProfile({ ovpn: OVPN, username: 'u', password: 'p' }, onDown);
+    expect(onDown).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failing onLiveTunnelDown fails the import and keeps the old profile', async () => {
+    const old = await nm.addProfile(ID, 'nivuus-guest-vpn_a', true);
+    await expect(vpn().importProfile({ ovpn: OVPN, username: 'u', password: 'p' },
+      async () => { throw new Error('nft could not apply'); })).rejects.toThrow(/nft could not apply/);
+    expect([...nm.profiles.keys()]).toEqual([old.uuid]);
+    expect(nm.find(a => a[1] === 'up')).toHaveLength(0);
+  });
+
   it('fails the import when the tun device outlives the bounded wait, keeping the old profile', async () => {
     const old = await nm.addProfile(ID, 'nivuus-guest-vpn_a', true);
     nm.downRemovesDevice = false;

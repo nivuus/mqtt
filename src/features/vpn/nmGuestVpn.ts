@@ -55,8 +55,12 @@ export class NmGuestVpn {
    * Builds the upload completely under a staging name, renames it to the live id, and only
    * then deletes the replaced profile by UUID. Any failure up to the rename discards the
    * staging profile alone: the live profile, its keyfile and its certificates are untouched.
+   *
+   * `onLiveTunnelDown` runs once the live tunnel is down (or was not up), before the rename
+   * and any activation: the supervisor empties the guest DNS table there. Its failure fails
+   * the import like any other step before the rename.
    */
-  async importProfile(input: ProfileInput): Promise<ImportResult> {
+  async importProfile(input: ProfileInput, onLiveTunnelDown?: () => Promise<void>): Promise<ImportResult> {
     const profile = prepareProfileText(input.ovpn, input.ca);
     if (!input.username || !input.password) throw new Error('username and password are required');
 
@@ -80,6 +84,7 @@ export class NmGuestVpn {
         await nmcli(['connection', 'down', 'uuid', liveUuid]);
         await waitForDeviceGone(this.env, this.cfg.device);
       }
+      await onLiveTunnelDown?.();
       await nmcli(['connection', 'modify', 'uuid', fresh, 'connection.id', id]);
     } catch (err) {
       await this.discardStaging(staging).catch((cleanup: Error) => {
