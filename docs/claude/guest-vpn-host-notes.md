@@ -369,10 +369,11 @@ Remaining (not fixed here):
   (17:45:08, 3 s after the import's attempt).
 - The backoff runs from the start of the failed attempt; an attempt that times out after 60 s
   therefore publishes a `next_attempt` already in the past (17:53:21 published 17:52:50).
-- `postinst.sh` enables the unit by path (`systemctl enable /lib/systemd/system/...`), which
+- Fixed on 2026-11-09 (postinst now enables by name; bench: purge rc 1 before, 0 after).
+  `postinst.sh` enabled the unit by path (`systemctl enable /lib/systemd/system/...`), which
   links `/etc/systemd/system/mqtt-system-agent.service`; with merged `/usr`, `is-enabled` then
   fails ("Too many levels of symbolic links") and `prerm.sh`'s `systemctl disable` refuses a
-  linked unit, so `dpkg -P` fails under `set -e`.
+  linked unit, so `dpkg -P` failed under `set -e`.
 
 The bench now holds the fixed package, profile `nivuus-guest-vpn` (`_b`, password in its keyfile),
 the desired state ON, `/root/t9f/` (scripts, logs, `wrong.txt` with the username and a wrong
