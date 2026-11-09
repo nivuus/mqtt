@@ -59,6 +59,8 @@ export async function readGuestVpnStatus(cfg: GuestVpnConfig, lastActivationErro
   if (vpnState === VPN_FAILED) {
     return { state: 'error', lastError: lastActivationError ?? `NetworkManager reports ${vpnStateText}`, ...base };
   }
+  // VPN-STATE 5 with GENERAL.STATE not (yet or any more) activated is a transition: it falls
+  // through to the connecting / inactive checks below, never to `connected`.
   if (vpnState === VPN_ACTIVATED && general === 'activated') return connected(cfg, base);
   if (general === 'activating' || (vpnState !== undefined && isVpnConnecting(vpnState))) {
     return { state: 'connecting', ...(lastActivationError !== undefined && { lastError: lastActivationError }), ...base };
@@ -80,13 +82,16 @@ async function connected(cfg: GuestVpnConfig, base: { remote?: string; dns: stri
     '--max-time', String(EXIT_IP_MAX_TIME_S),
     EXIT_IP_SERVICE,
   ], { timeoutMs: EXIT_IP_KILL_MS });
+  // `connected` means measured: an activated tunnel that carries no traffic (e.g. NM lost the
+  // table routes after OpenVPN reopened the tun) leaves guests on the uplink, so it is an error.
+  const noTraffic = `the tunnel is active but carries no traffic (no exit IP measured through ${cfg.device})`;
   if (result.exitCode !== 0) {
     const why = result.stderr.trim() || `curl exited with ${result.exitCode}`;
-    return { state: 'connected', lastError: `exit IP check through ${cfg.device} failed: ${why}`, ...base };
+    return { state: 'error', lastError: `${noTraffic}: ${why}`, ...base };
   }
   const exitIp = result.stdout.trim();
   if (isIP(exitIp) === 0) {
-    return { state: 'connected', lastError: `exit IP check: ${EXIT_IP_SERVICE} returned no IP address`, ...base };
+    return { state: 'error', lastError: `${noTraffic}: ${EXIT_IP_SERVICE} returned no IP address`, ...base };
   }
   return { state: 'connected', ...base, exitIp };
 }

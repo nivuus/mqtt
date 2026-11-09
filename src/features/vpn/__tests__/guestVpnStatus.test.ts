@@ -158,21 +158,28 @@ describe('readGuestVpnStatus', () => {
     expect(c.timeoutMs).toBeGreaterThan(10000);
   });
 
-  it('exitIp absent and no throw when curl fails, lastError set', async () => {
+  it('exitIp absent and no throw when curl fails: error, never connected', async () => {
     shown = details({ general: 'activated', vpn: '5 - VPN connected', dns: ['10.20.128.1'] });
     curl = fail('curl: (28) Connection timed out after 10001 milliseconds');
     const status = await readGuestVpnStatus(cfg);
-    expect(status.state).toBe('connected');
+    expect(status.state).toBe('error');
     expect(status.exitIp).toBeUndefined();
-    expect(status.lastError).toMatch(/exit IP.*timed out/);
+    expect(status.lastError).toMatch(/active but carries no traffic.*no exit IP measured.*timed out/);
   });
 
-  it('a non-IP answer from the exit IP service is not reported as the exit IP', async () => {
+  it('a non-IP body from the exit IP service: error, no exitIp', async () => {
     shown = details({ general: 'activated', vpn: '5 - VPN connected' });
     curl = ok('<html>captive portal</html>');
     const status = await readGuestVpnStatus(cfg);
+    expect(status.state).toBe('error');
     expect(status.exitIp).toBeUndefined();
-    expect(status.lastError).toMatch(/exit IP/);
+    expect(status.lastError).toMatch(/active but carries no traffic.*returned no IP address/);
+  });
+
+  it('VPN-STATE 5 while GENERAL.STATE is not activated is never connected', async () => {
+    shown = details({ general: 'activating', vpn: '5 - VPN connected' });
+    await expect(readGuestVpnStatus(cfg)).resolves.toMatchObject({ state: 'connecting' });
+    expect(curlCalls()).toEqual([]);
   });
 
   it('nmcli failures propagate', async () => {
