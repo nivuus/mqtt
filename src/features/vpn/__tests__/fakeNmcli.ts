@@ -11,7 +11,7 @@ import * as execModule from '../../../utils/exec';
 import { DEFAULT_GUEST_VPN_CONFIG, GuestVpnConfig, NmEnv } from '../nmGuestVpn';
 
 export type Call = { file: string; args: string[] };
-export type Result = { stdout: string; stderr: string; exitCode: number };
+export type Result = { stdout: string; stderr: string; exitCode: number; spawnError?: string };
 export type Staged = { file: string; content: string; fileMode: number; dirMode: number };
 type Profile = { id: string; keyfile: string };
 

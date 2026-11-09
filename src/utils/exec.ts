@@ -7,6 +7,8 @@ interface CommandResult {
   stdout: string;
   stderr: string;
   exitCode: number | null;
+  /** execute_argv*: the errno code (e.g. 'ENOENT') when the program could not be spawned at all. */
+  spawnError?: string;
 }
 
 interface ExecArgvOptions {
@@ -122,8 +124,11 @@ function runFile(file: string, args: string[], input: string | undefined, opts: 
         }
         // execFile reports the exit code in error.code (number). A string code
         // (e.g. 'ENOENT') means the program could not be spawned → treat as 1.
-        const exitCode = typeof anyError.code === 'number' ? anyError.code : 1;
-        resolve({ stdout, stderr, exitCode });
+        if (typeof anyError.code === 'string') {
+          resolve({ stdout, stderr, exitCode: 1, spawnError: anyError.code });
+          return;
+        }
+        resolve({ stdout, stderr, exitCode: typeof anyError.code === 'number' ? anyError.code : 1 });
         return;
       }
       logger.debug(`Command "${label}" executed successfully. Stdout: ${shown(stdout)}`);

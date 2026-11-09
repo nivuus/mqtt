@@ -47,6 +47,15 @@ describe('execute_argv — shell metacharacters are inert', () => {
     expect(result.exitCode).toBe(1);
   });
 
+  it('reports a program that cannot be spawned as spawnError, distinct from an exit code', async () => {
+    const missing = await execute_argv('definitely-not-a-real-program-xyz', []);
+    expect(missing).toMatchObject({ exitCode: 1, spawnError: 'ENOENT' });
+    const failed = await execute_argv('false', []);
+    expect(failed.spawnError).toBeUndefined();
+    const missingWithInput = await execute_argv_input('definitely-not-a-real-program-xyz', [], 'x');
+    expect(missingWithInput.spawnError).toBe('ENOENT');
+  });
+
   it('returns exit code 1 when the program does not exist (ENOENT)', async () => {
     const result = await execute_argv('this-binary-does-not-exist-xyz', []);
     expect(result.exitCode).toBe(1);

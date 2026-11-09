@@ -18,7 +18,7 @@
  *
  * The query asks for the root zone: it names no guest and no host.
  */
-import { execute_argv } from '../../utils/exec';
+import { execute_argv_input } from '../../utils/exec';
 
 export const DNS_PROBE_TIMEOUT_S = 3;
 // The script's own socket timeout fires first; this only bounds a python3 that hangs.
@@ -43,10 +43,14 @@ except OSError as e:
     sys.exit(1)
 `;
 
-/** Undefined when `server` answered through `device`; otherwise why not. */
+/**
+ * Undefined when `server` answered through `device`; otherwise why not. The script goes on
+ * stdin (`python3 -I -`), which exec never logs, so log lines carry only the parameters.
+ */
 export async function probeDns(device: string, server: string, port = 53): Promise<string | undefined> {
-  const args = ['-I', '-c', PROBE_SCRIPT, device, server, String(DNS_PROBE_TIMEOUT_S), String(port)];
-  const result = await execute_argv('python3', args, { timeoutMs: DNS_PROBE_KILL_MS, quiet: true });
+  const args = ['-I', '-', device, server, String(DNS_PROBE_TIMEOUT_S), String(port)];
+  const result = await execute_argv_input('python3', args, PROBE_SCRIPT, { timeoutMs: DNS_PROBE_KILL_MS, quiet: true });
+  if (result.spawnError !== undefined) return `could not run python3: ${result.spawnError}`;
   if (result.exitCode === 0) return undefined;
   return result.stderr.trim() || `python3 exited with ${result.exitCode}`;
 }
