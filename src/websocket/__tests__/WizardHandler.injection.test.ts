@@ -18,6 +18,13 @@ describe('WizardHandler — injection payloads are rejected before execution', (
     handler = new WizardHandler();
   });
 
+  it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty'])(
+    'rejects the inherited Object member "%s" as an action',
+    async (action) => {
+      await expect(handler.handleCommand(cmd('vm', action, {}))).rejects.toThrow('Unknown action');
+    },
+  );
+
   it('rejects an injected VM name (start_vm)', async () => {
     await expect(handler.handleCommand(cmd('vm', 'start_vm', { vmName: 'Windows; reboot' })))
       .rejects.toThrow('Invalid vmName parameter');
