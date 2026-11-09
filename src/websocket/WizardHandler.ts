@@ -32,7 +32,8 @@ export class WizardHandler {
    * optional agent feature). Commands for it go through the same own-property guard.
    */
   public registerFeature(name: FeatureName, handlers: FeatureHandlers): void {
-    this.handlers.set(name, handlers);
+    if (this.handlers.has(name)) throw new Error(`Feature ${name} is already registered`);
+    this.handlers.set(name, Object.freeze({ ...handlers }));
   }
 
   /**

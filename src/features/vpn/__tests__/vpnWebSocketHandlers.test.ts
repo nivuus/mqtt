@@ -59,6 +59,13 @@ describe('vpn WebSocket handlers', () => {
     await expect(wizard.handleCommand(cmd('get_status'))).resolves.toBe(status);
   });
 
+  it('registerFeature refuses a name that is already registered', () => {
+    const wizard = new WizardHandler();
+    expect(() => wizard.registerFeature('network', {})).toThrow('Feature network is already registered');
+    wizard.registerFeature('vpn', createVpnHandlers(fakeVpn()));
+    expect(() => wizard.registerFeature('vpn', {})).toThrow('Feature vpn is already registered');
+  });
+
   it('never logs the params of vpn commands, on success or failure', async () => {
     const wizard = new WizardHandler();
     const vpn = fakeVpn();
