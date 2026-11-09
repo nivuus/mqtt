@@ -36,13 +36,21 @@ describe('validateOvpnProfile', () => {
   });
 
   const FORBIDDEN = ['up', 'down', 'route-up', 'route-pre-down', 'ipchange', 'client-connect',
-    'client-disconnect', 'learn-address', 'auth-user-pass-verify', 'tls-verify', 'plugin', 'script-security'];
+    'client-disconnect', 'learn-address', 'auth-user-pass-verify', 'tls-verify', 'plugin', 'script-security',
+    'config', 'log', 'log-append', 'writepid', 'status', 'management', 'management-client-auth', 'setenv',
+    'setenv-safe', 'up-restart', 'down-pre', 'cd', 'chroot', 'tmp-dir', 'iproute'];
   it.each(FORBIDDEN)('rejects %s, plain, indented and in -- form', (d) => {
     for (const line of [`${d} /bin/sh`, `   \t${d} /bin/sh`, `--${d} /bin/sh`, `  --${d.toUpperCase()} x`]) {
       const r = validateOvpnProfile(profile(line));
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.reason).toContain(d);
     }
+  });
+
+  it.each(['"up" /bin/sh', "'up' x", '"--up" x', 'u\\p x'])('rejects quoted or escaped directive name %s', (line) => {
+    const r = validateOvpnProfile(profile(line));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toMatch(/unquoted/);
   });
 
   it('does not treat commented directives or similar names as forbidden', () => {

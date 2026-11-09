@@ -15,6 +15,9 @@ const FORBIDDEN_DIRECTIVES = new Set([
   'up', 'down', 'route-up', 'route-pre-down', 'ipchange', 'client-connect',
   'client-disconnect', 'learn-address', 'auth-user-pass-verify', 'tls-verify',
   'plugin', 'script-security',
+  // Directives that read other files, write files or open sockets when applied as root.
+  'config', 'log', 'log-append', 'writepid', 'status', 'setenv', 'setenv-safe',
+  'up-restart', 'down-pre', 'cd', 'chroot', 'tmp-dir', 'iproute',
 ]);
 
 const OPEN_TAG = /^<([a-z0-9-]+)>$/i;
@@ -45,8 +48,13 @@ export function validateOvpnProfile(ovpn: string, ca?: string): OvpnValidation {
       continue;
     }
 
-    const name = line.split(/\s+/)[0].replace(/^--/, '').toLowerCase();
-    if (FORBIDDEN_DIRECTIVES.has(name)) {
+    // OpenVPN accepts quoted or escaped tokens, so a denylist match on them cannot be trusted.
+    const first = line.split(/\s+/)[0];
+    if (/["'\\]/.test(first)) {
+      return { ok: false, reason: `directive name "${first}" must be unquoted and unescaped` };
+    }
+    const name = first.replace(/^--/, '').toLowerCase();
+    if (FORBIDDEN_DIRECTIVES.has(name) || name.startsWith('management')) {
       return { ok: false, reason: `directive "${name}" is not allowed` };
     }
     if (name === 'remote') hasRemote = true;
