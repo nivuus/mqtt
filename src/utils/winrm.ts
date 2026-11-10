@@ -1,5 +1,5 @@
 // utils/winrm.ts
-import winrm from 'nodejs-winrm';
+import { runCommand } from 'winrm-client';
 import logger from './logger';
 import { getConfigManager } from '../config';
 
@@ -12,8 +12,10 @@ interface WinRMConfig {
 
 /**
  * WinRM Client for executing commands on Windows machines
- * Uses nodejs-winrm library for direct WinRM protocol communication
- * This avoids child_process issues when bundled with pkg
+ * Uses winrm-client (the maintained fork of nodejs-winrm) for direct WinRM
+ * protocol communication, which avoids child_process issues when bundled with pkg.
+ * nodejs-winrm resolved its failures as Error objects instead of rejecting, so
+ * callers parsed an Error as output ("undefined is not a function" on .trim()).
  */
 export class WinRMClient {
   private config: WinRMConfig;
@@ -28,24 +30,17 @@ export class WinRMClient {
    * @returns Promise resolving to the command output
    */
   async executeCommand(command: string): Promise<string> {
-    try {
-      logger.debug(`[WinRM] Executing command: ${command}`);
-
-      const output = await winrm.runCommand(
-        command,
-        this.config.hostname,
-        this.config.username,
-        this.config.password,
-        this.config.port,
-        true // returnStdout
-      );
-
-      logger.debug(`[WinRM] Command completed successfully`);
-      return output;
-    } catch (error) {
-      logger.error('[WinRM] Command execution failed:', error);
-      throw new Error(`WinRM execution failed: ${error}`);
-    }
+    logger.debug(`[WinRM] Executing command: ${command}`);
+    // Run through cmd.exe: callers pass complete command lines, PowerShell ones included.
+    const output = await runCommand(
+      command,
+      this.config.hostname,
+      this.config.username,
+      this.config.password,
+      this.config.port
+    );
+    logger.debug(`[WinRM] Command completed successfully`);
+    return output;
   }
 
   /**
@@ -76,8 +71,7 @@ export class WinRMClient {
   async isProcessRunning(processName: string): Promise<boolean> {
     try {
       const output = await this.getTasklist(processName);
-      // WinRM peut résoudre avec autre chose qu'une string (VM injoignable, réponse vide)
-      return typeof output === 'string' && output.includes(processName);
+      return output.includes(processName);
     } catch (error) {
       logger.error(`[WinRM] Error checking process ${processName}:`, error);
       return false;

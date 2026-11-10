@@ -374,6 +374,11 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
 - Use atomic file operations: backup → temp → move → reload service
 
 **Error handling:**
+- `execute_argv` never rejects and logs any non-zero exit at warn. A command whose exit code
+  is the answer (`firewall-cmd --query-*`: 1 = no) passes `answerExitCodes: [1]`, and the caller
+  still treats any other code as a failure.
+- WinRM goes through `winrm-client` (`src/utils/winrm.ts`), which rejects on failure. Its
+  abandoned ancestor `nodejs-winrm` *returned* the Error, which callers then parsed as output.
 - Publish error messages to `{feature_name}/last_action/state` sensor
 - Log errors with logger.error() for debugging
 - Validate inputs before executing system commands

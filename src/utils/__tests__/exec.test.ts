@@ -42,6 +42,14 @@ describe('execute_argv — shell metacharacters are inert', () => {
     expect(result.stdout.trim()).toBe('`whoami`');
   });
 
+  it('logs an exit code declared as an answer at debug, not as a failure', async () => {
+    const result = await execute_argv('false', [], { answerExitCodes: [1] });
+    expect(result.exitCode).toBe(1);
+    expect(logger.warn).not.toHaveBeenCalled();
+    await execute_argv('false', []);
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+  });
+
   it('propagates a non-zero exit code', async () => {
     const result = await execute_argv('false', []);
     expect(result.exitCode).toBe(1);

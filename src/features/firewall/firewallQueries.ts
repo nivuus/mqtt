@@ -59,15 +59,15 @@ export async function zonePorts(zone: string): Promise<string[]> {
   }
 }
 
-// Helper: Check if masquerading is enabled in a zone
+/**
+ * Whether a zone masquerades. `--query-masquerade` answers with its exit code:
+ * 0 = yes, 1 = no; any other code (firewalld not running, unknown zone) is a failure.
+ */
 export async function zoneMasquerade(zone: string): Promise<boolean> {
-  try {
-    const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, '--query-masquerade']);
-    return result.exitCode === 0; // Exit code 0 means yes, 1 means no
-  } catch (error) {
-    logger.error(`Error querying masquerade for zone ${zone}:`, error);
-    return false;
-  }
+  const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, '--query-masquerade'], { answerExitCodes: [1] });
+  if (result.exitCode === 0) return true;
+  if (result.exitCode === 1 && !result.spawnError) return false;
+  throw new Error(`firewall-cmd --query-masquerade failed for zone ${zone} (exit ${result.exitCode}): ${result.stderr.trim()}`);
 }
 
 export function parseActiveZones(output: string): Map<string, string[]> {
