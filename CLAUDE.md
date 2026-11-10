@@ -273,26 +273,18 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 ### Firewall Management (`src/features/firewall/FirewallManager.ts`)
 
 **Key Features:**
-- **Per-interface zone selection**: Each network interface (including bridges) gets a dropdown to change its firewall zone
-- **Port forward management**: Full CRUD interface for port forwarding rules with 5 inputs:
-  - Source port, destination IP, destination port, protocol (tcp/udp), zone
-  - Add and Remove buttons execute firewall-cmd commands
-- **Zone detail sensors**: For each active zone, displays:
-  - Port forwards count + detailed list (port→toaddr:toport)
-  - Services count + list
-  - Open ports count + list
-  - Masquerading status (binary sensor ON/OFF)
-- **All interfaces included**: Pattern `relevantInterfacePatterns` OR `iface.includes('Bridge')` captures:
-  - Standard interfaces: enp6s0.835, ppp0, enp15s0, enp14s0
-  - Bridges: localBridge, internalBridge, publicBridge
-
-**Critical Implementation Points:**
-- Interface zone changes are atomic: remove from old zone → add to new zone → reload
-- All changes use `--permanent` flag + `firewall-cmd --reload`
-- Port forward format: `port=X:proto=Y:toport=Z:toaddr=A`
-- Zone details updated every 5 minutes in `update()` cycle
-- Empty string states published for all inputs to avoid "unknown" values
-- Bridge detection: `iface.includes('Bridge')` catches localBridge, internalBridge, publicBridge
+- **Per-interface zone selection**: a select per relevant interface (bridges included:
+  `relevantInterfacePatterns` OR `iface.includes('Bridge')`).
+- **Rule command** `firewalld_manager/rule/set` (`firewallRules.ts`): JSON
+  `{id, op: add|remove, zone, rule: {kind: service|port|forward, ...}}`, validated, then written
+  `--permanent` and at runtime, **never `--reload`** (a live reload cut the LAN on 2026-11-09).
+  Exit codes are checked. The answer is the last-action sensor: state `ready|ok|error`, attributes
+  `{command_topic, result: {id, ok, failed?: invalid|permanent|runtime, detail?}}`; the dashboard's
+  zone editor words it. Only the changed zone is re-read before answering. Interface moves use
+  `--change-interface` the same way; the wizard handlers share these functions.
+- The global port/service and forward forms were withdrawn on 2026-11-10 (`RETIRED_FORM_ENTITIES`).
+- **Zone detail sensors** per active zone: forwards, services, ports (count + list attribute),
+  masquerade (`--query-masquerade`: exit 1 = no, declared with `answerExitCodes`).
 
 **Active Zones (Current Configuration):**
 - **docker**: 5 interfaces, masquerade enabled, 7 port forwards to 192.168.3.2

@@ -10,10 +10,11 @@ server dashboard from the entities this agent publishes. It replaced, on
 - **Looks like Home Assistant's settings pages.** Lists are stock entities cards
   (rows, editable inputs, button rows with Lovelace confirmations, conditional
   rows), plus history graphs and markdown. No tiles, no gauges: the owner found
-  them too "home automation" for a server page (2026-11-10). Two custom cards:
+  them too "home automation" for a server page (2026-11-10). Custom cards:
   `table-card.js` (sortable columns Name · State · Since · Action, every click
   through HA's `hass-action`, so confirmations and more-info are native) and
-  `cpu-cores-card.js` (no stock card shows 24 cores readably). HA's internal
+  `cpu-cores-card.js` (no stock card shows 24 cores readably), and the edit
+  cards below. HA's internal
   elements (`ha-data-table`, `hass-tabs-subpage`) are not used: a custom panel
   cannot load them reliably in 2026.11 (`partial-panel-resolver.getRoutes` is gone).
 - **Generated, not hand-kept.** Views are built from the entity registry when
@@ -37,6 +38,9 @@ server dashboard from the entities this agent publishes. It replaced, on
 | `src/i18n/` | English source, French; other languages fall back to English labels |
 | `src/table-card.js` | Settings-style sortable table |
 | `src/cpu-cores-card.js` | The custom core grid |
+| `src/edit/form-card.js` | Edit form bound to text/select entities (Wi-Fi networks, PPPoE) |
+| `src/edit/zone-card.js` | Firewall zone editor: rules with Delete, Add form, agent's rule command |
+| `src/edit/dom.js` | Shared look of the edit cards (theme variables only) |
 | `src/views/rows.js` | Table rows shared by views (services, VMs) |
 | `test/` | `node --test`; `fixtures/host.json` is the reference host's registry, anonymised |
 
@@ -46,6 +50,15 @@ visibility condition (filesystem above 85 %, SMART not `PASSED`, a service not
 but down, pending updates). Home Assistant evaluates the conditions in the
 browser, so the section follows the server live. The all-clear note uses
 `not` + `or`, because Home Assistant's `not` means "not all".
+
+**Editing.** Add / edit / delete blocks look like Home Assistant's settings
+dialogs, with confirmations inline in the card. A form card keeps its values
+until Save, then writes the changed fields (`text.set_value`,
+`select.select_option`) in order and presses the agent's button. The zone card
+publishes one JSON command per rule (`mqtt.publish` to the topic carried by the
+firewall last-action sensor) and words the agent's structured answer itself.
+The Wi-Fi and PPPoE answers are the agent's English free text, shown as they
+are: no translation keys exist for them yet.
 
 **Language.** The dashboard's own words come from `src/i18n/`. Entity states,
 numbers, units and relative times are formatted by Home Assistant in the user's
