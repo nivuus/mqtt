@@ -50,7 +50,7 @@ describe('FirewallManager publications', () => {
     });
   });
 
-  it('publishes the same discovery and states as before', async () => {
+  it('publishes the pinned discovery and states', async () => {
     const client = new MockMqttClient();
     await client.connect();
     const feature = new FirewallManager(client as never, 'firewalld_manager');

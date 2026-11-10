@@ -6,6 +6,7 @@ import { Validators, rejectInvalid } from '../../utils/validators';
 import {
   getZonePortForwards, getZoneServices, getZonePorts, getZoneMasquerade, getZoneTarget, parseActiveZones,
 } from './firewallZones';
+import { applyBoth, ruleOption, Rule, RuleOp } from '../../features/firewall/firewallRules';
 
 // ---- input validation helpers (throw on invalid wizard input) ----
 
@@ -23,6 +24,12 @@ function assertForwardInputs(zone: string, port: string, protocol: string, toPor
 
 type PortParams = { port: string; protocol?: string; zone?: string };
 type ForwardParams = { port: string; toAddr: string; toPort: string; protocol?: string; zone?: string };
+
+/** Permanent then runtime, never a live reload (see firewallRules.ts); throws on failure. */
+async function applyOrThrow(zone: string, change: { op: RuleOp; rule: Rule }): Promise<void> {
+  const outcome = await applyBoth([`--zone=${zone}`, ruleOption(change.op, change.rule)]);
+  if (!outcome.ok) throw new Error(`firewall-cmd failed (${outcome.failed}): ${outcome.detail}`);
+}
 
 export function createFirewallHandlers(): FeatureHandlers {
   return {
@@ -97,8 +104,7 @@ export function createFirewallHandlers(): FeatureHandlers {
       if (!port) throw new Error('Missing port parameter');
       assertPortInputs(zone, port, protocol);
 
-      await execute_argv('firewall-cmd', [`--zone=${zone}`, `--add-port=${port}/${protocol}`, '--permanent']);
-      await execute_argv('firewall-cmd', ['--reload']);
+      await applyOrThrow(zone, { op: 'add', rule: { kind: 'port', port, protocol } });
       return { success: true, port, protocol, zone };
     },
 
@@ -107,8 +113,7 @@ export function createFirewallHandlers(): FeatureHandlers {
       if (!port) throw new Error('Missing port parameter');
       assertPortInputs(zone, port, protocol);
 
-      await execute_argv('firewall-cmd', [`--zone=${zone}`, `--remove-port=${port}/${protocol}`, '--permanent']);
-      await execute_argv('firewall-cmd', ['--reload']);
+      await applyOrThrow(zone, { op: 'remove', rule: { kind: 'port', port, protocol } });
       return { success: true, port, protocol, zone };
     },
 
@@ -117,10 +122,7 @@ export function createFirewallHandlers(): FeatureHandlers {
       if (!port || !toAddr || !toPort) throw new Error('Missing port, toAddr or toPort parameter');
       assertForwardInputs(zone, port, protocol, toPort, toAddr);
 
-      // With argv the rule is one literal argument — no surrounding quotes.
-      const rule = `port=${port}:proto=${protocol}:toport=${toPort}:toaddr=${toAddr}`;
-      await execute_argv('firewall-cmd', [`--zone=${zone}`, `--add-forward-port=${rule}`, '--permanent']);
-      await execute_argv('firewall-cmd', ['--reload']);
+      await applyOrThrow(zone, { op: 'add', rule: { kind: 'forward', port, protocol, toaddr: toAddr, toport: toPort } });
       return { success: true, port, toAddr, toPort, protocol, zone };
     },
 
@@ -129,9 +131,7 @@ export function createFirewallHandlers(): FeatureHandlers {
       if (!port || !toAddr || !toPort) throw new Error('Missing port, toAddr or toPort parameter');
       assertForwardInputs(zone, port, protocol, toPort, toAddr);
 
-      const rule = `port=${port}:proto=${protocol}:toport=${toPort}:toaddr=${toAddr}`;
-      await execute_argv('firewall-cmd', [`--zone=${zone}`, `--remove-forward-port=${rule}`, '--permanent']);
-      await execute_argv('firewall-cmd', ['--reload']);
+      await applyOrThrow(zone, { op: 'remove', rule: { kind: 'forward', port, protocol, toaddr: toAddr, toport: toPort } });
       return { success: true, port, toAddr, toPort, protocol, zone };
     },
   };
