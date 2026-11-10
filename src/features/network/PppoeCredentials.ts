@@ -33,6 +33,9 @@ export class PppoeCredentials extends BaseFeature {
   }
 
   // Read PPPoE credentials from NetworkManager connection file
+  // Form values as typed in Home Assistant, staged until Save.
+  private form = { username: '', password: '' };
+
   private async readNetworkManagerCredentials(): Promise<{ username: string; password: string } | null> {
     try {
       const nmPath = this.featureConfig.nmconnection_path || DEFAULT_NMCONNECTION_PATH;
@@ -185,7 +188,9 @@ export class PppoeCredentials extends BaseFeature {
       state_topic: this.prefixTopic(`${this.featureName}/password_input/state`),
       icon: 'mdi:key',
       entity_category: 'config' as 'config',
-      mode: 'text',
+      // Masked on screen, still editable: Home Assistant renders it as a
+      // password input.
+      mode: 'password',
     });
 
     // Action buttons
@@ -209,13 +214,9 @@ export class PppoeCredentials extends BaseFeature {
     await this.publishState(`${this.featureName}/last_action/state`, 'Ready', true);
 
     const credentials = await this.readNetworkManagerCredentials();
-    if (credentials) {
-      await this.publishState(`${this.featureName}/username_input/state`, credentials.username, true);
-      await this.publishState(`${this.featureName}/password_input/state`, credentials.password, true);
-    } else {
-      await this.publishState(`${this.featureName}/username_input/state`, '', true);
-      await this.publishState(`${this.featureName}/password_input/state`, '', true);
-    }
+    this.form = { username: credentials?.username ?? '', password: credentials?.password ?? '' };
+    await this.publishTextState(`${this.featureName}/username_input/state`, this.form.username);
+    await this.publishTextState(`${this.featureName}/password_input/state`, this.form.password);
   }
 
   private async checkFileExists(filePath: string): Promise<boolean> {
@@ -289,7 +290,7 @@ export class PppoeCredentials extends BaseFeature {
     await this.mqttClient.subscribe(commandTopic);
     await this.mqttClient.subscribe(inputTopic);
     
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+    this.listenToMessages(this.handleMqttMessage.bind(this));
   }
 
   private async handleMqttMessage(topic: string, payload: Buffer): Promise<void> {
@@ -297,9 +298,11 @@ export class PppoeCredentials extends BaseFeature {
 
     // Handle input states
     if (topic === this.prefixTopic(`${this.featureName}/username_input/set`)) {
-      await this.publishState(`${this.featureName}/username_input/state`, message, true);
+      this.form.username = message;
+      await this.publishTextState(`${this.featureName}/username_input/state`, message);
     } else if (topic === this.prefixTopic(`${this.featureName}/password_input/set`)) {
-      await this.publishState(`${this.featureName}/password_input/state`, message, true);
+      this.form.password = message;
+      await this.publishTextState(`${this.featureName}/password_input/state`, message);
     }
 
     // Handle action commands
@@ -314,22 +317,11 @@ export class PppoeCredentials extends BaseFeature {
     try {
       await this.publishState(`${this.featureName}/last_action/state`, 'Saving credentials...', true);
 
-      // Read current input values from MQTT states (topics derived from config,
-      // not from any external value). Broker credentials come from the agent
-      // config (env-overridable via MQTT_PASSWORD) — never hard-coded.
-      const mqtt = this.agentConfig.mqtt;
-      const mqttArgs = (topic: string) => {
-        const args = ['-h', mqtt.host, '-p', String(mqtt.port)];
-        if (mqtt.username) args.push('-u', mqtt.username);
-        if (mqtt.password) args.push('-P', mqtt.password);
-        args.push('-t', topic, '-C', '1', '-W', '1');
-        return args;
-      };
-      const usernameResult = await execute_argv('mosquitto_sub', mqttArgs(this.prefixTopic(`${this.featureName}/username_input/state`)));
-      const passwordResult = await execute_argv('mosquitto_sub', mqttArgs(this.prefixTopic(`${this.featureName}/password_input/state`)));
-
-      const newUsername = usernameResult.stdout.trim();
-      const newPassword = passwordResult.stdout.trim();
+      // The values typed in Home Assistant, kept as they arrived. They used to
+      // be read back with mosquitto_sub, which put the broker password on a
+      // command line any local user could list.
+      const newUsername = this.form.username.trim();
+      const newPassword = this.form.password.trim();
 
       if (!newUsername || !newPassword) {
         await this.publishState(`${this.featureName}/last_action/state`, 'Error: Username and password required', true);

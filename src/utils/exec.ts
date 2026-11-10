@@ -19,6 +19,11 @@ interface ExecArgvOptions {
    * Failures and timeouts are still logged at warn.
    */
   quiet?: boolean;
+  /**
+   * Non-zero exit codes that answer the question rather than report a failure, e.g. 1 for
+   * `firewall-cmd --query-*` ("no"). They are returned as usual but logged at debug, not warn.
+   */
+  answerExitCodes?: number[];
 }
 
 // How long a child that timed out gets to exit on the SIGTERM sent at its
@@ -118,6 +123,8 @@ function runFile(file: string, args: string[], input: string | undefined, opts: 
         const anyError = error as NodeJS.ErrnoException & { killed?: boolean; code?: number | string };
         if (anyError.killed) {
           logger.warn(`Command "${label}" timed out after ${timeoutMs / 1000}s and was killed`);
+        } else if (typeof anyError.code === 'number' && opts.answerExitCodes?.includes(anyError.code)) {
+          logger.debug(`Command "${label}" answered with exit code ${anyError.code}`);
         } else {
           const message = input === undefined ? `${error.message}. ` : '';
           logger.warn(`Error executing command "${label}": ${message}Exit code: ${anyError.code}. Stderr: ${shown(stderr)}`);

@@ -53,7 +53,7 @@ export class HostapdManager extends BaseFeature {
     await this.mqttClient.subscribe(this.prefixTopic(`${this.featureName}/+/set`));
     await this.mqttClient.subscribe(this.prefixTopic(`${this.featureName}/+/+/set`));
     await this.mqttClient.subscribe(this.prefixTopic(`${this.featureName}/+/command/+`));
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+    this.listenToMessages(this.handleMqttMessage.bind(this));
   }
 
   private async report(message: string): Promise<void> {
@@ -72,7 +72,8 @@ export class HostapdManager extends BaseFeature {
     };
     if (parts.length === 2 && parts[1] === 'set' && formFields[parts[0]]) {
       this.form[formFields[parts[0]]] = message;
-      await this.publishState(`${this.featureName}/${parts[0]}/state`, message, true);
+      if (parts[0].endsWith('_input')) await this.publishTextState(`${this.featureName}/${parts[0]}/state`, message);
+      else await this.publishState(`${this.featureName}/${parts[0]}/state`, message, true);
       return;
     }
     if (parts[0] === 'command') {
@@ -91,7 +92,9 @@ export class HostapdManager extends BaseFeature {
       if (parts[1] === 'password') pending.password = message;
       if (parts[1] === 'security' && isSecurityType(message)) pending.securityType = message;
       this.pendingChanges.set(ssid, pending);
-      await this.publishState(`${this.featureName}/network_${id}/${parts[1]}/state`, message, true);
+      const topicPath = `${this.featureName}/network_${id}/${parts[1]}/state`;
+      if (parts[1] === 'security') await this.publishState(topicPath, message, true);
+      else await this.publishTextState(topicPath, message);
     } else if (parts[1] === 'command' && parts[2] === 'apply' && message === 'APPLY') {
       await this.applyNetworkChanges(ssid);
     } else if (parts[1] === 'command' && parts[2] === 'delete' && message === 'DELETE') {
@@ -134,8 +137,8 @@ export class HostapdManager extends BaseFeature {
     const network = { ssid, password, securityType: securityType as SecurityType, bridge };
     if (!await this.editFiles(this.configPaths, (content) => addBss(content, network).content, 'restart', `Add ${ssid} on ${bridge}`)) return;
     this.form = { ...this.form, ssid: '', password: '' };
-    await this.publishState(`${this.featureName}/new_ssid_input/state`, '', true);
-    await this.publishState(`${this.featureName}/new_password_input/state`, '', true);
+    await this.publishTextState(`${this.featureName}/new_ssid_input/state`, '');
+    await this.publishTextState(`${this.featureName}/new_password_input/state`, '');
   }
 
   private async applyNetworkChanges(ssid: string): Promise<void> {
@@ -211,8 +214,8 @@ export class HostapdManager extends BaseFeature {
     await this.publishSpecs(globalEntities(this.featureName, topic, this.bridges));
     this.form.bridge = this.defaultBridge();
     await this.report('Ready');
-    await this.publishState(`${this.featureName}/new_ssid_input/state`, '', true);
-    await this.publishState(`${this.featureName}/new_password_input/state`, '', true);
+    await this.publishTextState(`${this.featureName}/new_ssid_input/state`, '');
+    await this.publishTextState(`${this.featureName}/new_password_input/state`, '');
     await this.publishState(`${this.featureName}/new_security_select/state`, this.form.securityType, true);
     await this.publishState(`${this.featureName}/new_bridge_select/state`, this.form.bridge, true);
     await this.publishNetworkStates();
@@ -242,8 +245,8 @@ export class HostapdManager extends BaseFeature {
         this.discovered.add(ssid);
       }
       const state = (path: string, value: string) => this.publishState(`${this.featureName}/network_${id}/${path}/state`, value, true);
-      await state('name', network.ssid);
-      await state('password', network.password);
+      await this.publishTextState(`${this.featureName}/network_${id}/name/state`, network.ssid);
+      await this.publishTextState(`${this.featureName}/network_${id}/password/state`, network.password);
       await state('security', network.securityType);
       await state('status', `Active (${bandsLabel(network.configFiles)})`);
     }

@@ -41,10 +41,7 @@ export async function getZonePorts(zone: string): Promise<string[]> {
   return result.stdout.trim().split(/\s+/).filter(p => p.length > 0);
 }
 
-export async function getZoneMasquerade(zone: string): Promise<boolean> {
-  const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, '--query-masquerade']);
-  return result.exitCode === 0;
-}
+export { zoneMasquerade as getZoneMasquerade } from '../../features/firewall/firewallQueries';
 
 export async function getZoneTarget(zone: string): Promise<string> {
   const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, '--get-target']);

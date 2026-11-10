@@ -59,3 +59,49 @@ describe('BaseFeature discovery topics', () => {
     expect(removed.message).toBe('');
   });
 });
+
+describe('BaseFeature message listeners', () => {
+  class ListeningFeature extends BaseFeature {
+    received = 0;
+    constructor(client: MockMqttClient) { super(client, 'firewall'); }
+    protected async publishDiscovery(): Promise<void> { /* none */ }
+    protected async update(): Promise<void> { /* none */ }
+    protected async setup(): Promise<void> { this.listenToMessages(() => { this.received += 1; }); }
+  }
+
+  it('handles each message once however many times the feature restarts', async () => {
+    const client = new MockMqttClient();
+    await client.connect();
+    const feature = new ListeningFeature(client);
+    for (let i = 0; i < 3; i += 1) {
+      await feature.stop();
+      await feature.start();
+    }
+    client.emit('message', 'system_agent/nivuus/firewall/x', Buffer.from('1'));
+    expect(feature.received).toBe(1);
+    await feature.stop();
+    expect(client.listenerCount('message')).toBe(0);
+  });
+});
+
+describe('BaseFeature text entities', () => {
+  class FormFeature extends BaseFeature {
+    constructor(client: MockMqttClient) { super(client, 'firewall'); }
+    protected async publishDiscovery(): Promise<void> { /* driven by the test */ }
+    protected async update(): Promise<void> { /* none */ }
+    discover() { return this.publishEntityDiscovery('text', 'port_input', { state_topic: 's' }); }
+    clear() { return this.publishTextState('firewall/port_input/state', ''); }
+  }
+
+  it('publishes a cleared field as retained, non-empty JSON read by a value_template', async () => {
+    const client = new MockMqttClient();
+    await client.connect();
+    const feature = new FormFeature(client);
+    await feature.discover();
+    await feature.clear();
+    const [discovery, state] = client.publishedMessages;
+    expect(JSON.parse(String(discovery.message)).value_template).toBe('{{ value_json.value }}');
+    expect(String(state.message)).toBe('{"value":""}');
+    expect(state.options?.retain).toBe(true);
+  });
+});

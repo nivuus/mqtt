@@ -185,6 +185,11 @@ All entities are linked to a single device in HA with:
 └── bin/                   # Executable wrapper
 ```
 
+**`ha-dashboard/`** — the "Serveur" Home Assistant dashboard (strategy `custom:nivuus-server`,
+plain ES modules, `npm run test:dashboard`). It finds entities by **unique_id**, so renaming an
+entity's `unique_id` or `objectId` breaks it: run its tests (`test/fixtures/host.json`). See
+`ha-dashboard/README.md` for deployment.
+
 Topic notes in `docs/claude/`:
 - `guest-vpn-host-notes.md` — guest VPN bench findings: firewalld reload failure (12:09 incident), NM/OpenVPN behaviour
 - `guest-vpn-bench.md` — how to rebuild the isolated bench VM (`scripts/bench/`, not packaged)
@@ -254,7 +259,8 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 - **No server field**: Previous "server" input was removed as it's not needed for PPPoE configuration
 
 **Critical Implementation Points:**
-- Password input uses `mode: 'text'` not `mode: 'password'` for editability
+- Password input uses `mode: 'password'`: Home Assistant renders an editable, masked input
+  (verified on 2026-11-10 in the 2026.11 frontend; `mode: 'text'` showed it in clear on dashboards)
 - Credentials are read with sudo due to nmconnection file permissions (600)
 - INI-style parser for `[pppoe]` section: `username=` and `password=` lines
 - After saving: `nmcli connection reload` + `nmcli connection down/up pppoe-enp6s0.835`
@@ -267,26 +273,18 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 ### Firewall Management (`src/features/firewall/FirewallManager.ts`)
 
 **Key Features:**
-- **Per-interface zone selection**: Each network interface (including bridges) gets a dropdown to change its firewall zone
-- **Port forward management**: Full CRUD interface for port forwarding rules with 5 inputs:
-  - Source port, destination IP, destination port, protocol (tcp/udp), zone
-  - Add and Remove buttons execute firewall-cmd commands
-- **Zone detail sensors**: For each active zone, displays:
-  - Port forwards count + detailed list (port→toaddr:toport)
-  - Services count + list
-  - Open ports count + list
-  - Masquerading status (binary sensor ON/OFF)
-- **All interfaces included**: Pattern `relevantInterfacePatterns` OR `iface.includes('Bridge')` captures:
-  - Standard interfaces: enp6s0.835, ppp0, enp15s0, enp14s0
-  - Bridges: localBridge, internalBridge, publicBridge
-
-**Critical Implementation Points:**
-- Interface zone changes are atomic: remove from old zone → add to new zone → reload
-- All changes use `--permanent` flag + `firewall-cmd --reload`
-- Port forward format: `port=X:proto=Y:toport=Z:toaddr=A`
-- Zone details updated every 5 minutes in `update()` cycle
-- Empty string states published for all inputs to avoid "unknown" values
-- Bridge detection: `iface.includes('Bridge')` catches localBridge, internalBridge, publicBridge
+- **Per-interface zone selection**: a select per relevant interface (bridges included:
+  `relevantInterfacePatterns` OR `iface.includes('Bridge')`).
+- **Rule command** `firewalld_manager/rule/set` (`firewallRules.ts`): JSON
+  `{id, op: add|remove, zone, rule: {kind: service|port|forward, ...}}`, validated, then written
+  `--permanent` and at runtime, **never `--reload`** (a live reload cut the LAN on 2026-11-09).
+  Exit codes are checked. The answer is the last-action sensor: state `ready|ok|error`, attributes
+  `{command_topic, result: {id, ok, failed?: invalid|permanent|runtime, detail?}}`; the dashboard's
+  zone editor words it. Only the changed zone is re-read before answering. Interface moves use
+  `--change-interface` the same way; the wizard handlers share these functions.
+- The global port/service and forward forms were withdrawn on 2026-11-10 (`RETIRED_FORM_ENTITIES`).
+- **Zone detail sensors** per active zone: forwards, services, ports (count + list attribute),
+  masquerade (`--query-masquerade`: exit 1 = no, declared with `answerExitCodes`).
 
 **Active Zones (Current Configuration):**
 - **docker**: 5 interfaces, masquerade enabled, 7 port forwards to 192.168.3.2
@@ -348,9 +346,19 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
 ### Common Patterns Across Features
 
 **Input entity initialization:**
-- Always publish empty string `''` states for text inputs to avoid "unknown" in Home Assistant
+- Text entity states go through `publishTextState()`: retained `{"value": "..."}`, read by the
+  `value_template` that `publishEntityDiscovery('text', …)` adds. Never publish a raw `''`: an empty
+  **retained** payload deletes the retained message (MQTT spec), so after any HA reconnection the
+  field showed the word "unknown". HA's birth message is not enough on its own: HA sends it before
+  its entities resubscribe, so only retained values reach them.
+- `src/core/haBirth.ts` answers HA's birth message (`homeassistant/status` = `online`) by restarting
+  every feature, through the same serialized path as an MQTT reconnection, so non-retained states
+  come back at once.
+- MQTT message handlers are registered with `listenToMessages()`, which `stop()` removes. A raw
+  `mqttClient.on('message')` in `setup()` adds one more handler at every restart, so each command ran
+  once per reconnection.
 - Publish states AFTER publishing discovery entities
-- Use `mode: 'text'` for password fields when editability is required
+- Use `mode: 'password'` for password fields: they stay editable, masked on screen
 
 **MQTT message handling:**
 - Store pending changes in memory until "Apply" button is pressed
@@ -358,6 +366,11 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
 - Use atomic file operations: backup → temp → move → reload service
 
 **Error handling:**
+- `execute_argv` never rejects and logs any non-zero exit at warn. A command whose exit code
+  is the answer (`firewall-cmd --query-*`: 1 = no) passes `answerExitCodes: [1]`, and the caller
+  still treats any other code as a failure.
+- WinRM goes through `winrm-client` (`src/utils/winrm.ts`), which rejects on failure. Its
+  abandoned ancestor `nodejs-winrm` *returned* the Error, which callers then parsed as output.
 - Publish error messages to `{feature_name}/last_action/state` sensor
 - Log errors with logger.error() for debugging
 - Validate inputs before executing system commands

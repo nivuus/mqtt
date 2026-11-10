@@ -1,6 +1,7 @@
 // src/features/events/EventMonitor.ts
 
 import { BaseFeature } from '../../core/BaseFeature';
+import { parseLogTimestamp } from './logTimestamp';
 import { MqttClient, FeatureConfig, HaDiscoveryPayload } from '../../core/types';
 import { execute_stream_command } from '../../utils/exec_stream'; // Changed import
 import { ChildProcess } from 'child_process';
@@ -31,6 +32,9 @@ function truncateField(value: string): string {
   return value.length > MAX_EVENT_FIELD_LENGTH ? value.slice(0, MAX_EVENT_FIELD_LENGTH) + '…' : value;
 }
 
+
+// MQTT payload Home Assistant reads as "no value": the sensor shows unknown.
+const NO_TIMESTAMP = 'None';
 // Store last seen lines/timestamps to avoid re-processing. Simplistic for mock.
 // This might not be needed if we process streams directly.
 // const lastProcessed: { [logPath: string]: string } = {}; 
@@ -101,6 +105,8 @@ export class EventMonitor extends BaseFeature {
         state_topic: this.prefixTopic(`${this.featureName}/${objectId}/state`), // Timestamp of last event
         json_attributes_topic: this.prefixTopic(`${this.featureName}/${objectId}/attributes`), // Event details
         icon: eventType.icon,
+        // HA then shows "2 hours ago" in the user's own language and locale.
+        device_class: 'timestamp' as 'timestamp',
         entity_category: 'diagnostic' as 'diagnostic',
       });
     }
@@ -122,7 +128,7 @@ export class EventMonitor extends BaseFeature {
           (match) => ({ subType: 'ban', ip: match[1] })
         );
         if (lastBan) {
-          await this.publishState(this.prefixTopic(`${this.featureName}/last_fail2ban_ban_event/state`), lastBan.timestamp, true);
+          await this.publishState(this.prefixTopic(`${this.featureName}/last_fail2ban_ban_event/state`), lastBan.timestamp ?? NO_TIMESTAMP, true);
           await this.publishAttributes(this.prefixTopic(`${this.featureName}/last_fail2ban_ban_event/attributes`), lastBan.data, true);
         }
       }
@@ -134,7 +140,7 @@ export class EventMonitor extends BaseFeature {
         (match, line) => ({ subType: 'login', user: match[1], ip: match[2], method: 'publickey' })
       );
       if (lastSsh) {
-        await this.publishState(this.prefixTopic(`${this.featureName}/last_ssh_login_event/state`), lastSsh.timestamp, true);
+        await this.publishState(this.prefixTopic(`${this.featureName}/last_ssh_login_event/state`), lastSsh.timestamp ?? NO_TIMESTAMP, true);
         await this.publishAttributes(this.prefixTopic(`${this.featureName}/last_ssh_login_event/attributes`), lastSsh.data, true);
       }
 
@@ -145,11 +151,11 @@ export class EventMonitor extends BaseFeature {
         (match, line) => ({ subType: 'error', level: match[1].toLowerCase(), message: truncateField(line.substring(line.indexOf(match[1]))) })
       );
       if (lastSyslogError) {
-        await this.publishState(this.prefixTopic(`${this.featureName}/last_syslog_error_event/state`), lastSyslogError.timestamp, true);
+        await this.publishState(this.prefixTopic(`${this.featureName}/last_syslog_error_event/state`), lastSyslogError.timestamp ?? NO_TIMESTAMP, true);
         await this.publishAttributes(this.prefixTopic(`${this.featureName}/last_syslog_error_event/attributes`), lastSyslogError.data, true);
       } else {
-        // No recent errors found - publish "No recent errors" state
-        await this.publishState(this.prefixTopic(`${this.featureName}/last_syslog_error_event/state`), 'No recent errors', true);
+        // No recent error: the timestamp is unknown, the attributes say why.
+        await this.publishState(this.prefixTopic(`${this.featureName}/last_syslog_error_event/state`), NO_TIMESTAMP, true);
         await this.publishAttributes(this.prefixTopic(`${this.featureName}/last_syslog_error_event/attributes`), {
           subType: 'no_error',
           level: 'info',
@@ -162,10 +168,10 @@ export class EventMonitor extends BaseFeature {
       // weeks where the last 100 lines of a log keep hours.
       const lastVirus = await this.getLastClamdDetection();
       if (lastVirus) {
-        await this.publishState(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/state`), lastVirus.timestamp, true);
+        await this.publishState(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/state`), lastVirus.timestamp ?? NO_TIMESTAMP, true);
         await this.publishAttributes(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/attributes`), lastVirus.data, true);
       } else {
-        await this.publishState(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/state`), 'No viruses detected', true);
+        await this.publishState(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/state`), NO_TIMESTAMP, true);
         await this.publishAttributes(this.prefixTopic(`${this.featureName}/last_clamav_virus_event/attributes`), {
           subType: 'no_virus',
           level: 'info',
@@ -181,7 +187,7 @@ export class EventMonitor extends BaseFeature {
     logPath: string,
     pattern: RegExp,
     dataExtractor: (match: RegExpMatchArray, line: string) => any
-  ): Promise<{ timestamp: string; data: any } | null> {
+  ): Promise<{ timestamp: string | null; data: any } | null> {
     try {
       const { execute_argv } = await import('../../utils/exec');
       // Use tail to get last 100 lines; reverse in JS (replaces the shell `| tac`)
@@ -193,12 +199,8 @@ export class EventMonitor extends BaseFeature {
         if (line.includes(SELF_LOG_TAG)) continue; // Anti-feedback: skip our own log lines
         const match = line.match(pattern);
         if (match) {
-          // Extract timestamp from syslog format (e.g., "Nov  8 15:30:45")
-          const timestampMatch = line.match(/^(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})/);
-          const timestamp = timestampMatch ? timestampMatch[1] : new Date().toISOString();
-
           return {
-            timestamp: new Date().toISOString(), // Use current time as we don't have full date in syslog
+            timestamp: parseLogTimestamp(line),
             data: { ...dataExtractor(match, line), original_log_line: truncateField(line) }
           };
         }
@@ -209,15 +211,14 @@ export class EventMonitor extends BaseFeature {
     return null;
   }
 
-  private async getLastClamdDetection(): Promise<{ timestamp: string; data: any } | null> {
+  private async getLastClamdDetection(): Promise<{ timestamp: string | null; data: any } | null> {
     try {
       const { execute_argv } = await import('../../utils/exec');
       const result = await execute_argv('sudo', ['journalctl', '-t', 'clamd', '--grep', 'FOUND$', '-n', '1', '--no-pager', '--output=short-iso']);
       const line = result.stdout.split('\n').reverse().find((l) => parseClamdDetection(l));
       if (!line) return null;
       const detection = parseClamdDetection(line)!;
-      const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:?\d{2}|Z))/);
-      const timestamp = timestampMatch ? new Date(timestampMatch[1]).toISOString() : new Date().toISOString();
+      const timestamp = parseLogTimestamp(line);
       return { timestamp, data: { subType: 'virus', ...detection, original_log_line: line } };
     } catch (error) {
       // journalctl --grep exits 1 when nothing matches: that is "no detection".
@@ -230,7 +231,7 @@ export class EventMonitor extends BaseFeature {
     unit: string,
     pattern: RegExp,
     dataExtractor: (match: RegExpMatchArray, line: string) => any
-  ): Promise<{ timestamp: string; data: any } | null> {
+  ): Promise<{ timestamp: string | null; data: any } | null> {
     try {
       const { execute_argv } = await import('../../utils/exec');
       // Use journalctl to get last 100 entries for the specified unit
@@ -240,9 +241,7 @@ export class EventMonitor extends BaseFeature {
       for (const line of lines) {
         const match = line.match(pattern);
         if (match) {
-          // Extract ISO timestamp from journalctl output (e.g., "2025-11-08T15:30:45+0100")
-          const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4})/);
-          const timestamp = timestampMatch ? new Date(timestampMatch[1]).toISOString() : new Date().toISOString();
+          const timestamp = parseLogTimestamp(line);
 
           return {
             timestamp,

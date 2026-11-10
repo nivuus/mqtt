@@ -22,7 +22,6 @@ const ALLOWED_COMMAND_PREFIXES = [
   'apt ',
   'apt-get ',
   'hostapd',
-  'mosquitto_sub',
   'docker ',
   'winvm',
   'ls ',

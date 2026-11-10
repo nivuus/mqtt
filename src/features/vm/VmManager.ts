@@ -6,6 +6,7 @@ import { execute_argv } from '../../utils/exec';
 import { Validators, rejectInvalid } from '../../utils/validators';
 import logger from '../../utils/logger';
 import { runVmAction } from './virshLifecycle';
+import { vmEntityFromDiscovery, isStale } from './staleVmEntities';
 
 interface VmManagerFeatureConfig extends FeatureConfig {
   vm_names?: string[]; // Optional: specific VMs to manage by name
@@ -19,6 +20,8 @@ interface VmInfo {
 
 export class VmManager extends BaseFeature {
   protected featureConfig: VmManagerFeatureConfig;
+  // Object ids of the VMs this feature publishes; undefined while virsh is unreadable.
+  private liveVmObjectIds?: Set<string>;
 
   constructor(mqttClient: MqttClient, featureName: string = 'vm_manager') {
     super(mqttClient, featureName);
@@ -68,6 +71,7 @@ export class VmManager extends BaseFeature {
         : vms;
       
       logger.debug(`[${this.featureName}] VMs to monitor after filtering:`, JSON.stringify(vmsToMonitor, null, 2));
+      this.liveVmObjectIds = new Set(vmsToMonitor.map((vm) => vm.name.replace(/[^a-zA-Z0-9_-]/g, '_')));
 
       for (const vm of vmsToMonitor) {
         const vmObjectId = vm.name.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -98,6 +102,7 @@ export class VmManager extends BaseFeature {
         await this.updateVmState(vm.name, vm.state);
       }
     } catch (error: any) {
+      this.liveVmObjectIds = undefined;
       const errorMessage = error.message || 'Unknown error during VM discovery';
       logger.error(`Error during VM discovery for ${this.featureName}:`, errorMessage, error.stderr || '');
       // If discovery fails, we might not have VM names to publish error states for.
@@ -114,11 +119,36 @@ export class VmManager extends BaseFeature {
         logger.error(`Failed to subscribe to VM command topics (${commandTopicPattern}):`, err);
       }
     });
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+    this.listenToMessages(this.handleMqttMessage.bind(this));
+    // The broker sends back every retained discovery config of this device:
+    // withdrawStaleVm() removes those of VMs libvirt no longer has.
+    this.mqttClient.subscribe(this.discoveryPattern, { qos: 1 }, (err: Error | null) => {
+      if (err) logger.error(`Failed to subscribe to ${this.discoveryPattern}:`, err);
+    });
+  }
+
+  private get discoveryPattern(): string {
+    return `homeassistant/+/${this.deviceInfo.identifiers[0]}/+/config`;
+  }
+
+  private async withdrawStaleVm(topic: string, payload: string): Promise<void> {
+    const ref = vmEntityFromDiscovery(this.entityUniqueId(''), payload);
+    if (!ref || !isStale(ref, this.liveVmObjectIds)) return;
+    logger.info(`[${this.featureName}] VM ${ref.vmObjectId} is gone from libvirt: withdrawing its ${ref.suffix} entity.`);
+    // Empty retained payloads delete the retained messages (MQTT spec).
+    await this.mqttClient.publish(topic, '', { retain: true, qos: 1 });
+    if (ref.suffix === 'state') {
+      await this.publishState(`${this.featureName}/${ref.vmObjectId}/state`, '', true);
+      await this.publishState(`${this.featureName}/${ref.vmObjectId}/attributes`, '', true);
+    }
   }
 
   private async handleMqttMessage(topic: string, payload: Buffer): Promise<void> {
     const message = payload.toString();
+    if (topic.startsWith('homeassistant/') && topic.endsWith('/config')) {
+      await this.withdrawStaleVm(topic, message);
+      return;
+    }
     // Topic structure: .../vm_manager/<vm_object_id>/command
     const topicParts = topic.split('/');
     if (topicParts.length < 3) return; // Not a valid command topic for this feature

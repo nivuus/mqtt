@@ -3,6 +3,7 @@
 import { FeatureHandlers } from '../types';
 import { execute_argv } from '../../utils/exec';
 import { Validators } from '../../utils/validators';
+import { moveInterface } from '../../features/firewall/firewallRules';
 
 export function createNetworkHandlers(): FeatureHandlers {
   return {
@@ -90,17 +91,10 @@ export function createNetworkHandlers(): FeatureHandlers {
       if (!Validators.isZone(zone)) throw new Error('Invalid zone parameter');
       if (currentZone && !Validators.isZone(currentZone)) throw new Error('Invalid currentZone parameter');
 
-      // Remove from current zone if specified
-      if (currentZone) {
-        await execute_argv('firewall-cmd', [`--zone=${currentZone}`, `--remove-interface=${iface}`, '--permanent']);
-      }
-
-      // Add to new zone
-      const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, `--add-interface=${iface}`, '--permanent']);
-      if (result.exitCode !== 0) throw new Error(`Failed to add interface to zone: ${result.stderr}`);
-
-      // Reload firewall
-      await execute_argv('firewall-cmd', ['--reload']);
+      // --change-interface leaves whichever zone held it; permanent then runtime,
+      // never a live reload (see firewallRules.ts).
+      const outcome = await moveInterface(iface, zone);
+      if (!outcome.ok) throw new Error(`Failed to move interface to zone (${outcome.failed}): ${outcome.detail}`);
 
       return { success: true, interface: iface, zone };
     },

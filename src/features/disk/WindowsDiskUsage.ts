@@ -30,6 +30,8 @@ export class WindowsDiskUsage extends BaseFeature {
   protected featureConfig: WindowsDiskConfig;
   private winrmClient: WinRMClient;
   private previousDiskStats: { [diskName: string]: DiskIOSnapshot } = {};
+  // Drive letters whose discovery was published since the last (re)start.
+  private discoveredVolumes = new Set<string>();
 
   constructor(mqttClient: MqttClient, featureName: string = 'windows_disk_usage') {
     super(mqttClient, featureName);
@@ -140,75 +142,79 @@ export class WindowsDiskUsage extends BaseFeature {
   }
 
   /**
-   * Publish Home Assistant discovery for all volume sensors
+   * Publish Home Assistant discovery for the volumes of a running VM. When the
+   * VM is off, the update cycle publishes it once the volumes are readable.
    */
   protected async publishDiscovery(): Promise<void> {
-    try {
-      const volumes = await this.getVolumeInfo();
-
-      for (const volume of volumes) {
-        const entityIdSuffix = this.driveLetterToEntityId(volume.DriveLetter);
-
-        // Usage Percentage Sensor
-        await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_usage_percent`, {
-          name: `Disk Windows ${volume.DriveLetter} Usage`,
-          state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/usage_percent/state`,
-          unit_of_measurement: '%',
-          state_class: 'measurement' as 'measurement',
-          icon: 'mdi:harddisk',
-          entity_category: 'diagnostic' as 'diagnostic',
-          json_attributes_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/attributes`
-        });
-
-        // Available Space Sensor
-        await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_available_gb`, {
-          name: `Disk Windows ${volume.DriveLetter} Available`,
-          state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/available_gb/state`,
-          unit_of_measurement: 'GB',
-          state_class: 'measurement' as 'measurement',
-          icon: 'mdi:harddisk',
-          device_class: 'data_size' as 'data_size',
-          entity_category: 'diagnostic' as 'diagnostic'
-        });
-
-        // Total Space Sensor
-        await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_total_gb`, {
-          name: `Disk Windows ${volume.DriveLetter} Total`,
-          state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/total_gb/state`,
-          unit_of_measurement: 'GB',
-          state_class: 'measurement' as 'measurement',
-          icon: 'mdi:harddisk',
-          device_class: 'data_size' as 'data_size',
-          entity_category: 'diagnostic' as 'diagnostic'
-        });
-
-        // Read Speed Sensor
-        await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_read_speed`, {
-          name: `Disk Windows ${volume.DriveLetter} Read Speed`,
-          state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/read_speed/state`,
-          unit_of_measurement: 'MB/s',
-          state_class: 'measurement' as 'measurement',
-          icon: 'mdi:download',
-          device_class: 'data_rate' as 'data_rate',
-          entity_category: 'diagnostic' as 'diagnostic'
-        });
-
-        // Write Speed Sensor
-        await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_write_speed`, {
-          name: `Disk Windows ${volume.DriveLetter} Write Speed`,
-          state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/write_speed/state`,
-          unit_of_measurement: 'MB/s',
-          state_class: 'measurement' as 'measurement',
-          icon: 'mdi:upload',
-          device_class: 'data_rate' as 'data_rate',
-          entity_category: 'diagnostic' as 'diagnostic'
-        });
-
-        logger.info(`[${this.featureName}] Published discovery for Windows disk ${volume.DriveLetter}`);
-      }
-    } catch (error) {
-      logger.error(`[${this.featureName}] Error publishing discovery:`, error);
+    if (!await isWindowsVmRunning()) {
+      logger.debug(`[${this.featureName}] Windows VM not running, discovery deferred`);
+      return;
     }
+    for (const volume of await this.getVolumeInfo()) {
+      await this.discoverVolume(volume);
+    }
+  }
+
+  private async discoverVolume(volume: VolumeInfo): Promise<void> {
+    const entityIdSuffix = this.driveLetterToEntityId(volume.DriveLetter);
+
+    // Usage Percentage Sensor
+    await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_usage_percent`, {
+      name: `Disk Windows ${volume.DriveLetter} Usage`,
+      state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/usage_percent/state`,
+      unit_of_measurement: '%',
+      state_class: 'measurement' as 'measurement',
+      icon: 'mdi:harddisk',
+      entity_category: 'diagnostic' as 'diagnostic',
+      json_attributes_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/attributes`
+    });
+
+    // Available Space Sensor
+    await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_available_gb`, {
+      name: `Disk Windows ${volume.DriveLetter} Available`,
+      state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/available_gb/state`,
+      unit_of_measurement: 'GB',
+      state_class: 'measurement' as 'measurement',
+      icon: 'mdi:harddisk',
+      device_class: 'data_size' as 'data_size',
+      entity_category: 'diagnostic' as 'diagnostic'
+    });
+
+    // Total Space Sensor
+    await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_total_gb`, {
+      name: `Disk Windows ${volume.DriveLetter} Total`,
+      state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/total_gb/state`,
+      unit_of_measurement: 'GB',
+      state_class: 'measurement' as 'measurement',
+      icon: 'mdi:harddisk',
+      device_class: 'data_size' as 'data_size',
+      entity_category: 'diagnostic' as 'diagnostic'
+    });
+
+    // Read Speed Sensor
+    await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_read_speed`, {
+      name: `Disk Windows ${volume.DriveLetter} Read Speed`,
+      state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/read_speed/state`,
+      unit_of_measurement: 'MB/s',
+      state_class: 'measurement' as 'measurement',
+      icon: 'mdi:download',
+      device_class: 'data_rate' as 'data_rate',
+      entity_category: 'diagnostic' as 'diagnostic'
+    });
+
+    // Write Speed Sensor
+    await this.publishEntityDiscovery('sensor', `windows_disk_${entityIdSuffix}_write_speed`, {
+      name: `Disk Windows ${volume.DriveLetter} Write Speed`,
+      state_topic: `${this.featureName}/windows_disk_${entityIdSuffix}/write_speed/state`,
+      unit_of_measurement: 'MB/s',
+      state_class: 'measurement' as 'measurement',
+      icon: 'mdi:upload',
+      device_class: 'data_rate' as 'data_rate',
+      entity_category: 'diagnostic' as 'diagnostic'
+    });
+
+    this.discoveredVolumes.add(volume.DriveLetter);
+    logger.info(`[${this.featureName}] Published discovery for Windows disk ${volume.DriveLetter}`);
   }
 
   /**
@@ -228,6 +234,7 @@ export class WindowsDiskUsage extends BaseFeature {
 
       for (const volume of volumes) {
         const entityIdSuffix = this.driveLetterToEntityId(volume.DriveLetter);
+        if (!this.discoveredVolumes.has(volume.DriveLetter)) await this.discoverVolume(volume);
         logger.info(`[${this.featureName}] Publishing metrics for ${volume.DriveLetter} (entity suffix: ${entityIdSuffix})`);
 
         // Publish space metrics
@@ -283,23 +290,10 @@ export class WindowsDiskUsage extends BaseFeature {
     }
   }
 
-  async setup(): Promise<void> {
-    try {
-      // Test WinRM connectivity
-      const volumes = await this.getVolumeInfo();
-      if (volumes.length === 0) {
-        logger.warn(`[${this.featureName}] No Windows volumes detected - check WinRM connection`);
-      } else {
-        logger.info(`[${this.featureName}] Successfully connected to Windows VM - detected ${volumes.length} volume(s)`);
-      }
-    } catch (error) {
-      logger.error(`[${this.featureName}] Setup failed - WinRM connection issue:`, error);
-    }
-  }
-
   async cleanup(): Promise<void> {
     // No cleanup needed
     this.previousDiskStats = {};
+    this.discoveredVolumes.clear();
   }
 
   protected async setupCommandHandlers(): Promise<void> {

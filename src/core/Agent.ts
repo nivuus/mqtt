@@ -1,6 +1,7 @@
 // src/core/Agent.ts
 
 import { MqttClient as MqttClientInterface, AgentConfig, DeviceInfo } from './types';
+import { HaBirthWatcher } from './haBirth';
 import { getConfigManager } from '../config';
 import logger from '../utils/logger';
 import { BaseFeature } from './BaseFeature';
@@ -76,6 +77,7 @@ export class Agent {
   // WebSocket server for Wizard API
   private webSocketServer: WebSocketServer | null = null;
   private wizardHandler: WizardHandler | null = null;
+  private haBirth!: HaBirthWatcher;
 
   constructor() {
     this.config = getConfigManager().config;
@@ -143,6 +145,7 @@ export class Agent {
   public async start(): Promise<void> {
     logger.info('Starting agent...');
     this.initializeMqttClient(); // Initialize (or mock) MQTT client
+    this.haBirth = new HaBirthWatcher(this.mqttClient, () => this.restartFeatures());
     await this.initializeWebSocketServer(); // Initialize WebSocket server for Wizard API
 
     // Setup MQTT event handlers
@@ -179,26 +182,12 @@ export class Agent {
       
       logger.info(`Agent status published: ${this.payloadAvailable}`);
       
-      // Stop all features before restarting them (prevents duplicate timers/watchers on reconnect)
-      logger.info('Stopping all features before (re)starting...');
-      for (const feature of this.features) {
-        try {
-          await feature.stop();
-        } catch (error) {
-          logger.error(`Error stopping feature ${feature.featureName} before restart:`, error);
-        }
+      try {
+        await this.haBirth.subscribe();
+      } catch (error) {
+        logger.error('Could not subscribe to the Home Assistant status topic:', error);
       }
-
-      // Start all initialized features
-      logger.info('Starting all enabled features...');
-      for (const feature of this.features) {
-        try {
-          await feature.start();
-        } catch (error) {
-          logger.error(`Error starting feature ${feature.featureName}:`, error);
-        }
-      }
-      logger.info('All enabled features started.');
+      await this.haBirth.trigger('Connected to the MQTT broker');
     });
 
     this.mqttClient.on('error', (error: Error) => {
@@ -230,6 +219,30 @@ export class Agent {
       // For now, MqttClient's internal reconnect logic will handle retries.
     });
     logger.info('Agent start sequence initiated, MQTT connection attempt in progress.');
+  }
+
+  /** Stop then start every feature: discovery, setup and states are published afresh. */
+  private async restartFeatures(): Promise<void> {
+    // Stop all features before restarting them (prevents duplicate timers/watchers on reconnect)
+    logger.info('Stopping all features before (re)starting...');
+    for (const feature of this.features) {
+      try {
+        await feature.stop();
+      } catch (error) {
+        logger.error(`Error stopping feature ${feature.featureName} before restart:`, error);
+      }
+    }
+
+    // Start all initialized features
+    logger.info('Starting all enabled features...');
+    for (const feature of this.features) {
+      try {
+        await feature.start();
+      } catch (error) {
+        logger.error(`Error starting feature ${feature.featureName}:`, error);
+      }
+    }
+    logger.info('All enabled features started.');
   }
 
   public async stop(): Promise<void> {

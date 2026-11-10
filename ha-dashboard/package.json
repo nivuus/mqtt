@@ -1,0 +1,6 @@
+{
+  "name": "nivuus-server-dashboard",
+  "private": true,
+  "description": "Home Assistant dashboard strategy for the entities this agent publishes",
+  "type": "module"
+}
