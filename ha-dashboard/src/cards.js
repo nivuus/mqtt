@@ -1,12 +1,6 @@
 // Builders for native Lovelace card configs. Every card here is a stock Home
 // Assistant card; the only custom one is the CPU core grid (cpu-cores-card.js).
 
-export const heading = (text, icon, extra = {}) => ({
-  type: 'heading', heading: text, ...(icon && { icon }), ...extra,
-});
-
-export const subheading = (text) => ({ type: 'heading', heading: text, heading_style: 'subtitle' });
-
 /** A tile, or null when the entity does not exist on this host. */
 export function tile(entity, opts = {}) {
   if (!entity) return null;
@@ -18,56 +12,18 @@ export function gaugeTile(entity, opts = {}) {
   return tile(entity, { ...rest, features: [{ type: 'bar-gauge', min: 0, max }] });
 }
 
-export const trendTile = (entity, opts = {}, hours = 24) =>
-  tile(entity, { ...opts, features: [{ type: 'trend-graph', hours_to_show: hours }] });
-
-export const toggleTile = (entity, opts = {}) =>
-  tile(entity, { ...opts, features: [{ type: 'toggle' }] });
-
-export const updateTile = (entity, opts = {}) =>
-  tile(entity, { ...opts, features: [{ type: 'update-actions' }] });
-
-/**
- * A tile that presses a button entity. Pressing is the whole point of the
- * card, so both the card and its icon press, and `confirm` (text) gates
- * anything that interrupts a service, a client or a VM.
- */
-export function pressTile(entity, name, icon, confirm) {
-  if (!entity) return null;
-  const action = {
-    action: 'perform-action',
-    perform_action: 'button.press',
-    target: { entity_id: entity },
-    ...(confirm && { confirmation: { text: confirm } }),
-  };
-  return {
-    type: 'tile', entity, name, icon,
-    hide_state: true, vertical: false,
-    tap_action: action, icon_tap_action: action,
-  };
-}
-
 export function entities(rows, opts = {}) {
   const list = rows.filter(Boolean);
   if (!list.length) return null;
   return { type: 'entities', entities: list, ...opts };
 }
 
-export const row = (entity, name, extra = {}) => (entity ? { entity, name, ...extra } : null);
+export const row = (entity, name, extra = {}) => (entity ? { entity, ...(name && { name }), ...extra } : null);
 
 export function history(ids, opts = {}) {
   const list = ids.filter(Boolean);
   if (!list.length) return null;
   return { type: 'history-graph', hours_to_show: 24, entities: list, grid_options: { columns: 'full' }, ...opts };
-}
-
-export function gauge(entity, name, severity) {
-  if (!entity) return null;
-  return {
-    type: 'gauge', entity, name, needle: true, min: 0, max: 100,
-    ...(severity && { severity }),
-    grid_options: { columns: 4, rows: 2 },
-  };
 }
 
 export const markdown = (content, opts = {}) => ({ type: 'markdown', content, ...opts });
@@ -90,14 +46,46 @@ export const when = {
   or: (conditions) => ({ condition: 'or', conditions }),
 };
 
-export const visibleWhen = (card, ...conditions) =>
-  card ? { ...card, visibility: conditions } : null;
-
 // Views carry no icon on purpose: with eight tabs, Home Assistant would show
 // icons only, and nobody reads "shield" as "Firewall" at a glance.
 export function view(key, title, sections, extra = {}) {
   return {
     type: 'sections', path: key, title, max_columns: 4,
     sections: sections.filter(Boolean), ...extra,
+  };
+}
+
+/** Settings-style table (table-card.js); null when it would have no row. */
+export function table(title, icon, columns, rows, opts = {}) {
+  const list = rows.filter(Boolean);
+  if (!list.length && !opts.empty) return null;
+  return { type: 'custom:nivuus-table-card', title, icon, columns, rows: list, ...opts };
+}
+
+/** A row action that presses a button entity, confirmed when `confirm` is set. */
+export function pressAction(entity, label, icon, confirm) {
+  if (!entity) return null;
+  return {
+    label, icon,
+    tap_action: {
+      action: 'perform-action', perform_action: 'button.press', target: { entity_id: entity },
+      ...(confirm && { confirmation: { text: confirm } }),
+    },
+  };
+}
+
+/** Settings-style list: an entities card with a header icon. */
+export const list = (title, icon, rows, opts = {}) =>
+  entities(rows, { title, icon, state_color: true, grid_options: { columns: 'full' }, ...opts });
+
+/** An entities-card row that presses a button entity, confirmed when `confirm` is set. */
+export function buttonRow(entity, name, icon, actionName, confirm) {
+  if (!entity) return null;
+  return {
+    type: 'button', name, icon, action_name: actionName,
+    tap_action: {
+      action: 'perform-action', perform_action: 'button.press', target: { entity_id: entity },
+      ...(confirm && { confirmation: { text: confirm } }),
+    },
   };
 }

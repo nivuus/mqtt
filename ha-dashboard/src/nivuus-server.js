@@ -7,6 +7,7 @@
 // mobile layout are Home Assistant's own.
 
 import './cpu-cores-card.js';
+import './table-card.js';
 import { loadAgentEntries } from './registry.js';
 import { buildModel } from './model/index.js';
 import { makeTranslator, languageOf } from './i18n/index.js';

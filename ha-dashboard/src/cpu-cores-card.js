@@ -22,9 +22,9 @@ const STYLE = `
   }
   button:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
   .fill {
-    position: absolute; inset: auto 0 0 0; height: var(--load, 0%);
+    position: absolute; inset: 0; transform-origin: bottom; transform: scaleY(var(--load, 0));
     background: color-mix(in srgb, var(--primary-color) 35%, transparent);
-    transition: height .6s ease;
+    transition: transform .6s ease;
   }
   .n, .load, .temp { position: relative; display: block; line-height: 1.25; }
   .n { font-size: 11px; color: var(--secondary-text-color); }
@@ -86,7 +86,7 @@ function defineCard() {
         const tempValue = numeric(temp);
         const loadText = load ? hass.formatEntityState(load) : '';
         const tempText = temp ? hass.formatEntityState(temp) : '';
-        button.style.setProperty('--load', `${Math.max(0, Math.min(100, loadValue ?? 0))}%`);
+        button.style.setProperty('--load', String(Math.max(0, Math.min(100, loadValue ?? 0)) / 100));
         button.querySelector('.load').textContent = loadText;
         button.querySelector('.temp').textContent = tempText;
         button.classList.toggle('warm', tempValue !== undefined && tempValue >= WARM_C && tempValue < HOT_C);

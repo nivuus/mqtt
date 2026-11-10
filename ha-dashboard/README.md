@@ -7,11 +7,15 @@ server dashboard from the entities this agent publishes. It replaced, on
 
 ## Why a strategy
 
-- **Stock cards.** Tiles, gauges, history graphs, entities rows, markdown,
-  heading badges, tile features (`bar-gauge`, `trend-graph`, `toggle`,
-  `update-actions`) and Lovelace action confirmations. Theme, more-info dialogs,
-  mobile layout and accessibility come from Home Assistant. The only custom card
-  is `cpu-cores-card.js`, because no stock card shows 24 cores readably.
+- **Looks like Home Assistant's settings pages.** Lists are stock entities cards
+  (rows, editable inputs, button rows with Lovelace confirmations, conditional
+  rows), plus history graphs and markdown. No tiles, no gauges: the owner found
+  them too "home automation" for a server page (2026-11-10). Two custom cards:
+  `table-card.js` (sortable columns Name · State · Since · Action, every click
+  through HA's `hass-action`, so confirmations and more-info are native) and
+  `cpu-cores-card.js` (no stock card shows 24 cores readably). HA's internal
+  elements (`ha-data-table`, `hass-tabs-subpage`) are not used: a custom panel
+  cannot load them reliably in 2026.11 (`partial-panel-resolver.getRoutes` is gone).
 - **Generated, not hand-kept.** Views are built from the entity registry when
   they are opened, so a new disk, VM, Wi-Fi network, bridge or firewall zone
   shows up without anyone editing a dashboard.
@@ -31,7 +35,9 @@ server dashboard from the entities this agent publishes. It replaced, on
 | `src/views/` | One file per tab; `attention.js` holds the overview checks |
 | `src/cards.js` | Builders for stock card configs |
 | `src/i18n/` | English source, French; other languages fall back to English labels |
+| `src/table-card.js` | Settings-style sortable table |
 | `src/cpu-cores-card.js` | The custom core grid |
+| `src/views/rows.js` | Table rows shared by views (services, VMs) |
 | `test/` | `node --test`; `fixtures/host.json` is the reference host's registry, anonymised |
 
 The **overview** starts with "Needs attention": each check is a card with a

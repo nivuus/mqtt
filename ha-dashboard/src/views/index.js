@@ -11,7 +11,7 @@ import { maintenance, backupEntities } from './maintenance.js';
 import { markdown, section, view } from '../cards.js';
 
 export const VIEWS = [
-  { key: 'overview', build: (ctx) => overview(ctx.m, ctx.t, ctx.nav) },
+  { key: 'overview', build: (ctx) => overview(ctx.m, ctx.t) },
   { key: 'performance', build: (ctx) => performance(ctx.m, ctx.t) },
   { key: 'network', build: (ctx) => network(ctx.m, ctx.t) },
   { key: 'wifi', build: (ctx) => wifi(ctx.m, ctx.t) },

@@ -1,39 +1,23 @@
-// "Services & VMs": host services with their restart, the VMs, game streaming.
+// "Services & VMs": host services and VMs as tables, game streaming as a list.
 
-import { heading, tile, pressTile, section, view } from '../cards.js';
+import { list, row, table, section, view } from '../cards.js';
+import { serviceRows, SERVICE_COLUMNS, vmRows, VM_COLUMNS } from './rows.js';
 
 export function services(m, t) {
+  const g = m.gaming;
   return view('services', t('view.services'), [
     section([
-      heading(t('section.hostServices'), 'mdi:cogs'),
-      ...m.services.flatMap((s) => [
-        tile(s.status, { name: t.service(s.name), state_content: 'state' }),
-        pressTile(s.restart, t('action.restart', { service: t.service(s.name) }), 'mdi:restart',
-          t('confirm.serviceRestart', { service: t.service(s.name) })),
+      table(t('section.hostServices'), 'mdi:cogs', SERVICE_COLUMNS(t), serviceRows(m, t)),
+      table(t('section.vms'), 'mdi:monitor', VM_COLUMNS(t), vmRows(m, t)),
+    ], { column_span: 2 }),
+    section([
+      list(t('section.gaming'), 'mdi:controller', [
+        row(g.streaming, t('name.streaming')),
+        row(g.streamingService, t('name.streamingService')),
+        row(g.splitLockActive, t('name.splitLock')),
+        row(g.splitLockCount, t('name.splitLockCount')),
+        row(g.splitLockLast, t('name.splitLockLast')),
       ]),
     ], { column_span: 2 }),
-    ...m.vms.map((v) => vm(v, t)),
-    gaming(m.gaming, t),
-  ]);
-}
-
-function vm(v, t) {
-  return section([
-    heading(t('name.vm', { vm: v.name }), 'mdi:monitor'),
-    tile(v.state, { name: t('name.state') }),
-    pressTile(v.start, t('action.start'), 'mdi:play'),
-    pressTile(v.stop, t('action.stop'), 'mdi:stop', t('confirm.vmStop', { vm: v.name })),
-    pressTile(v.restart, t('action.restartVm'), 'mdi:restart', t('confirm.vmRestart', { vm: v.name })),
-  ]);
-}
-
-function gaming(g, t) {
-  return section([
-    heading(t('section.gaming'), 'mdi:controller'),
-    tile(g.streaming, { name: t('name.streaming') }),
-    tile(g.streamingService, { name: t('name.streamingService') }),
-    tile(g.splitLockActive, { name: t('name.splitLock') }),
-    tile(g.splitLockCount, { name: t('name.splitLockCount') }),
-    tile(g.splitLockLast, { name: t('name.splitLockLast') }),
-  ]);
+  ], { max_columns: 2 });
 }

@@ -20,7 +20,7 @@ test('regional tags use their base language; unknown languages fall back to Engl
 
 test('placeholders are filled, unknown names keep their raw form', () => {
   const t = makeTranslator('fr');
-  assert.equal(t('name.vm', { vm: 'Windows' }), 'VM Windows');
+  assert.equal(t('section.editNetwork', { ssid: 'Maison' }), 'Modifier Maison');
   assert.equal(t.bridge('localBridge'), 'Réseau de la maison');
   assert.equal(t.bridge('labBridge'), 'labBridge');
   assert.equal(t.disk('sdz'), 'Disque sdz');

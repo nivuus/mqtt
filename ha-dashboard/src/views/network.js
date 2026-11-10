@@ -1,78 +1,80 @@
-// "Network": uplink, guest VPN, PPPoE fallback, then one section per bridge.
+// "Network": throughput, every interface in one table, guest VPN, PPPoE
+// fallback, then the clients of each bridge.
 
-import {
-  heading, subheading, tile, trendTile, toggleTile, pressTile, entities, row,
-  history, markdown, section, view,
-} from '../cards.js';
+import { list, row, buttonRow, table, history, markdown, section, view } from '../cards.js';
 import { devicesTable } from './templates.js';
 
 export function network(m, t) {
+  const uplink = m.wan[0];
   return view('network', t('view.network'), [
-    ...m.wan.map((uplink) => wan(uplink, t)),
-    guestVpn(m, t),
-    pppoe(m, t),
-    ...m.bridges.map((b) => bridge(b, t)),
-  ]);
+    section([
+      uplink && history([uplink.traffic.down, uplink.traffic.up], { title: t('name.throughput6h'), hours_to_show: 6 }),
+      interfaces(m, t),
+    ], { column_span: 2 }),
+    section([guestVpn(m, t)]),
+    section([pppoe(m, t)]),
+    ...m.bridges.map((b) => section([
+      markdown(devicesTable(b.devices, t), {
+        title: t('name.devicesOn', { bridge: t.bridge(b.name) }), grid_options: { columns: 'full' },
+      }),
+    ], { column_span: 2 })),
+  ], { max_columns: 2 });
 }
 
-function wan(uplink, t) {
-  const tr = uplink.traffic;
-  return section([
-    heading(t('section.wan'), 'mdi:wan'),
-    history([tr.down, tr.up], { title: t('name.throughput6h'), hours_to_show: 6 }),
-    tile(tr.totalDown, { name: t('name.totalDown') }),
-    tile(tr.totalUp, { name: t('name.totalUp') }),
-    zoneTile(uplink.zoneSelect, t),
-  ], { column_span: 2 });
+/**
+ * One row per interface firewalld knows. A click opens the zone select's
+ * more-info dialog: changing a zone reloads firewalld, which has cut the LAN
+ * before, so it stays one deliberate step away.
+ */
+function interfaces(m, t) {
+  const bridges = new Map(m.bridges.map((b) => [b.name.toLowerCase(), b]));
+  const rows = m.interfaces.map((i) => {
+    const b = bridges.get(i.name.toLowerCase());
+    const tr = i.traffic;
+    return {
+      entity: i.zoneSelect,
+      cells: {
+        name: { text: t.iface(i.name) },
+        subnet: b ? { entity: b.info } : { text: '—' },
+        zone: { entity: i.zoneSelect },
+        devices: b ? { entity: b.count, numeric: true } : { text: '' },
+        down: tr.down ? { entity: tr.down, numeric: true } : { text: '' },
+        up: tr.up ? { entity: tr.up, numeric: true } : { text: '' },
+        total: tr.totalDown ? { entity: tr.totalDown, numeric: true, muted: true } : { text: '' },
+      },
+    };
+  });
+  return table(t('section.interfaces'), 'mdi:ethernet', [
+    { key: 'name', label: t('col.interface'), sortable: true },
+    { key: 'subnet', label: t('col.subnet') },
+    { key: 'zone', label: t('col.zone'), sortable: true },
+    { key: 'devices', label: t('col.devices'), sortable: true, align: 'end' },
+    { key: 'down', label: t('name.download'), sortable: true, align: 'end' },
+    { key: 'up', label: t('name.upload'), sortable: true, align: 'end' },
+    { key: 'total', label: t('name.totalDown'), sortable: true, align: 'end' },
+  ], rows);
 }
 
 function guestVpn(m, t) {
   const v = m.guestVpn;
-  return section([
-    heading(t('section.guestVpn'), 'mdi:shield-lock-outline'),
-    toggleTile(v.switch, { name: t('name.guestVpn') }),
-    tile(v.state, { name: t('name.guestVpnState') }),
-    tile(v.exitIp, { name: t('name.exitIp') }),
-    tile(v.onOrange, { name: t('name.guestsOnUplink') }),
+  return list(t('section.guestVpn'), 'mdi:shield-lock-outline', [
+    row(v.switch, t('name.guestVpn')),
+    row(v.state, t('name.guestVpnState')),
+    row(v.exitIp, t('name.exitIp')),
+    row(v.onOrange, t('name.guestsOnUplink')),
   ]);
 }
 
 function pppoe(m, t) {
   const p = m.pppoe;
-  return section([
-    heading(t('section.pppoe'), 'mdi:phone-classic'),
-    markdown(t('help.pppoe')),
-    tile(p.connection, { name: t('name.pppoeLink') }),
-    tile(p.configFound, { name: t('name.pppoeConfig') }),
-    entities([
-      row(p.username, t('name.username')),
-      row(p.password, t('name.password')),
-    ]),
-    pressTile(p.save, t('action.saveCredentials'), 'mdi:content-save', t('confirm.pppoeSave')),
-    pressTile(p.test, t('action.testConnection'), 'mdi:connection'),
-    tile(p.lastAction, { name: t('name.lastAction') }),
+  return list(t('section.pppoe'), 'mdi:phone-classic', [
+    row(p.connection, t('name.pppoeLink')),
+    row(p.configFound, t('name.pppoeConfig')),
+    row(p.username, t('name.username')),
+    row(p.password, t('name.password')),
+    buttonRow(p.save, t('action.saveCredentials'), 'mdi:content-save', t('action.save'), t('confirm.pppoeSave')),
+    buttonRow(p.test, t('action.testConnection'), 'mdi:connection', t('action.run')),
+    row(p.lastAction, t('name.lastAction')),
+    { type: 'text', icon: 'mdi:information-outline', name: t('name.about'), text: t('help.pppoeShort') },
   ]);
-}
-
-function bridge(b, t) {
-  const tr = b.traffic;
-  return section([
-    heading(t.bridge(b.name), 'mdi:lan'),
-    tile(b.info, { name: t('name.subnet'), icon: 'mdi:ip-network' }),
-    tile(b.count, { name: t('name.devices'), icon: 'mdi:devices' }),
-    zoneTile(b.zoneSelect, t),
-    trendTile(tr.down, { name: t('name.download') }, 6),
-    trendTile(tr.up, { name: t('name.upload') }, 6),
-    b.devices && subheading(t('name.connectedDevices')),
-    b.devices && markdown(devicesTable(b.devices, t), { grid_options: { columns: 'full' } }),
-  ], { column_span: 2 });
-}
-
-/**
- * Zone of an interface. Changing it reloads firewalld, which has cut the LAN
- * before, so the select is not on the card: a tap opens the more-info dialog,
- * where the change is one deliberate step away.
- */
-export function zoneTile(select, t, name) {
-  return tile(select, { name: name ?? t('name.firewallZone'), icon: 'mdi:shield-half-full' });
 }

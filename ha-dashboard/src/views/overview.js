@@ -1,98 +1,82 @@
-// "Overview": what needs attention first, then the vital signs.
+// "Overview": what needs attention first, then the vital signs, as lists and
+// tables in the style of Home Assistant's settings pages.
 
-import {
-  heading, tile, gauge, trendTile, toggleTile, updateTile, markdown,
-  section, view, when, visibleWhen,
-} from '../cards.js';
+import { list, row, table, markdown, section, view, when } from '../cards.js';
 import { attentionChecks, noneFailing } from './attention.js';
+import { serviceRows, SERVICE_COLUMNS, vmRows, VM_COLUMNS } from './rows.js';
 
-export function overview(m, t, nav) {
+export function overview(m, t) {
   const checks = attentionChecks(m, t);
   return view('overview', t('view.overview'), [
-    attention(checks, m, t),
-    vitals(m, t, nav),
-    network(m, t, nav),
-    power(m, t, nav),
-    services(m, t, nav),
-  ], { badges: badges(m, t) });
+    section([attention(checks, t), allFine(checks, t)], { column_span: 2 }),
+    section([system(m, t), power(m, t)]),
+    section([network(m, t), updates(m, t)]),
+    section([
+      table(t('section.services'), 'mdi:cogs', SERVICE_COLUMNS(t), serviceRows(m, t)),
+      table(t('section.vms'), 'mdi:monitor', VM_COLUMNS(t), vmRows(m, t)),
+    ], { column_span: 2 }),
+  ], { max_columns: 2 });
 }
 
-function attention(checks, m, t) {
-  const allFine = markdown(t('attention.allFine'), { visibility: [noneFailing(checks)] });
-  return section([
-    heading(t('section.attention'), 'mdi:alert-circle-outline'),
-    allFine,
-    ...checks.map((c) => visibleWhen(wide(c.card), c.show)),
-    // Pending updates install from here, without leaving the page.
-    visibleWhen(wide(updateTile(m.updates.apt, { name: t('name.apt') })), when.state(m.updates.apt, 'on')),
-    ...m.updates.containers.map((u) =>
-      visibleWhen(wide(updateTile(u.entity, { name: u.title })), when.state(u.entity, 'on'))),
-  ], { column_span: 2 });
+/** One row per failing check; the card itself hides when nothing fails. */
+function attention(checks, t) {
+  const rows = checks.map((c) => ({
+    type: 'conditional',
+    conditions: [c.show],
+    row: { entity: c.card.entity, name: c.card.name, ...(c.card.icon && { icon: c.card.icon }) },
+  }));
+  return list(t('section.attention'), 'mdi:alert-circle-outline', rows, {
+    visibility: [{ condition: 'or', conditions: checks.map((c) => c.show) }],
+  });
 }
 
-// Half the section: room for "/media/data is filling up" without truncation.
-function wide(card) {
-  return card && { ...card, grid_options: { columns: 12 } };
+function allFine(checks, t) {
+  return markdown(`<ha-alert alert-type="success">${t('attention.allFine')}</ha-alert>`, {
+    visibility: [noneFailing(checks)],
+    text_only: true,
+  });
 }
 
-function vitals(m, t, nav) {
+function system(m, t) {
   const root = m.storage.filesystems.find((f) => f.mount === '/');
-  return section([
-    heading(t('section.system'), 'mdi:server', { tap_action: nav('performance') }),
-    gauge(m.cpu.load, t('name.cpu'), { green: 0, yellow: 60, red: 85 }),
-    gauge(m.memory.usage, t('name.memory'), { green: 0, yellow: 70, red: 85 }),
-    gauge(root?.usage, t('name.rootDisk'), { green: 0, yellow: 75, red: 90 }),
-    trendTile(m.cpu.temp, { name: t('name.cpuTemp') }),
-    trendTile(m.gpu.temp, { name: t('name.gpuTemp') }),
-  ], { column_span: 2 });
-}
-
-function network(m, t, nav) {
-  const uplink = m.wan[0];
-  return section([
-    heading(t('section.network'), 'mdi:wan', { tap_action: nav('network') }),
-    trendTile(uplink?.traffic.down, { name: t('name.download') }, 1),
-    trendTile(uplink?.traffic.up, { name: t('name.upload') }, 1),
-    toggleTile(m.guestVpn.switch, { name: t('name.guestVpn') }),
-    tile(m.guestVpn.state, { name: t('name.guestVpnState') }),
-    ...m.bridges.map((b) => tile(b.count, {
-      name: t.bridge(b.name),
-      icon: 'mdi:devices',
-      tap_action: nav('network'),
-    })),
+  return list(t('section.system'), 'mdi:server', [
+    row(m.cpu.load, t('name.cpu')),
+    row(m.cpu.temp, t('name.cpuTemp')),
+    row(m.memory.usage, t('name.memory')),
+    row(root?.usage, t('name.rootDisk')),
+    row(m.gpu.temp, t('name.gpuTemp')),
   ]);
 }
 
-function power(m, t, nav) {
-  return section([
-    heading(t('section.power'), 'mdi:power-plug-battery', { tap_action: nav('performance') }),
-    tile(m.ups.powerSource, { name: t('name.mains') }),
-    tile(m.ups.battery, { name: t('name.upsBattery') }),
-    trendTile(m.ups.consumption, { name: t('name.consumption') }),
-    tile(m.ups.runtime, { name: t('name.upsRuntime') }),
+function network(m, t) {
+  const uplink = m.wan[0];
+  return list(t('section.network'), 'mdi:wan', [
+    row(uplink?.traffic.down, t('name.download')),
+    row(uplink?.traffic.up, t('name.upload')),
+    row(m.guestVpn.switch, t('name.guestVpn')),
+    row(m.guestVpn.state, t('name.guestVpnState')),
+    ...m.bridges.map((b) => row(b.count, t('name.devicesOn', { bridge: t.bridge(b.name) }), { icon: 'mdi:devices' })),
   ]);
 }
 
-function services(m, t, nav) {
-  return section([
-    heading(t('section.services'), 'mdi:cogs', { tap_action: nav('services') }),
-    ...m.services.map((s) => tile(s.status, {
-      name: t.service(s.name), state_content: 'state', tap_action: nav('services'),
-    })),
-    ...m.vms.map((v) => tile(v.state, {
-      name: t('name.vm', { vm: v.name }), icon: 'mdi:microsoft-windows', tap_action: nav('services'),
-    })),
-  ], { column_span: 2 });
+function power(m, t) {
+  return list(t('section.power'), 'mdi:power-plug-battery', [
+    row(m.ups.powerSource, t('name.mains')),
+    row(m.ups.battery, t('name.upsBattery')),
+    row(m.ups.runtime, t('name.upsRuntime')),
+    row(m.ups.consumption, t('name.consumption')),
+  ]);
 }
 
-function badges(m, t) {
-  const uplink = m.wan[0];
-  return [
-    m.cpu.load && { type: 'entity', entity: m.cpu.load, name: t('name.cpu'), show_name: true },
-    m.cpu.temp && { type: 'entity', entity: m.cpu.temp, name: t('name.cpuTemp'), show_name: true },
-    m.memory.usage && { type: 'entity', entity: m.memory.usage, name: t('name.memory'), show_name: true },
-    uplink?.traffic.down && { type: 'entity', entity: uplink.traffic.down, name: t('name.download'), show_name: true },
-    m.ups.battery && { type: 'entity', entity: m.ups.battery, name: t('name.ups'), show_name: true },
-    m.guestVpn.state && { type: 'entity', entity: m.guestVpn.state, name: t('name.guestVpn'), show_name: true },
+/** Pending updates only; each row opens Home Assistant's install dialog. */
+function updates(m, t) {
+  const u = m.updates;
+  const pending = [
+    u.apt && { entity: u.apt, name: t('name.apt') },
+    ...u.containers.map((c) => ({ entity: c.entity, name: c.title })),
   ].filter(Boolean);
+  return list(t('section.updates'), 'mdi:update', [
+    row(u.count, t('name.pendingPackages')),
+    ...pending.map((r) => ({ type: 'conditional', conditions: [when.state(r.entity, 'on')], row: r })),
+  ]);
 }
