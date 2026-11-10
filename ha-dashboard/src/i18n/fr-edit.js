@@ -1,4 +1,4 @@
-// Mots français des cartes d'édition (form-card.js, zone-card.js).
+// French words of the edit cards (form-card.js, zone-card.js).
 
 export default {
   'form.cancel': 'Annuler',
