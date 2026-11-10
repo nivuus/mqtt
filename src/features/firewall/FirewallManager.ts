@@ -5,6 +5,9 @@ import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_argv } from '../../utils/exec';
 import { Validators, rejectInvalid } from '../../utils/validators';
 import logger from '../../utils/logger';
+import { zonePortForwards, zoneServices, zonePorts, zoneMasquerade, parseActiveZones } from './firewallQueries';
+import { EntitySpec, interfaceZoneSensor, interfaceZoneSelect, zoneEntities } from './firewallEntities';
+import { controlEntities, forwardEntities } from './firewallFormEntities';
 
 interface FirewallManagerFeatureConfig extends FeatureConfig {
   // Future config options for firewall management
@@ -37,69 +40,6 @@ export class FirewallManager extends BaseFeature {
                          { enabled: true, update_interval_seconds: 300 }; // Default to enabled
   }
 
-  // Helper: Get port forwards for a specific zone
-  private async getZonePortForwards(zone: string): Promise<Array<{port: string, proto: string, toport: string, toaddr: string}>> {
-    try {
-      const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, '--list-forward-ports']);
-      if (result.exitCode !== 0) return [];
-
-      const forwards: Array<{port: string, proto: string, toport: string, toaddr: string}> = [];
-      const lines = result.stdout.trim().split('\n');
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        // Format: port=3389:proto=tcp:toport=3389:toaddr=192.168.3.2
-        const match = line.match(/port=(\d+):proto=(tcp|udp):toport=(\d+):toaddr=([\d.]+)/);
-        if (match) {
-          forwards.push({
-            port: match[1],
-            proto: match[2],
-            toport: match[3],
-            toaddr: match[4]
-          });
-        }
-      }
-      return forwards;
-    } catch (error) {
-      logger.error(`Error getting port forwards for zone ${zone}:`, error);
-      return [];
-    }
-  }
-
-  // Helper: Get services in a zone
-  private async getZoneServices(zone: string): Promise<string[]> {
-    try {
-      const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, '--list-services']);
-      if (result.exitCode !== 0) return [];
-      return result.stdout.trim().split(/\s+/).filter(s => s.length > 0);
-    } catch (error) {
-      logger.error(`Error getting services for zone ${zone}:`, error);
-      return [];
-    }
-  }
-
-  // Helper: Get ports in a zone
-  private async getZonePorts(zone: string): Promise<string[]> {
-    try {
-      const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, '--list-ports']);
-      if (result.exitCode !== 0) return [];
-      return result.stdout.trim().split(/\s+/).filter(p => p.length > 0);
-    } catch (error) {
-      logger.error(`Error getting ports for zone ${zone}:`, error);
-      return [];
-    }
-  }
-
-  // Helper: Check if masquerading is enabled in a zone
-  private async getZoneMasquerade(zone: string): Promise<boolean> {
-    try {
-      const result = await execute_argv('firewall-cmd', [`--zone=${zone}`, '--query-masquerade']);
-      return result.exitCode === 0; // Exit code 0 means yes, 1 means no
-    } catch (error) {
-      logger.error(`Error querying masquerade for zone ${zone}:`, error);
-      return false;
-    }
-  }
 
   protected async setup(): Promise<void> {
     // Subscribe to command topics for firewall management
@@ -406,70 +346,18 @@ export class FirewallManager extends BaseFeature {
     }
   }
 
-  private parseActiveZones(output: string): Map<string, string[]> {
-    const zoneInterfaceMap = new Map<string, string[]>();
-    if (!output || typeof output !== 'string') return zoneInterfaceMap;
 
-    const lines = output.split('\n');
-    let currentZone: string | null = null;
-
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue; // Skip empty lines
-
-      // Check if the line is a zone name (does not start with whitespace)
-      if (line.match(/^\S/) && !trimmedLine.startsWith('interfaces:') && !trimmedLine.startsWith('sources:')) {
-        // It's a zone name. It might or might not have interfaces on the same line.
-        const parts = trimmedLine.split(':');
-        // firewalld >= 2.x (Debian Trixie) appends " (default)" to the default
-        // zone in `--get-active-zones`; strip it or every firewall-cmd call for
-        // that zone fails with INVALID_ZONE (the internal zone went unmonitored).
-        currentZone = parts[0].trim().replace(/\s*\(default\)\s*$/, '');
-        if (parts.length > 1 && parts[1].trim()) {
-          // Interfaces are on the same line as the zone
-          const interfaces = parts[1].trim().split(/\s+/).filter(iface => iface.length > 0);
-          if (interfaces.length > 0) {
-            zoneInterfaceMap.set(currentZone, (zoneInterfaceMap.get(currentZone) || []).concat(interfaces));
-          }
-        } else {
-          // Interfaces might be on the next line(s), set currentZone and wait for 'interfaces:'
-          // If this zone doesn't have an explicit interfaces line, it might be an empty zone or just sources.
-          // Ensure the zone is added even if no interfaces are listed immediately,
-          // in case they appear on a following "interfaces:" line.
-          if (!zoneInterfaceMap.has(currentZone)) {
-            zoneInterfaceMap.set(currentZone, []);
-          }
-        }
-      } else if (currentZone && trimmedLine.startsWith('interfaces:')) {
-        // Interfaces for the currentZone
-        const interfaces = trimmedLine.substring('interfaces:'.length).trim().split(/\s+/).filter(iface => iface.length > 0);
-        if (interfaces.length > 0) {
-          zoneInterfaceMap.set(currentZone, (zoneInterfaceMap.get(currentZone) || []).concat(interfaces));
-        }
-      } else if (currentZone && trimmedLine.startsWith('sources:')) {
-        // Sources for the currentZone, ignore for now or handle if needed later
-      }
-      // If line doesn't match any known pattern and a currentZone is active,
-      // it might be a continuation or something else. For now, this parser is simple.
-    }
-    
-    // Clean up zones that were added but ended up with no interfaces
-    for (const [zone, interfaces] of zoneInterfaceMap.entries()) {
-        if (interfaces.length === 0) {
-            zoneInterfaceMap.delete(zone);
-        }
-    }
-    return zoneInterfaceMap;
+  private async publishSpecs(specs: EntitySpec[]): Promise<void> {
+    for (const spec of specs) await this.publishEntityDiscovery(spec.component, spec.objectId, spec.payload as never);
   }
 
   protected async publishDiscovery(): Promise<void> {
-    // Discovery will be dynamic based on active zones and interfaces found during the first update.
-    // We can call `update()` once here to populate, then publish.
-    // Or, features can dynamically create entities if BaseFeature supports it.
-    // For simplicity, we'll try to get initial data here.
+    // Entities follow firewalld: one zone select per interface, one set of
+    // rule sensors per active zone. Publication order is pinned by
+    // __tests__/FirewallManager.publications.test.ts.
     try {
       const activeZonesOutput = await execute_argv('firewall-cmd', ['--get-active-zones']);
-      const zoneInterfaceMap = this.parseActiveZones(activeZonesOutput.stdout);
+      const zoneInterfaceMap = parseActiveZones(activeZonesOutput.stdout);
 
       // Get all available zones for management
       const zonesOutput = await execute_argv('firewall-cmd', ['--get-zones']);
@@ -477,232 +365,30 @@ export class FirewallManager extends BaseFeature {
 
       const allInterfaces = new Set<string>();
       zoneInterfaceMap.forEach(interfaces => interfaces.forEach(iface => allInterfaces.add(iface)));
+      const topic = (path: string) => this.prefixTopic(path);
+      const feature = this.featureName;
 
       for (const iface of allInterfaces) {
-        if (this.relevantInterfacePatterns.test(iface)) {
-          await this.publishEntityDiscovery('sensor', `${iface}_zone`, {
-            name: `Network Firewall ${iface} Zone Sensor`,
-            state_topic: this.prefixTopic(`${this.featureName}/${iface}/zone/state`),
-            icon: 'mdi:security-network',
-            entity_category: 'diagnostic' as 'diagnostic',
-          });
-        }
+        if (this.relevantInterfacePatterns.test(iface)) await this.publishSpecs(interfaceZoneSensor(feature, topic, iface));
       }
 
-      // Sensor for all active zones and their interfaces
-      await this.publishEntityDiscovery('sensor', 'active_zones_summary', {
-        name: `Network Firewall Active Zones Sensor`,
-        state_topic: this.prefixTopic(`${this.featureName}/active_zones/state`), // Could be count of zones or a summary string
-        icon: 'mdi:shield-check',
-        entity_category: 'diagnostic' as 'diagnostic',
-        json_attributes_topic: this.prefixTopic(`${this.featureName}/active_zones/attributes`),
-      });
+      await this.publishSpecs(controlEntities(feature, topic, this.availableZones));
 
-      // Management entities
-      await this.publishEntityDiscovery('sensor', 'last_action', {
-        name: `Network Firewall Last Action Sensor`,
-        state_topic: this.prefixTopic(`${this.featureName}/last_action/state`),
-        icon: 'mdi:shield-sync',
-        entity_category: 'diagnostic' as 'diagnostic',
-      });
-
-      // Input text entities for port management
-      await this.publishEntityDiscovery('text', 'port_input', {
-        name: `Network Firewall Port Input`,
-        command_topic: this.prefixTopic(`${this.featureName}/port_input/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/port_input/state`),
-        icon: 'mdi:ethernet-cable',
-        entity_category: 'config' as 'config',
-        pattern: '^([0-9]{1,5})?$' /* empty = cleared field */,
-        mode: 'text',
-      });
-
-      await this.publishEntityDiscovery('select', 'protocol_select', {
-        name: `Network Firewall Protocol Select`,
-        command_topic: this.prefixTopic(`${this.featureName}/protocol_select/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/protocol_select/state`),
-        icon: 'mdi:protocol',
-        entity_category: 'config' as 'config',
-        options: ['tcp', 'udp'],
-      });
-
-      await this.publishEntityDiscovery('select', 'zone_select', {
-        name: `Network Firewall Zone Select`,
-        command_topic: this.prefixTopic(`${this.featureName}/zone_select/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/zone_select/state`),
-        icon: 'mdi:shield',
-        entity_category: 'config' as 'config',
-        options: this.availableZones,
-      });
-
-      await this.publishEntityDiscovery('text', 'service_input', {
-        name: `Network Firewall Service Input`,
-        command_topic: this.prefixTopic(`${this.featureName}/service_input/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/service_input/state`),
-        icon: 'mdi:cog',
-        entity_category: 'config' as 'config',
-        mode: 'text',
-      });
-
-      // Action buttons for port/service management
-      await this.publishEntityDiscovery('button', 'add_port_btn', {
-        name: `Network Firewall Add Port Button`,
-        command_topic: this.prefixTopic(`${this.featureName}/command/add_port`),
-        payload_press: 'ADD_PORT',
-        icon: 'mdi:plus-circle',
-        entity_category: 'config' as 'config',
-      });
-
-      await this.publishEntityDiscovery('button', 'remove_port_btn', {
-        name: `Network Firewall Remove Port Button`,
-        command_topic: this.prefixTopic(`${this.featureName}/command/remove_port`),
-        payload_press: 'REMOVE_PORT',
-        icon: 'mdi:minus-circle',
-        entity_category: 'config' as 'config',
-      });
-
-      await this.publishEntityDiscovery('button', 'add_service_btn', {
-        name: `Network Firewall Add Service Button`,
-        command_topic: this.prefixTopic(`${this.featureName}/command/add_service`),
-        payload_press: 'ADD_SERVICE',
-        icon: 'mdi:plus-box',
-        entity_category: 'config' as 'config',
-      });
-
-      await this.publishEntityDiscovery('button', 'remove_service_btn', {
-        name: `Network Firewall Remove Service Button`,
-        command_topic: this.prefixTopic(`${this.featureName}/command/remove_service`),
-        payload_press: 'REMOVE_SERVICE',
-        icon: 'mdi:minus-box',
-        entity_category: 'config' as 'config',
-      });
-
-      // === Interface Zone Select entities ===
-      // Create a select dropdown for each relevant interface to change its zone
-      // Include bridges (localBridge, internalBridge, publicBridge) and standard network interfaces
+      // A zone select for each relevant interface, bridges included.
       for (const iface of allInterfaces) {
         const isRelevant = this.relevantInterfacePatterns.test(iface) || iface.includes('Bridge');
         if (isRelevant) {
           const currentZone = Array.from(zoneInterfaceMap.entries()).find(([_, interfaces]) => interfaces.includes(iface))?.[0] || 'public';
           this.interfaceZoneMap.set(iface, currentZone);
-
-          await this.publishEntityDiscovery('select', `${iface}_zone_select`, {
-            name: `Network Firewall ${iface} Zone Select`,
-            command_topic: this.prefixTopic(`${this.featureName}/${iface}_zone_select/set`),
-            state_topic: this.prefixTopic(`${this.featureName}/${iface}_zone_select/state`),
-            icon: 'mdi:network',
-            entity_category: 'config' as 'config',
-            options: this.availableZones,
-          });
-
-          // Initialize state with current zone
+          await this.publishSpecs(interfaceZoneSelect(feature, topic, iface, this.availableZones));
           await this.publishState(`${this.featureName}/${iface}_zone_select/state`, currentZone, true);
         }
       }
 
-      // === Port Forward Management Entities ===
-      await this.publishEntityDiscovery('text', 'forward_port_input', {
-        name: `Network Firewall Forward Port Input`,
-        command_topic: this.prefixTopic(`${this.featureName}/forward_port_input/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/forward_port_input/state`),
-        icon: 'mdi:ethernet',
-        entity_category: 'config' as 'config',
-        pattern: '^([0-9]{1,5})?$' /* empty = cleared field */,
-        mode: 'text',
-      });
+      await this.publishSpecs(forwardEntities(feature, topic, this.availableZones));
 
-      await this.publishEntityDiscovery('text', 'forward_toaddr_input', {
-        name: `Network Firewall Forward To Address Input`,
-        command_topic: this.prefixTopic(`${this.featureName}/forward_toaddr_input/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/forward_toaddr_input/state`),
-        icon: 'mdi:ip',
-        entity_category: 'config' as 'config',
-        mode: 'text',
-      });
-
-      await this.publishEntityDiscovery('text', 'forward_toport_input', {
-        name: `Network Firewall Forward To Port Input`,
-        command_topic: this.prefixTopic(`${this.featureName}/forward_toport_input/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/forward_toport_input/state`),
-        icon: 'mdi:ethernet',
-        entity_category: 'config' as 'config',
-        pattern: '^([0-9]{1,5})?$' /* empty = cleared field */,
-        mode: 'text',
-      });
-
-      await this.publishEntityDiscovery('select', 'forward_protocol_select', {
-        name: `Network Firewall Forward Protocol Select`,
-        command_topic: this.prefixTopic(`${this.featureName}/forward_protocol_select/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/forward_protocol_select/state`),
-        icon: 'mdi:protocol',
-        entity_category: 'config' as 'config',
-        options: ['tcp', 'udp'],
-      });
-
-      await this.publishEntityDiscovery('select', 'forward_zone_select', {
-        name: `Network Firewall Forward Zone Select`,
-        command_topic: this.prefixTopic(`${this.featureName}/forward_zone_select/set`),
-        state_topic: this.prefixTopic(`${this.featureName}/forward_zone_select/state`),
-        icon: 'mdi:shield',
-        entity_category: 'config' as 'config',
-        options: this.availableZones,
-      });
-
-      await this.publishEntityDiscovery('button', 'add_forward_btn', {
-        name: `Network Firewall Add Forward Button`,
-        command_topic: this.prefixTopic(`${this.featureName}/command/add_forward`),
-        payload_press: 'ADD_FORWARD',
-        icon: 'mdi:arrow-right-bold-circle',
-        entity_category: 'config' as 'config',
-      });
-
-      await this.publishEntityDiscovery('button', 'remove_forward_btn', {
-        name: `Network Firewall Remove Forward Button`,
-        command_topic: this.prefixTopic(`${this.featureName}/command/remove_forward`),
-        payload_press: 'REMOVE_FORWARD',
-        icon: 'mdi:arrow-left-bold-circle',
-        entity_category: 'config' as 'config',
-      });
-
-      // === Zone Detail Sensors ===
-      // For each active zone, create sensors for port forwards, services, ports, masquerade
-      for (const [zone, interfaces] of zoneInterfaceMap) {
-        // Port forwards sensor
-        await this.publishEntityDiscovery('sensor', `${zone}_port_forwards`, {
-          name: `Network Firewall ${zone} Port Forwards Sensor`,
-          state_topic: this.prefixTopic(`${this.featureName}/${zone}/port_forwards/state`),
-          icon: 'mdi:arrow-right-bold',
-          entity_category: 'diagnostic' as 'diagnostic',
-          json_attributes_topic: this.prefixTopic(`${this.featureName}/${zone}/port_forwards/attributes`),
-        });
-
-        // Services sensor
-        await this.publishEntityDiscovery('sensor', `${zone}_services`, {
-          name: `Network Firewall ${zone} Services Sensor`,
-          state_topic: this.prefixTopic(`${this.featureName}/${zone}/services/state`),
-          icon: 'mdi:cog',
-          entity_category: 'diagnostic' as 'diagnostic',
-          json_attributes_topic: this.prefixTopic(`${this.featureName}/${zone}/services/attributes`),
-        });
-
-        // Ports sensor
-        await this.publishEntityDiscovery('sensor', `${zone}_ports`, {
-          name: `Network Firewall ${zone} Ports Sensor`,
-          state_topic: this.prefixTopic(`${this.featureName}/${zone}/ports/state`),
-          icon: 'mdi:gate',
-          entity_category: 'diagnostic' as 'diagnostic',
-          json_attributes_topic: this.prefixTopic(`${this.featureName}/${zone}/ports/attributes`),
-        });
-
-        // Masquerade binary sensor
-        await this.publishEntityDiscovery('binary_sensor', `${zone}_masquerade`, {
-          name: `Network Firewall ${zone} Masquerade Sensor`,
-          state_topic: this.prefixTopic(`${this.featureName}/${zone}/masquerade/state`),
-          payload_on: 'ON',
-          payload_off: 'OFF',
-          icon: 'mdi:incognito',
-          entity_category: 'diagnostic' as 'diagnostic',
-        });
+      for (const zone of zoneInterfaceMap.keys()) {
+        await this.publishSpecs(zoneEntities(feature, topic, zone));
       }
 
       // Initialize states and sync with stored values
@@ -730,7 +416,7 @@ export class FirewallManager extends BaseFeature {
   protected async update(): Promise<void> {
     try {
       const activeZonesOutput = await execute_argv('firewall-cmd', ['--get-active-zones']);
-      const zoneInterfaceMap = this.parseActiveZones(activeZonesOutput.stdout);
+      const zoneInterfaceMap = parseActiveZones(activeZonesOutput.stdout);
 
       const interfaceToZone: { [iface: string]: string } = {};
       const activeZoneDetails: { [zone: string]: string[] } = {};
@@ -758,22 +444,22 @@ export class FirewallManager extends BaseFeature {
       // Publish zone details (port forwards, services, ports, masquerade) for each active zone
       for (const zone of zoneInterfaceMap.keys()) {
         // Port forwards
-        const forwards = await this.getZonePortForwards(zone);
+        const forwards = await zonePortForwards(zone);
         await this.publishState(`${this.featureName}/${zone}/port_forwards/state`, forwards.length.toString(), true);
         await this.publishAttributes(`${this.featureName}/${zone}/port_forwards/attributes`, { forwards }, true);
 
         // Services
-        const services = await this.getZoneServices(zone);
+        const services = await zoneServices(zone);
         await this.publishState(`${this.featureName}/${zone}/services/state`, services.length.toString(), true);
         await this.publishAttributes(`${this.featureName}/${zone}/services/attributes`, { services }, true);
 
         // Ports
-        const ports = await this.getZonePorts(zone);
+        const ports = await zonePorts(zone);
         await this.publishState(`${this.featureName}/${zone}/ports/state`, ports.length.toString(), true);
         await this.publishAttributes(`${this.featureName}/${zone}/ports/attributes`, { ports }, true);
 
         // Masquerade
-        const masquerade = await this.getZoneMasquerade(zone);
+        const masquerade = await zoneMasquerade(zone);
         await this.publishState(`${this.featureName}/${zone}/masquerade/state`, masquerade ? 'ON' : 'OFF', true);
       }
 
