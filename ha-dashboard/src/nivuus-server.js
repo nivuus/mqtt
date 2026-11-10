@@ -2,12 +2,14 @@
 //
 // Registers the `custom:nivuus-server` strategy: the dashboard lists the
 // views, and each view is generated only when opened, from the entity
-// registry and the current states. Every card is a stock Home Assistant card
-// but one (cpu-cores-card.js), so theming, dialogs, confirmations and the
-// mobile layout are Home Assistant's own.
+// registry and the current states. Lists, graphs and dialogs are stock Home
+// Assistant cards; the custom ones (table, core grid, edit forms) draw with
+// Home Assistant's theme variables.
 
 import './cpu-cores-card.js';
 import './table-card.js';
+import './edit/form-card.js';
+import './edit/zone-card.js';
 import { loadAgentEntries } from './registry.js';
 import { buildModel } from './model/index.js';
 import { makeTranslator, languageOf } from './i18n/index.js';

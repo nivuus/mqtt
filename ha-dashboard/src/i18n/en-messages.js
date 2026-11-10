@@ -59,7 +59,7 @@ export default {
   'confirm.vmRestart': 'Restart {vm}? Anyone playing is disconnected.',
   'confirm.upsTest': 'Start a quick battery test? The server stays powered.',
   'confirm.applyUpdates': 'Upgrade the host packages now?',
-  'help.zoneChange': '⚠️ Moving an interface to another zone reloads firewalld, which has cut the home network before. Tap an interface to change its zone.',
+  'help.zoneChange': 'Tap an interface to move it to another zone. The change applies at once, without reloading firewalld.',
   'col.name': 'Name',
   'col.ip': 'IP',
   'col.mac': 'MAC',

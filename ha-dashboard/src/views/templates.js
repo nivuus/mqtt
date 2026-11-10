@@ -20,23 +20,6 @@ export function devicesTable(entity, t) {
 {% endfor %}{% endif %}`;
 }
 
-/** Services, open ports and port forwards of one firewalld zone. */
-export function zoneRules(zone, t) {
-  const list = (entity, attr) => `{% set items = state_attr('${entity}', '${attr}') or [] %}{% if items | count == 0 %}—{% else %}{% for i in items %}\`{{ i }}\` {% endfor %}{% endif %}`;
-  const parts = [];
-  if (zone.services) parts.push(`**${t('col.services')}**  \n${list(zone.services, 'services')}`);
-  if (zone.ports) parts.push(`**${t('col.ports')}**  \n${list(zone.ports, 'ports')}`);
-  if (zone.forwards) {
-    parts.push(`**${t('col.forwards')}**  \n{% set fw = state_attr('${zone.forwards}', 'forwards') or [] %}{% if fw | count == 0 %}—{% else %}
-| ${cell(t('col.port'))} | ${cell(t('col.protocol'))} | ${cell(t('col.destination'))} |
-|:--|:--|:--|
-{% for f in fw -%}
-| {{ f.port }} | {{ f.proto }} | {{ f.toaddr }}:{{ f.toport }} |
-{% endfor %}{% endif %}`);
-  }
-  return parts.join('\n\n');
-}
-
 /** Debian packages waiting for an upgrade. */
 export function packagesList(entity, t) {
   return `{% set pkgs = state_attr('${entity}', 'packages') or [] %}{% if pkgs | count == 0 %}${t('empty.packages')}{% else %}{% for p in pkgs %}\`{{ p }}\` {% endfor %}{% endif %}`;

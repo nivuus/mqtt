@@ -3,7 +3,8 @@
 import { naturalCompare } from './lookup.js';
 
 const FW = 'firewalld_manager';
-// Zone selects that belong to the rule forms, not to an interface.
+// Zone select of the retired forward form (agent before 2026-11-10): not an
+// interface. Home Assistant drops it once the new agent withdraws it.
 const FORM_SELECTS = new Set(['forward']);
 
 export function traffic(q, iface) {
@@ -107,25 +108,6 @@ export function firewall(q, ifaces) {
     interfaces: ifaces,
     lastAction: q.id(`${FW}_last_action`),
     activeZones: q.id(`${FW}_active_zones_summary`),
-    portForm: {
-      port: q.id(`${FW}_port_input`),
-      service: q.id(`${FW}_service_input`),
-      protocol: q.id(`${FW}_protocol_select`),
-      zone: q.id(`${FW}_zone_select`),
-      addPort: q.id(`${FW}_add_port_btn`),
-      removePort: q.id(`${FW}_remove_port_btn`),
-      addService: q.id(`${FW}_add_service_btn`),
-      removeService: q.id(`${FW}_remove_service_btn`),
-    },
-    forwardForm: {
-      port: q.id(`${FW}_forward_port_input`),
-      toAddress: q.id(`${FW}_forward_toaddr_input`),
-      toPort: q.id(`${FW}_forward_toport_input`),
-      protocol: q.id(`${FW}_forward_protocol_select`),
-      zone: q.id(`${FW}_forward_zone_select`),
-      add: q.id(`${FW}_add_forward_btn`),
-      remove: q.id(`${FW}_remove_forward_btn`),
-    },
   };
 }
 

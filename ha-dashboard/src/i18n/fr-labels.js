@@ -45,6 +45,7 @@ export default {
   'section.board': 'Carte mère',
   'section.ups': 'Onduleur',
   'section.guestVpn': 'VPN des invités',
+  'section.pppoeCredentials': 'Identifiants de repli',
   'section.pppoe': 'Repli PPPoE',
   'section.accessPoint': 'Point d’accès',
   'section.addNetwork': 'Ajouter un réseau',

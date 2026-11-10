@@ -59,7 +59,7 @@ export default {
   'confirm.vmRestart': 'Redémarrer {vm} ? La partie en cours est coupée.',
   'confirm.upsTest': 'Lancer un test rapide de la batterie ? Le serveur reste alimenté.',
   'confirm.applyUpdates': 'Mettre à jour les paquets de l’hôte maintenant ?',
-  'help.zoneChange': '⚠️ Changer la zone d’une interface recharge firewalld, ce qui a déjà coupé le réseau de la maison. Touchez une interface pour changer sa zone.',
+  'help.zoneChange': 'Touchez une interface pour la déplacer dans une autre zone. Le changement s’applique aussitôt, sans recharger firewalld.',
   'col.name': 'Nom',
   'col.ip': 'IP',
   'col.mac': 'MAC',

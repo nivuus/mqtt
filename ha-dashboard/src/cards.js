@@ -1,5 +1,6 @@
-// Builders for native Lovelace card configs. Every card here is a stock Home
-// Assistant card; the only custom one is the CPU core grid (cpu-cores-card.js).
+// Builders for Lovelace card configs: stock Home Assistant cards, plus the
+// custom table (table-card.js), core grid (cpu-cores-card.js) and edit cards
+// (edit/form-card.js, edit/zone-card.js).
 
 /** A tile, or null when the entity does not exist on this host. */
 export function tile(entity, opts = {}) {
@@ -89,3 +90,19 @@ export function buttonRow(entity, name, icon, actionName, confirm) {
     },
   };
 }
+
+/**
+ * An edit form bound to input entities (edit/form-card.js); null when its
+ * button entity does not exist on this host.
+ */
+export function formCard(title, icon, { fields, submit, ...rest }) {
+  if (!submit?.entity) return null;
+  return { type: 'custom:nivuus-form-card', title, icon, fields: fields.filter((f) => f.entity), submit, grid_options: { columns: 'full' }, ...rest };
+}
+
+/** The editor of one firewalld zone (edit/zone-card.js). */
+export const zoneCard = (zone, lastAction) => ({
+  type: 'custom:nivuus-zone-card', zone: zone.name, interfaces: zone.interfaces,
+  services: zone.services, ports: zone.ports, forwards: zone.forwards, masquerade: zone.masquerade, lastAction,
+  grid_options: { columns: 'full' },
+});

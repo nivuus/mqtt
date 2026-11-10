@@ -61,7 +61,6 @@ test('bridges carry their zone select and traffic, with the live casing', () => 
 
 test('form selects are not mistaken for interfaces', () => {
   assert.ok(!model.interfaces.some((i) => i.name === 'forward'));
-  assert.ok(model.firewall.forwardForm.zone);
 });
 
 test('firewall zones list the interfaces they hold', () => {

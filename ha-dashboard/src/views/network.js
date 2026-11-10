@@ -1,7 +1,7 @@
 // "Network": throughput, every interface in one table, guest VPN, PPPoE
 // fallback, then the clients of each bridge.
 
-import { list, row, buttonRow, table, history, markdown, section, view } from '../cards.js';
+import { list, row, buttonRow, table, history, markdown, section, view, formCard } from '../cards.js';
 import { devicesTable } from './templates.js';
 
 export function network(m, t) {
@@ -12,7 +12,7 @@ export function network(m, t) {
       interfaces(m, t),
     ], { column_span: 2 }),
     section([guestVpn(m, t)]),
-    section([pppoe(m, t)]),
+    section(pppoe(m, t)),
     ...m.bridges.map((b) => section([
       markdown(devicesTable(b.devices, t), {
         title: t('name.devicesOn', { bridge: t.bridge(b.name) }), grid_options: { columns: 'full' },
@@ -67,14 +67,21 @@ function guestVpn(m, t) {
 
 function pppoe(m, t) {
   const p = m.pppoe;
-  return list(t('section.pppoe'), 'mdi:phone-classic', [
-    row(p.connection, t('name.pppoeLink')),
-    row(p.configFound, t('name.pppoeConfig')),
-    row(p.username, t('name.username')),
-    row(p.password, t('name.password')),
-    buttonRow(p.save, t('action.saveCredentials'), 'mdi:content-save', t('action.save'), t('confirm.pppoeSave')),
-    buttonRow(p.test, t('action.testConnection'), 'mdi:connection', t('action.run')),
-    row(p.lastAction, t('name.lastAction')),
-    { type: 'text', icon: 'mdi:information-outline', name: t('name.about'), text: t('help.pppoeShort') },
-  ]);
+  return [
+    list(t('section.pppoe'), 'mdi:phone-classic', [
+      row(p.connection, t('name.pppoeLink')),
+      row(p.configFound, t('name.pppoeConfig')),
+      { type: 'text', icon: 'mdi:information-outline', name: t('name.about'), text: t('help.pppoeShort') },
+    ]),
+    formCard(t('section.pppoeCredentials'), 'mdi:account-key', {
+      mode: 'edit',
+      fields: [
+        { entity: p.username, label: t('name.username'), required: true },
+        { entity: p.password, label: t('name.password'), required: true },
+      ],
+      submit: { entity: p.save, label: t('action.save'), icon: 'mdi:content-save', confirm: t('confirm.pppoeSave') },
+      extra: [{ entity: p.test, label: t('action.testConnection'), icon: 'mdi:connection' }],
+      status: p.lastAction,
+    }),
+  ];
 }

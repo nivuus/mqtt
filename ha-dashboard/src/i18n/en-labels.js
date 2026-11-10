@@ -45,6 +45,7 @@ export default {
   'section.board': 'Motherboard',
   'section.ups': 'UPS',
   'section.guestVpn': 'Guest VPN',
+  'section.pppoeCredentials': 'Fallback credentials',
   'section.pppoe': 'PPPoE fallback',
   'section.accessPoint': 'Access point',
   'section.addNetwork': 'Add a network',

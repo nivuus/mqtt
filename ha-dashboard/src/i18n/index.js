@@ -9,10 +9,12 @@ import enLabels from './en-labels.js';
 import enMessages from './en-messages.js';
 import frLabels from './fr-labels.js';
 import frMessages from './fr-messages.js';
+import enEdit from './en-edit.js';
+import frEdit from './fr-edit.js';
 
 const DICTIONARIES = {
-  en: { ...enLabels, ...enMessages },
-  fr: { ...frLabels, ...frMessages },
+  en: { ...enLabels, ...enMessages, ...enEdit },
+  fr: { ...frLabels, ...frMessages, ...frEdit },
 };
 
 /** `fr-CA` -> `fr`; Home Assistant language codes are BCP 47 tags. */

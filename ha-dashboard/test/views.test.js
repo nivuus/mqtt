@@ -71,6 +71,24 @@ test('every press that interrupts something asks first', () => {
   }
 });
 
+test('every edit form confirms a press that interrupts something', () => {
+  for (const { key } of VIEWS) {
+    for (const [node] of walk(buildView(key, ctx()))) {
+      if (node?.type !== 'custom:nivuus-form-card') continue;
+      if (node.remove) assert.ok(node.remove.confirm, `no confirmation on ${node.remove.entity}`);
+      if (/apply|add_hotspot|save/.test(node.submit.entity)) assert.ok(node.submit.confirm, `no confirmation on ${node.submit.entity}`);
+      for (const f of node.fields) assert.match(f.entity, /^(text|select)\./, `${f.entity} is not an input`);
+    }
+  }
+});
+
+test('each zone with rules or interfaces gets an editor wired to the command sensor', () => {
+  const cards = [...walk(buildView('firewall', ctx()))].map(([n]) => n).filter((n) => n?.type === 'custom:nivuus-zone-card');
+  assert.deepEqual(cards.map((c) => c.zone).sort(), ['docker', 'drop', 'external', 'home', 'internal', 'public', 'trusted']);
+  for (const c of cards) assert.match(c.lastAction, /^sensor\..*last_action$/);
+  assert.ok(cards.find((c) => c.zone === 'home').interfaces.includes('localBridge'));
+});
+
 test('the overview shows the all-clear note only when no check fails', () => {
   const [attention] = buildView('overview', ctx()).sections;
   const note = attention.cards.find((c) => c.type === 'markdown');
