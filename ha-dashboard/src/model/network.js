@@ -81,6 +81,7 @@ export function guestVpn(q) {
 }
 
 export function firewall(q, ifaces) {
+  const activeZones = q.id(`${FW}_active_zones_summary`);
   const zones = q.all(`${FW}_(.+)_services`)
     .map(({ match }) => {
       const zone = match[1];
@@ -100,6 +101,8 @@ export function firewall(q, ifaces) {
         ruleCount,
         masquerade: q.id(`${FW}_${zone}_masquerade`),
         interfaces: ifaces.filter((i) => i.zone === zone).map((i) => i.name),
+        // Interfaces firewalld holds in the zone that have no select (Docker bridges, tunnels).
+        otherInterfaces: (q.attr(activeZones, zone) ?? []).filter((n) => !ifaces.some((i) => i.name === n)).length,
       };
     })
     .sort((a, b) => naturalCompare(a.name, b.name));
@@ -107,7 +110,7 @@ export function firewall(q, ifaces) {
     zones,
     interfaces: ifaces,
     lastAction: q.id(`${FW}_last_action`),
-    activeZones: q.id(`${FW}_active_zones_summary`),
+    activeZones,
   };
 }
 
@@ -137,6 +140,8 @@ export function wifi(q) {
     networks,
     lastAction: q.id(`${HM}_last_action`),
     reload: q.id(`${HM}_reload_hostapd_btn`),
+    // Bridges a new network can join, as the agent offers them.
+    bridgeOptions: q.attr(q.id(`${HM}_new_bridge_select`), 'options') ?? [],
     newNetwork: {
       ssid: q.id(`${HM}_new_ssid_input`),
       password: q.id(`${HM}_new_password_input`),

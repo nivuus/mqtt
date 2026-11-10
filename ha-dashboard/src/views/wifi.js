@@ -67,7 +67,7 @@ function addNetwork(w, t) {
       { entity: f.ssid, label: t('name.ssid'), required: true },
       { entity: f.password, label: t('name.password') },
       { entity: f.security, label: t('name.security') },
-      { entity: f.bridge, label: t('name.bridge') },
+      { entity: f.bridge, label: t('name.bridge'), optionLabels: Object.fromEntries((w.bridgeOptions ?? []).map((b) => [b, t.bridge(b)])) },
     ],
     submit: { entity: f.add, label: t('action.add'), icon: 'mdi:plus', confirm: t('confirm.wifiAdd') },
     status: w.lastAction,

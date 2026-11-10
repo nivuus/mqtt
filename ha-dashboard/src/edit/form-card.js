@@ -10,7 +10,7 @@
 // Config:
 //   title, icon
 //   mode: 'edit' (Save enabled once a field changed) | 'add' (enabled once required fields are filled)
-//   fields: [{ entity, label, required? }]       text.* -> input (password mode masked), select.* -> select
+//   fields: [{ entity, label, required?, optionLabels? }]  text.* -> input (password masked), select.* -> select
 //   submit: { entity, label, icon?, confirm? }    button pressed after the fields are written
 //   remove?: { entity, label, confirm }           destructive button, always confirmed
 //   extra?: [{ entity, label, icon?, confirm? }]  other buttons (e.g. "Test connection")
@@ -88,11 +88,11 @@ function defineCard() {
       const value = this._values[f.entity];
       let control;
       if (f.entity.startsWith('select.')) {
-        control = select((s.attributes.options ?? []).map((o) => ({ value: o, label: this._hass.formatEntityState?.(s, o) ?? o })), value);
+        control = select((s.attributes.options ?? []).map((o) => ({ value: o, label: f.optionLabels?.[o] ?? this._hass.formatEntityState?.(s, o) ?? o })), value);
         control.addEventListener('change', () => this._edit(f.entity, control.value));
       } else {
         const a = s.attributes;
-        control = el('input', { type: a.mode === 'password' ? 'password' : 'text', value, required: !!f.required, spellcheck: false,
+        control = el('input', { type: a.mode === 'password' ? 'password' : 'text', value, required: !!f.required, spellcheck: false, placeholder: ' ',
           ...(a.max && { maxLength: a.max }), ...(a.pattern && { pattern: a.pattern }), autocomplete: 'off' });
         control.addEventListener('input', () => this._edit(f.entity, control.value));
         if (a.mode === 'password') {

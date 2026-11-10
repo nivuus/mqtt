@@ -7,7 +7,7 @@
 // configuration without reloading firewalld, then answers on the same sensor
 // with the command's id; the card words the answer in the user's language.
 //
-// Config: zone, interfaces: [name], services, ports, forwards, masquerade, lastAction (entity ids)
+// Config: zone, interfaces: [name], otherInterfaces: count, services, ports, forwards, masquerade, lastAction (entity ids)
 
 import { el, button, field, select, STYLE } from './dom.js';
 import { makeTranslator, languageOf } from '../i18n/index.js';
@@ -95,7 +95,8 @@ function defineCard() {
       const nat = this._hass.states[c.masquerade]?.state === 'on';
       this._sub.replaceChildren(
         ...(c.interfaces ?? []).map((i) => el('span', { className: 'chip', textContent: t.iface(i) })),
-        ...(c.interfaces?.length ? [] : [el('span', { textContent: t('zone.noInterface') })]),
+        ...(c.otherInterfaces ? [el('span', { className: 'chip', textContent: `+${c.otherInterfaces}`, title: t('zone.otherInterfaces', { n: c.otherInterfaces }) })] : []),
+        ...(c.interfaces?.length || c.otherInterfaces ? [] : [el('span', { textContent: t('zone.noInterface') })]),
         ...(nat ? [el('span', { className: 'chip on', textContent: t('name.masquerade') })] : []),
       );
       const groups = [

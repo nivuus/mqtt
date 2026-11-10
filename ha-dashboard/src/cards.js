@@ -102,7 +102,7 @@ export function formCard(title, icon, { fields, submit, ...rest }) {
 
 /** The editor of one firewalld zone (edit/zone-card.js). */
 export const zoneCard = (zone, lastAction) => ({
-  type: 'custom:nivuus-zone-card', zone: zone.name, interfaces: zone.interfaces,
+  type: 'custom:nivuus-zone-card', zone: zone.name, interfaces: zone.interfaces, otherInterfaces: zone.otherInterfaces,
   services: zone.services, ports: zone.ports, forwards: zone.forwards, masquerade: zone.masquerade, lastAction,
   grid_options: { columns: 'full' },
 });

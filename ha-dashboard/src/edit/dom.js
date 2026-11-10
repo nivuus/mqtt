@@ -33,6 +33,7 @@ export function select(options, value) {
 
 export const STYLE = `
   :host { display: block; }
+  [hidden] { display: none !important; }
   ha-card { overflow: hidden; }
   .header { display: flex; align-items: center; gap: 16px; padding: 24px 16px 8px; }
   .header ha-icon { color: var(--state-icon-color, var(--secondary-text-color)); --mdc-icon-size: 24px; }
@@ -50,7 +51,7 @@ export const STYLE = `
   input, select { font: inherit; color: var(--primary-text-color); background: var(--card-background-color, var(--primary-background-color));
                   border: 1px solid var(--outline-color, var(--divider-color)); border-radius: 8px; padding: 10px 12px; min-width: 0; width: 100%; box-sizing: border-box; }
   input:focus, select:focus { outline: 2px solid var(--primary-color); outline-offset: -1px; border-color: transparent; }
-  input:invalid { border-color: var(--error-color, #db4437); }
+  input:not(:placeholder-shown):invalid { border-color: var(--error-color, #db4437); }
   .secret { position: relative; display: flex; }
   .secret input { padding-inline-end: 44px; }
   .secret .btn { position: absolute; inset-inline-end: 2px; top: 50%; transform: translateY(-50%); }

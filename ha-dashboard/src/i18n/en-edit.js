@@ -7,6 +7,7 @@ export default {
   'form.sent': 'Sent. Waiting for the server…',
   'form.failed': 'Home Assistant refused the request: {error}',
   'zone.noInterface': 'No interface in this zone',
+  'zone.otherInterfaces': 'Other interfaces in this zone (Docker bridges, tunnels): {n}',
   'zone.none': 'None',
   'zone.removeRule': 'Remove {rule}',
   'zone.confirmRemove': 'Remove {rule} from this zone?',
