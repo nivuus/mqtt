@@ -9,6 +9,9 @@ import { discoveryTopic, toTopicSegment } from '../homeassistant/discovery/disco
  * Abstract base class for all features.
  * Handles common tasks like HA discovery, MQTT publishing, and scheduling updates.
  */
+
+/** Reads the JSON payload of publishTextState(). */
+export const TEXT_VALUE_TEMPLATE = '{{ value_json.value }}';
 export abstract class BaseFeature {
   protected readonly mqttClient: MqttClient;
   protected readonly agentConfig: AgentConfig;
@@ -150,6 +153,8 @@ export abstract class BaseFeature {
     const discoveryTopic = this.entityDiscoveryTopic(component, uniqueId);
 
     const fullPayload: HaDiscoveryPayload = {
+      // Text entities read the JSON written by publishTextState().
+      ...(component === 'text' && { value_template: TEXT_VALUE_TEMPLATE }),
       ...payload,
       unique_id: uniqueId,
       name: payload.name || `${this.deviceInfo.name} ${this._featureName} ${objectId.replace(/_/g, ' ')}`, // Default name generation
@@ -200,6 +205,16 @@ export abstract class BaseFeature {
       return topic;
     }
     return `${this.baseTopic}/${topic}`;
+  }
+
+  /**
+   * Retained state of a text entity, as {"value": "..."}. An empty retained
+   * MQTT payload means "delete the retained message", so a cleared field sent
+   * raw was lost whenever Home Assistant reconnected: its form showed the
+   * word "unknown". The JSON is never empty, so it survives.
+   */
+  protected async publishTextState(topicPath: string, value: string): Promise<void> {
+    await this.publishState(topicPath, JSON.stringify({ value }), true);
   }
 
   protected async publishState(topicPath: string, state: string | number | boolean, retain: boolean = false): Promise<void> {

@@ -354,11 +354,17 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
 ### Common Patterns Across Features
 
 **Input entity initialization:**
-- Always publish empty string `''` states for text inputs to avoid "unknown" in Home Assistant
-- An empty **retained** payload deletes the retained message (MQTT spec): HA only sees `''` live,
-  never after its own restart. `src/core/haBirth.ts` answers HA's birth message
-  (`homeassistant/status` = `online`) by restarting every feature, through the same serialized
-  path as an MQTT reconnection, so states and cleared inputs are republished.
+- Text entity states go through `publishTextState()`: retained `{"value": "..."}`, read by the
+  `value_template` that `publishEntityDiscovery('text', …)` adds. Never publish a raw `''`: an empty
+  **retained** payload deletes the retained message (MQTT spec), so after any HA reconnection the
+  field showed the word "unknown". HA's birth message is not enough on its own: HA sends it before
+  its entities resubscribe, so only retained values reach them.
+- `src/core/haBirth.ts` answers HA's birth message (`homeassistant/status` = `online`) by restarting
+  every feature, through the same serialized path as an MQTT reconnection, so non-retained states
+  come back at once.
+- MQTT message handlers are registered with `listenToMessages()`, which `stop()` removes. A raw
+  `mqttClient.on('message')` in `setup()` adds one more handler at every restart, so each command ran
+  once per reconnection.
 - Publish states AFTER publishing discovery entities
 - Use `mode: 'password'` for password fields: they stay editable, masked on screen
 

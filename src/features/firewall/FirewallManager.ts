@@ -119,7 +119,7 @@ export class FirewallManager extends BaseFeature {
     // Handle input states for port/service management
     if (topic === this.prefixTopic(`${this.featureName}/port_input/set`)) {
       this.currentPort = message;
-      await this.publishState(`${this.featureName}/port_input/state`, message, true);
+      await this.publishTextState(`${this.featureName}/port_input/state`, message);
     } else if (topic === this.prefixTopic(`${this.featureName}/protocol_select/set`)) {
       this.currentProtocol = message;
       await this.publishState(`${this.featureName}/protocol_select/state`, message, true);
@@ -128,19 +128,19 @@ export class FirewallManager extends BaseFeature {
       await this.publishState(`${this.featureName}/zone_select/state`, message, true);
     } else if (topic === this.prefixTopic(`${this.featureName}/service_input/set`)) {
       this.currentService = message;
-      await this.publishState(`${this.featureName}/service_input/state`, message, true);
+      await this.publishTextState(`${this.featureName}/service_input/state`, message);
     }
 
     // Handle input states for port forward management
     else if (topic === this.prefixTopic(`${this.featureName}/forward_port_input/set`)) {
       this.currentForwardPort = message;
-      await this.publishState(`${this.featureName}/forward_port_input/state`, message, true);
+      await this.publishTextState(`${this.featureName}/forward_port_input/state`, message);
     } else if (topic === this.prefixTopic(`${this.featureName}/forward_toaddr_input/set`)) {
       this.currentForwardToAddr = message;
-      await this.publishState(`${this.featureName}/forward_toaddr_input/state`, message, true);
+      await this.publishTextState(`${this.featureName}/forward_toaddr_input/state`, message);
     } else if (topic === this.prefixTopic(`${this.featureName}/forward_toport_input/set`)) {
       this.currentForwardToPort = message;
-      await this.publishState(`${this.featureName}/forward_toport_input/state`, message, true);
+      await this.publishTextState(`${this.featureName}/forward_toport_input/state`, message);
     } else if (topic === this.prefixTopic(`${this.featureName}/forward_protocol_select/set`)) {
       this.currentForwardProtocol = message;
       await this.publishState(`${this.featureName}/forward_protocol_select/state`, message, true);
@@ -364,9 +364,9 @@ export class FirewallManager extends BaseFeature {
       this.currentForwardPort = '';
       this.currentForwardToAddr = '';
       this.currentForwardToPort = '';
-      await this.publishState(`${this.featureName}/forward_port_input/state`, '', true);
-      await this.publishState(`${this.featureName}/forward_toaddr_input/state`, '', true);
-      await this.publishState(`${this.featureName}/forward_toport_input/state`, '', true);
+      await this.publishTextState(`${this.featureName}/forward_port_input/state`, '');
+      await this.publishTextState(`${this.featureName}/forward_toaddr_input/state`, '');
+      await this.publishTextState(`${this.featureName}/forward_toport_input/state`, '');
     } catch (error: any) {
       logger.error(`Error adding port forward:`, error);
       await this.publishState(`${this.featureName}/last_action/state`, `Error: ${error.message}`, false);
@@ -397,9 +397,9 @@ export class FirewallManager extends BaseFeature {
       this.currentForwardPort = '';
       this.currentForwardToAddr = '';
       this.currentForwardToPort = '';
-      await this.publishState(`${this.featureName}/forward_port_input/state`, '', true);
-      await this.publishState(`${this.featureName}/forward_toaddr_input/state`, '', true);
-      await this.publishState(`${this.featureName}/forward_toport_input/state`, '', true);
+      await this.publishTextState(`${this.featureName}/forward_port_input/state`, '');
+      await this.publishTextState(`${this.featureName}/forward_toaddr_input/state`, '');
+      await this.publishTextState(`${this.featureName}/forward_toport_input/state`, '');
     } catch (error: any) {
       logger.error(`Error removing port forward:`, error);
       await this.publishState(`${this.featureName}/last_action/state`, `Error: ${error.message}`, false);
@@ -513,7 +513,7 @@ export class FirewallManager extends BaseFeature {
         state_topic: this.prefixTopic(`${this.featureName}/port_input/state`),
         icon: 'mdi:ethernet-cable',
         entity_category: 'config' as 'config',
-        pattern: '^[0-9]{1,5}$',
+        pattern: '^([0-9]{1,5})?$' /* empty = cleared field */,
         mode: 'text',
       });
 
@@ -607,7 +607,7 @@ export class FirewallManager extends BaseFeature {
         state_topic: this.prefixTopic(`${this.featureName}/forward_port_input/state`),
         icon: 'mdi:ethernet',
         entity_category: 'config' as 'config',
-        pattern: '^[0-9]{1,5}$',
+        pattern: '^([0-9]{1,5})?$' /* empty = cleared field */,
         mode: 'text',
       });
 
@@ -626,7 +626,7 @@ export class FirewallManager extends BaseFeature {
         state_topic: this.prefixTopic(`${this.featureName}/forward_toport_input/state`),
         icon: 'mdi:ethernet',
         entity_category: 'config' as 'config',
-        pattern: '^[0-9]{1,5}$',
+        pattern: '^([0-9]{1,5})?$' /* empty = cleared field */,
         mode: 'text',
       });
 
@@ -710,15 +710,15 @@ export class FirewallManager extends BaseFeature {
       this.currentForwardZone = this.availableZones[0] || 'public';
 
       await this.publishState(`${this.featureName}/last_action/state`, 'Ready', true);
-      await this.publishState(`${this.featureName}/port_input/state`, '', true);
+      await this.publishTextState(`${this.featureName}/port_input/state`, '');
       await this.publishState(`${this.featureName}/protocol_select/state`, this.currentProtocol, true);
       await this.publishState(`${this.featureName}/zone_select/state`, this.currentZone, true);
-      await this.publishState(`${this.featureName}/service_input/state`, '', true);
+      await this.publishTextState(`${this.featureName}/service_input/state`, '');
 
       // Initialize forward management states
-      await this.publishState(`${this.featureName}/forward_port_input/state`, '', true);
-      await this.publishState(`${this.featureName}/forward_toaddr_input/state`, '', true);
-      await this.publishState(`${this.featureName}/forward_toport_input/state`, '', true);
+      await this.publishTextState(`${this.featureName}/forward_port_input/state`, '');
+      await this.publishTextState(`${this.featureName}/forward_toaddr_input/state`, '');
+      await this.publishTextState(`${this.featureName}/forward_toport_input/state`, '');
       await this.publishState(`${this.featureName}/forward_protocol_select/state`, this.currentForwardProtocol, true);
       await this.publishState(`${this.featureName}/forward_zone_select/state`, this.currentForwardZone, true);
 
