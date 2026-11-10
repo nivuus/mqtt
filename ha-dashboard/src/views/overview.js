@@ -34,6 +34,7 @@ function allFine(checks, t) {
   return markdown(`<ha-alert alert-type="success">${t('attention.allFine')}</ha-alert>`, {
     visibility: [noneFailing(checks)],
     text_only: true,
+    grid_options: { columns: 'full' },
   });
 }
 

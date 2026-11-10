@@ -10,7 +10,9 @@ export function firewall(m, t) {
   const zones = f.zones.filter((z) => z.interfaces.length || z.ruleCount);
   return view('firewall', t('view.firewall'), [
     section([
-      markdown(`<ha-alert alert-type="warning">${t('help.zoneChange')}</ha-alert>`, { text_only: true }),
+      markdown(`<ha-alert alert-type="warning">${t('help.zoneChange')}</ha-alert>`, {
+        text_only: true, grid_options: { columns: 'full' },
+      }),
       zoneTable(f, t),
     ], { column_span: 2 }),
     section([
