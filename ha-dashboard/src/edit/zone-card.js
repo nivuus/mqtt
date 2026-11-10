@@ -217,6 +217,7 @@ function defineCard() {
       }
       this._sent = null;
       this._refreshAdd();
+      this._renderLists();
     }
 
     _show(kind, text) {

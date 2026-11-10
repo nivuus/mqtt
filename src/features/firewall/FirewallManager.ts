@@ -60,7 +60,8 @@ export class FirewallManager extends BaseFeature {
       logger.info(`Firewall rule: ${parsed.op} ${JSON.stringify(parsed.rule)} in zone ${parsed.zone}`);
       result = await applyRule(parsed);
       if (!result.ok) logger.error(`Firewall rule change failed (${result.failed}): ${result.detail}`);
-      await this.update();
+      // The zone's lists reach Home Assistant before the answer does.
+      await this.publishZone(parsed.zone).catch((error) => logger.error(`Error refreshing zone ${parsed.zone}:`, error));
     }
     await this.publishLastAction(result);
   }
@@ -195,29 +196,31 @@ export class FirewallManager extends BaseFeature {
       await this.publishAttributes(`${this.featureName}/active_zones/attributes`, activeZoneDetails, true);
 
       // Publish zone details (port forwards, services, ports, masquerade) for each active zone
-      for (const zone of zoneInterfaceMap.keys()) {
-        // Port forwards
-        const forwards = await zonePortForwards(zone);
-        await this.publishState(`${this.featureName}/${zone}/port_forwards/state`, forwards.length.toString(), true);
-        await this.publishAttributes(`${this.featureName}/${zone}/port_forwards/attributes`, { forwards }, true);
-
-        // Services
-        const services = await zoneServices(zone);
-        await this.publishState(`${this.featureName}/${zone}/services/state`, services.length.toString(), true);
-        await this.publishAttributes(`${this.featureName}/${zone}/services/attributes`, { services }, true);
-
-        // Ports
-        const ports = await zonePorts(zone);
-        await this.publishState(`${this.featureName}/${zone}/ports/state`, ports.length.toString(), true);
-        await this.publishAttributes(`${this.featureName}/${zone}/ports/attributes`, { ports }, true);
-
-        // Masquerade
-        const masquerade = await zoneMasquerade(zone);
-        await this.publishState(`${this.featureName}/${zone}/masquerade/state`, masquerade ? 'ON' : 'OFF', true);
-      }
-
+      for (const zone of zoneInterfaceMap.keys()) await this.publishZone(zone);
     } catch (error) {
       logger.error(`Error updating firewall status for ${this.featureName}:`, error);
     }
+  }
+
+  /** One zone's rule sensors: port forwards, services, ports, masquerade. */
+  private async publishZone(zone: string): Promise<void> {
+    // Port forwards
+    const forwards = await zonePortForwards(zone);
+    await this.publishState(`${this.featureName}/${zone}/port_forwards/state`, forwards.length.toString(), true);
+    await this.publishAttributes(`${this.featureName}/${zone}/port_forwards/attributes`, { forwards }, true);
+
+    // Services
+    const services = await zoneServices(zone);
+    await this.publishState(`${this.featureName}/${zone}/services/state`, services.length.toString(), true);
+    await this.publishAttributes(`${this.featureName}/${zone}/services/attributes`, { services }, true);
+
+    // Ports
+    const ports = await zonePorts(zone);
+    await this.publishState(`${this.featureName}/${zone}/ports/state`, ports.length.toString(), true);
+    await this.publishAttributes(`${this.featureName}/${zone}/ports/attributes`, { ports }, true);
+
+    // Masquerade
+    const masquerade = await zoneMasquerade(zone);
+    await this.publishState(`${this.featureName}/${zone}/masquerade/state`, masquerade ? 'ON' : 'OFF', true);
   }
 }
