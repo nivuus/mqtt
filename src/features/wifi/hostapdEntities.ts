@@ -53,7 +53,7 @@ export function networkEntities(feature: string, topic: Topic, id: number, ssid:
       icon: 'mdi:wifi', entity_category: 'config', mode: 'text' } },
     { component: 'text', objectId: `network_${id}_password`, payload: {
       name: name('Password'), command_topic: t('password/set'), state_topic: t('password/state'),
-      icon: 'mdi:key', entity_category: 'config', mode: 'text' } },
+      icon: 'mdi:key', entity_category: 'config', mode: 'password' } },
     { component: 'select', objectId: `network_${id}_security`, payload: {
       name: name('Security'), command_topic: t('security/set'), state_topic: t('security/state'),
       icon: 'mdi:shield-lock', entity_category: 'config', options: [...SECURITY_TYPES] } },

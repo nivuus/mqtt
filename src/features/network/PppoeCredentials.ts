@@ -185,7 +185,9 @@ export class PppoeCredentials extends BaseFeature {
       state_topic: this.prefixTopic(`${this.featureName}/password_input/state`),
       icon: 'mdi:key',
       entity_category: 'config' as 'config',
-      mode: 'text',
+      // Masked on screen, still editable: Home Assistant renders it as a
+      // password input.
+      mode: 'password',
     });
 
     // Action buttons

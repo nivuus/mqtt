@@ -1,6 +1,8 @@
 // English labels: views, sections, entity names.
 
 export default {
+  'section.containerUpdates': 'Container updates',
+  'section.containersUpToDate': 'Up-to-date containers',
   'dashboard.title': 'Server',
   'view.overview': 'Overview',
   'view.performance': 'Performance',
@@ -35,7 +37,6 @@ export default {
   'section.hostServices': 'Host services',
   'section.gaming': 'Cloud gaming',
   'section.hostUpdates': 'Host updates',
-  'section.containers': 'Containers',
   'section.backups': 'Home Assistant backups',
   'section.security': 'Security',
   'name.cpu': 'CPU',
@@ -109,7 +110,6 @@ export default {
   'name.sourcePort': 'Incoming port',
   'name.toAddress': 'To address',
   'name.toPort': 'To port',
-  'name.freeOn': 'Free on {mount}',
   'name.free': 'Free',
   'name.usage': 'Usage',
   'name.hardwareErrors': 'Disk error counters',

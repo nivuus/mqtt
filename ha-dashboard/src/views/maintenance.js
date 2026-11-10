@@ -2,7 +2,7 @@
 // security events.
 
 import {
-  heading, tile, updateTile, pressTile, markdown, section, view,
+  heading, tile, updateTile, pressTile, markdown, section, view, when, visibleWhen,
 } from '../cards.js';
 import { packagesList, securityDetails } from './templates.js';
 
@@ -17,9 +17,23 @@ export function maintenance(m, t, backups) {
       pressTile(u.check, t('action.checkUpdates'), 'mdi:refresh'),
       pressTile(u.apply, t('action.applyUpdates'), 'mdi:download', t('confirm.applyUpdates')),
     ]),
+    // Both lists follow the update entities live: an image moves from one to
+    // the other as soon as its state changes.
     section([
-      heading(t('section.containers'), 'mdi:docker'),
-      ...u.containers.map((c) => updateTile(c.entity, { name: c.title })),
+      heading(t('section.containerUpdates'), 'mdi:docker'),
+      markdown(t('empty.containerUpdates'), {
+        visibility: [{ condition: 'not', conditions: [{
+          condition: 'or', conditions: u.containers.map((c) => when.state(c.entity, 'on')),
+        }] }],
+      }),
+      ...u.containers.map((c) => visibleWhen(updateTile(c.entity, { name: c.title }), when.state(c.entity, 'on'))),
+    ], { column_span: 2 }),
+    section([
+      heading(t('section.containersUpToDate'), 'mdi:check-all'),
+      ...u.containers.map((c) => visibleWhen(
+        tile(c.entity, { name: c.title, hide_state: true, grid_options: { columns: 4 } }),
+        when.stateNot(c.entity, 'on'),
+      )),
     ], { column_span: 2 }),
     backups.length ? section([
       heading(t('section.backups'), 'mdi:backup-restore'),

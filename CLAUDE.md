@@ -185,6 +185,11 @@ All entities are linked to a single device in HA with:
 └── bin/                   # Executable wrapper
 ```
 
+**`ha-dashboard/`** — the "Serveur" Home Assistant dashboard (strategy `custom:nivuus-server`,
+plain ES modules, `npm run test:dashboard`). It finds entities by **unique_id**, so renaming an
+entity's `unique_id` or `objectId` breaks it: run its tests (`test/fixtures/host.json`). See
+`ha-dashboard/README.md` for deployment.
+
 Topic notes in `docs/claude/`:
 - `guest-vpn-host-notes.md` — guest VPN bench findings: firewalld reload failure (12:09 incident), NM/OpenVPN behaviour
 - `guest-vpn-bench.md` — how to rebuild the isolated bench VM (`scripts/bench/`, not packaged)
@@ -254,7 +259,8 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 - **No server field**: Previous "server" input was removed as it's not needed for PPPoE configuration
 
 **Critical Implementation Points:**
-- Password input uses `mode: 'text'` not `mode: 'password'` for editability
+- Password input uses `mode: 'password'`: Home Assistant renders an editable, masked input
+  (verified on 2026-11-10 in the 2026.11 frontend; `mode: 'text'` showed it in clear on dashboards)
 - Credentials are read with sudo due to nmconnection file permissions (600)
 - INI-style parser for `[pppoe]` section: `username=` and `password=` lines
 - After saving: `nmcli connection reload` + `nmcli connection down/up pppoe-enp6s0.835`
@@ -349,8 +355,12 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
 
 **Input entity initialization:**
 - Always publish empty string `''` states for text inputs to avoid "unknown" in Home Assistant
+- An empty **retained** payload deletes the retained message (MQTT spec): HA only sees `''` live,
+  never after its own restart. `src/core/haBirth.ts` answers HA's birth message
+  (`homeassistant/status` = `online`) by restarting every feature, through the same serialized
+  path as an MQTT reconnection, so states and cleared inputs are republished.
 - Publish states AFTER publishing discovery entities
-- Use `mode: 'text'` for password fields when editability is required
+- Use `mode: 'password'` for password fields: they stay editable, masked on screen
 
 **MQTT message handling:**
 - Store pending changes in memory until "Apply" button is pressed

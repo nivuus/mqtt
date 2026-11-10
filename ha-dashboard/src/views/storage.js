@@ -7,9 +7,13 @@ export function storage(m, t) {
   return view('storage', t('view.storage'), [
     section([
       heading(t('section.filesystems'), 'mdi:folder-multiple'),
+      // One row per filesystem: usage gauge, then the space left.
       ...s.filesystems.flatMap((fs) => [
-        gaugeTile(fs.usage, { name: fs.mount, icon: 'mdi:folder' }),
-        tile(fs.available, { name: t('name.freeOn', { mount: fs.mount }) }),
+        gaugeTile(fs.usage, { name: fs.mount, icon: 'mdi:folder', grid_options: { columns: 16 } }),
+        tile(fs.available, {
+          name: t('name.free'), icon: 'mdi:harddisk-plus', vertical: true,
+          grid_options: { columns: 8, rows: 2 },
+        }),
       ]),
     ], { column_span: 2 }),
     section([

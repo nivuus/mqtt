@@ -1,6 +1,7 @@
 // English sentences: checks, actions, confirmations, help, tables.
 
 export default {
+  'empty.containerUpdates': 'Every container runs its latest image.',
   'empty.agent': 'No entity from the Nivuus system agent was found. Check that `mqtt-system-agent` runs on the server and that its MQTT discovery reaches Home Assistant.',
   'attention.allFine': '**All clear.** Nothing on the server needs you right now.',
   'attention.agentOffline': 'Monitoring agent offline',

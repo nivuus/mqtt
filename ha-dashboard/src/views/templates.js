@@ -4,14 +4,19 @@
 
 const cell = (s) => String(s).replace(/\|/g, '\\|');
 
-/** Clients seen on a bridge: name, IP, MAC, vendor. */
+/**
+ * Clients seen on a bridge: name, IP, MAC, vendor. The agent writes
+ * 'Unknown' when it cannot name a host or a vendor. Rows are ordered by IP
+ * numerically (.24 before .117), not as text.
+ */
 export function devicesTable(entity, t) {
-  return `{% set devices = state_attr('${entity}', 'devices') or [] %}
+  return `{% macro known(v) %}{{ v if v and v != 'Unknown' else '—' }}{% endmacro %}{% set devices = state_attr('${entity}', 'devices') or [] %}
 {% if devices | count == 0 %}${t('empty.devices')}{% else %}
 | ${cell(t('col.name'))} | ${cell(t('col.ip'))} | ${cell(t('col.mac'))} | ${cell(t('col.vendor'))} |
 |:--|:--|:--|:--|
-{% for d in devices | sort(attribute='ip') -%}
-| {{ d.hostname if d.hostname and d.hostname != 'Unknown' else '—' }} | {{ d.ip }} | \`{{ d.mac }}\` | {{ d.vendor or '—' }} |
+{%- set ns = namespace(rows=[]) %}{% for d in devices %}{% set ns.rows = ns.rows + [dict(d, order=d.ip.split('.') | map('int') | list)] %}{% endfor %}
+{% for d in ns.rows | sort(attribute='order') -%}
+| {{ known(d.hostname) }} | {{ d.ip }} | \`{{ d.mac }}\` | {{ known(d.vendor) }} |
 {% endfor %}{% endif %}`;
 }
 

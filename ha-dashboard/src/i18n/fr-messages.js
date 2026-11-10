@@ -1,6 +1,7 @@
 // French sentences: checks, actions, confirmations, help, tables.
 
 export default {
+  'empty.containerUpdates': 'Tous les conteneurs tournent sur leur dernière image.',
   'empty.agent': 'Aucune entité de l’agent système Nivuus n’a été trouvée. Vérifiez que `mqtt-system-agent` tourne sur le serveur et que sa découverte MQTT atteint Home Assistant.',
   'attention.allFine': '**Rien à signaler.** Le serveur n’a besoin de rien pour l’instant.',
   'attention.agentOffline': 'Agent de supervision hors ligne',
