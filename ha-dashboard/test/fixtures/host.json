@@ -1,0 +1,4583 @@
+{
+"entries": [
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_linux_system_agent_alert",
+"platform": "mqtt",
+"unique_id": "nivuus_alert"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_linux_system_agent_event",
+"platform": "mqtt",
+"unique_id": "nivuus_event"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_main_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_1_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_1_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_2_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_2_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_3_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_3_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_4_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_4_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_5_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_5_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_6_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_6_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_7_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_7_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_8_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_8_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_9_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_9_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_10_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_10_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_11_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_11_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_12_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_12_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_13_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_13_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_14_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_14_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_15_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_15_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_16_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_core_16_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_cpu_socket_1_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_temperature_socket_1_temp"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_load_average",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_avg_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_1_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_1_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_2_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_2_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_3_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_3_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_4_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_4_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_5_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_5_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_6_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_6_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_7_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_7_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_8_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_8_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_9_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_9_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_10_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_10_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_11_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_11_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_12_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_12_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_13_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_13_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_14_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_14_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_15_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_15_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_16_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_16_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_17_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_17_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_18_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_18_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_19_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_19_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_20_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_20_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_21_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_21_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_22_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_22_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_23_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_23_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_24_load",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_load_core_24_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_memory_usage",
+"platform": "mqtt",
+"unique_id": "nivuus_memory_usage_usage_percent"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_memory_available",
+"platform": "mqtt",
+"unique_id": "nivuus_memory_usage_available_mb"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_internalbridge_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_internalbridge_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_internalbridge_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_internalbridge_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_internalbridge_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_internalbridge_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_internalbridge_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_internalbridge_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_publicbridge_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_publicbridge_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_publicbridge_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_publicbridge_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_publicbridge_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_publicbridge_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_publicbridge_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_publicbridge_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_localbridge_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_localbridge_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_localbridge_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_localbridge_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_localbridge_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_localbridge_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_localbridge_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_localbridge_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_network_ppp0_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_ppp0_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_network_ppp0_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_ppp0_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_network_ppp0_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_ppp0_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_network_ppp0_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_ppp0_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s0_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp10s0_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s0_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp10s0_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s0_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp10s0_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s0_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp10s0_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s0_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp11s0_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s0_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp11s0_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s0_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp11s0_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s0_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp11s0_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s1_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp10s1_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s1_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp10s1_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s1_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp10s1_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s1_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp10s1_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s1_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp11s1_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s1_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp11s1_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s1_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp11s1_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s1_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlp11s1_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_usage",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_mapper_nivuus--vg-root_usage_percent"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_available",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_mapper_nivuus--vg-root_available_gb"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_boot_usage",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_nvme0n1p2_usage_percent"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_boot_available",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_nvme0n1p2_available_gb"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_boot_efi_usage",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_nvme0n1p1_usage_percent"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_boot_efi_available",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_nvme0n1p1_available_gb"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_media_data_usage",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_sdb1_usage_percent"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_media_data_available",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_sdb1_available_gb"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_media_backup_usage",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_sda1_usage_percent"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_media_backup_available",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_usage__dev_sda1_available_gb"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.linux_system_agent_linux_system_agent_system_updates_available",
+"platform": "mqtt",
+"unique_id": "nivuus_system_updates_available"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_system_updates_count",
+"platform": "mqtt",
+"unique_id": "nivuus_system_updates_count"
+},
+{
+"disabled_by": null,
+"entity_id": "button.linux_system_agent_linux_system_agent_system_updates_check_now",
+"platform": "mqtt",
+"unique_id": "nivuus_system_updates_check_updates"
+},
+{
+"disabled_by": null,
+"entity_id": "button.linux_system_agent_linux_system_agent_system_updates_apply_updates",
+"platform": "mqtt",
+"unique_id": "nivuus_system_updates_apply_updates"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_ppp0_zone",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_ppp0_zone"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_enp15s0_zone",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp15s0_zone"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_active_firewall_zones",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_active_zones_summary"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_firewall_last_action",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_last_action"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_nivuus_firewall_port_input",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_port_input"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_nivuus_firewall_protocol",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_protocol_select"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_nivuus_firewall_zone",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_nivuus_firewall_service_input",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_service_input"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_add_port",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_add_port_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_remove_port",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_remove_port_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_add_service",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_add_service_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_remove_service",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_remove_service_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_ppp0_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_ppp0_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_localbridge_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_localBridge_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_enp15s0_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp15s0_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_internalbridge_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_internalBridge_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_publicbridge_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_publicBridge_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_firewall_forward_port_input",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_forward_port_input"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_firewall_forward_to_address_input",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_forward_toaddr_input"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_firewall_forward_to_port_input",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_forward_toport_input"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_forward_protocol_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_forward_protocol_select"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_forward_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_forward_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_network_firewall_add_forward_button",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_add_forward_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_network_firewall_remove_forward_button",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_remove_forward_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_docker_port_forwards_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_docker_port_forwards"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_docker_services_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_docker_services"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_docker_ports_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_docker_ports"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_network_firewall_docker_masquerade_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_docker_masquerade"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_external_port_forwards_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_external_port_forwards"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_external_services_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_external_services"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_external_ports_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_external_ports"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_network_firewall_external_masquerade_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_external_masquerade"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_home_port_forwards_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_home_port_forwards"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_home_services_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_home_services"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_home_ports_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_home_ports"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_network_firewall_home_masquerade_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_home_masquerade"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_internal_port_forwards_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_internal_port_forwards"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_internal_services_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_internal_services"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_internal_ports_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_internal_ports"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_network_firewall_internal_masquerade_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_internal_masquerade"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_public_port_forwards_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_public_port_forwards"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_public_services_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_public_services"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_public_ports_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_public_ports"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_network_firewall_public_masquerade_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_public_masquerade"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_hostapd_ssids",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_ssids_summary"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_wifi_last_action",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_last_action"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_wifi_new_ssid_input",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_new_ssid_input"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_wifi_new_password_input",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_new_password_input"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_wifi_new_security_type",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_new_security_select"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_add_hotspot",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_add_hotspot_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_reload_hostapd",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_reload_hostapd_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_vm_windows_state",
+"platform": "mqtt",
+"unique_id": "nivuus_vm_manager_Windows_state"
+},
+{
+"disabled_by": null,
+"entity_id": "button.linux_system_agent_linux_system_agent_vm_windows_start",
+"platform": "mqtt",
+"unique_id": "nivuus_vm_manager_Windows_start"
+},
+{
+"disabled_by": null,
+"entity_id": "button.linux_system_agent_linux_system_agent_vm_windows_stop",
+"platform": "mqtt",
+"unique_id": "nivuus_vm_manager_Windows_stop"
+},
+{
+"disabled_by": null,
+"entity_id": "button.linux_system_agent_linux_system_agent_vm_windows_restart",
+"platform": "mqtt",
+"unique_id": "nivuus_vm_manager_Windows_restart"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_internalbridge_device_count",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_internalBridge_device_count"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_internalbridge_bridge_info",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_internalBridge_bridge_info"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_publicbridge_device_count",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_publicBridge_device_count"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_publicbridge_bridge_info",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_publicBridge_bridge_info"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_localbridge_device_count",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_localBridge_device_count"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_localbridge_bridge_info",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_localBridge_bridge_info"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.linux_system_agent_linux_system_agent_pppoe_config_status",
+"platform": "mqtt",
+"unique_id": "nivuus_pppoe_credentials_config_found"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_pppoe_connection",
+"platform": "mqtt",
+"unique_id": "nivuus_pppoe_credentials_connection_status"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_pppoe_credentials_count",
+"platform": "mqtt",
+"unique_id": "nivuus_pppoe_credentials_credentials_count"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_pppoe_last_action",
+"platform": "mqtt",
+"unique_id": "nivuus_pppoe_credentials_last_action"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_nivuus_pppoe_username",
+"platform": "mqtt",
+"unique_id": "nivuus_pppoe_credentials_username_input"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_nivuus_pppoe_password",
+"platform": "mqtt",
+"unique_id": "nivuus_pppoe_credentials_password_input"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_save_pppoe_credentials",
+"platform": "mqtt",
+"unique_id": "nivuus_pppoe_credentials_save_credentials_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_test_pppoe_connection",
+"platform": "mqtt",
+"unique_id": "nivuus_pppoe_credentials_test_connection_btn"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nvme0n1_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nvme0n1_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nvme0n1_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nvme0n1_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nvme0n1_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sda_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sda_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sda_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sda_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sda_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdb_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdb_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdb_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdb_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdb_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_windows_vm_nvme_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_windows_vm_sda_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_windows_vm_nvme_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_windows_vm_sda_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_windows_vm_nvme_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_windows_vm_sda_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_last_fail2ban_ban",
+"platform": "mqtt",
+"unique_id": "nivuus_event_monitor_last_fail2ban_ban_event"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_last_ssh_login",
+"platform": "mqtt",
+"unique_id": "nivuus_event_monitor_last_ssh_login_event"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_last_syslog_error",
+"platform": "mqtt",
+"unique_id": "nivuus_event_monitor_last_syslog_error_event"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_last_clamav_virus",
+"platform": "mqtt",
+"unique_id": "nivuus_event_monitor_last_clamav_virus_event"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_gpu_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_gpu_temperature"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_gpu_utilization",
+"platform": "mqtt",
+"unique_id": "nivuus_gpu_utilization"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_gpu_power_draw",
+"platform": "mqtt",
+"unique_id": "nivuus_gpu_power"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_gpu_graphics_clock",
+"platform": "mqtt",
+"unique_id": "nivuus_gpu_clock_graphics"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_gpu_memory_clock",
+"platform": "mqtt",
+"unique_id": "nivuus_gpu_clock_memory"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_gpu_fan_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_gpu_fan_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_gpu_performance_state",
+"platform": "mqtt",
+"unique_id": "nivuus_gpu_pstate"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_system_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_system_temperature"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_cpu_socket_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_socket_temperature"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_pch_chipset_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_pch_temperature"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_nvme_temperature",
+"platform": "mqtt",
+"unique_id": "nivuus_nvme_temperature"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_chassis_fan_1",
+"platform": "mqtt",
+"unique_id": "nivuus_chassis_fan1"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_chassis_fan_2",
+"platform": "mqtt",
+"unique_id": "nivuus_chassis_fan2"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_docker_status",
+"platform": "mqtt",
+"unique_id": "nivuus_service_docker_status"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_restart_docker",
+"platform": "mqtt",
+"unique_id": "nivuus_service_docker_restart"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_libvirtd_status",
+"platform": "mqtt",
+"unique_id": "nivuus_service_libvirtd_status"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_restart_libvirtd",
+"platform": "mqtt",
+"unique_id": "nivuus_service_libvirtd_restart"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_firewalld_status",
+"platform": "mqtt",
+"unique_id": "nivuus_service_firewalld_status"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_restart_firewalld",
+"platform": "mqtt",
+"unique_id": "nivuus_service_firewalld_restart"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_hostapd_status",
+"platform": "mqtt",
+"unique_id": "nivuus_service_hostapd_status"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_restart_hostapd",
+"platform": "mqtt",
+"unique_id": "nivuus_service_hostapd_restart"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_networkmanager_status",
+"platform": "mqtt",
+"unique_id": "nivuus_service_networkmanager_status"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_restart_networkmanager",
+"platform": "mqtt",
+"unique_id": "nivuus_service_networkmanager_restart"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_mosquitto_status",
+"platform": "mqtt",
+"unique_id": "nivuus_service_mosquitto_status"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_nivuus_restart_mosquitto",
+"platform": "mqtt",
+"unique_id": "nivuus_service_mosquitto_restart"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_nivuus_streaming_active",
+"platform": "mqtt",
+"unique_id": "nivuus_streaming_status"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_streaming_service",
+"platform": "mqtt",
+"unique_id": "nivuus_streaming_service"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_kvm_split_lock_count",
+"platform": "mqtt",
+"unique_id": "nivuus_kvm_split_lock_monitor_split_lock_count"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_kvm_split_lock_last_event",
+"platform": "mqtt",
+"unique_id": "nivuus_kvm_split_lock_monitor_split_lock_last_event"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_nivuus_kvm_split_lock_active",
+"platform": "mqtt",
+"unique_id": "nivuus_kvm_split_lock_monitor_split_lock_active"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_windows_disk_c_usage",
+"platform": "mqtt",
+"unique_id": "nivuus_windows_disk_usage_windows_disk_c_usage_percent"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_windows_disk_c_available",
+"platform": "mqtt",
+"unique_id": "nivuus_windows_disk_usage_windows_disk_c_available_gb"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_windows_disk_c_total",
+"platform": "mqtt",
+"unique_id": "nivuus_windows_disk_usage_windows_disk_c_total_gb"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_windows_disk_c_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_windows_disk_usage_windows_disk_c_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_windows_disk_c_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_windows_disk_usage_windows_disk_c_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_wlo1_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlo1_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_wlo1_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlo1_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_wlo1_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlo1_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_wlo1_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_wlo1_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.linux_system_agent_linux_system_agent_enp17s0_zone",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp17s0_zone"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_enp17s0_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp17s0_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_enp5s0_zone_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp5s0_zone"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_enp5s0_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp5s0_zone_select"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdc_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdc_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdc_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdc_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_sdc_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_ups_battery_level",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_battery_level"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_ups_battery_runtime",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_runtime"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_ups_status",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_status"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_ups_load",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_load"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_ups_input_voltage",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_input_voltage"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_ups_power_source",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_power_source"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_ups_battery_test",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_battery_test"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_ups_power_consumption",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_power_consumption"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_system_apt",
+"platform": "mqtt",
+"unique_id": "nivuus_apt_updates_apt"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_seerr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_seerr"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_bazarr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_bazarr"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_grocy",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_grocy"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_languagetool",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_languagetool"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_homeassistant",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_homeassistant"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_pomerium",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_pomerium"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_dyndns",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_dyndns"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_barcode_decoder",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_barcode-decoder"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_prowlarr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_prowlarr"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_rdtclient",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_rdtclient"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_ygege",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_ygege"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_flaresolverr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_flaresolverr"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_sonarr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_sonarr"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_plex",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_plex"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_tautulli",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_tautulli"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_radarr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_radarr"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_openai_whisper_asr_webservice",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_openai-whisper-asr-webservice"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_wifi_home_ssid",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_1_name"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_wifi_home_password",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_1_password"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_wifi_home_security",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_1_security"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_network_wifi_home_apply",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_1_apply"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_network_wifi_home_delete",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_1_delete"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_wifi_home_status",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_1_status"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_wifi_guest_ssid",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_2_name"
+},
+{
+"disabled_by": null,
+"entity_id": "text.nivuus_network_wifi_guest_password",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_2_password"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_wifi_guest_security",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_2_security"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_network_wifi_guest_apply",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_2_apply"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_network_wifi_guest_delete",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_2_delete"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_wifi_guest_status",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_network_2_status"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_internalbridge_connected_devices",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_internalBridge_devices"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_localbridge_connected_devices",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_localBridge_devices"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_nivuus_publicbridge_connected_devices",
+"platform": "mqtt",
+"unique_id": "nivuus_connected_devices_publicBridge_devices"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_vaultwarden",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_vaultwarden"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_trusted_port_forwards_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_trusted_port_forwards"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_trusted_services_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_trusted_services"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_trusted_ports_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_trusted_ports"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_network_firewall_trusted_masquerade_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_trusted_masquerade"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enxaa840f91c11a_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enxaa840f91c11a_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enxaa840f91c11a_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enxaa840f91c11a_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enxaa840f91c11a_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enxaa840f91c11a_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enxaa840f91c11a_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enxaa840f91c11a_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_drop_port_forwards_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_drop_port_forwards"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_drop_services_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_drop_services"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_drop_ports_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_drop_ports"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_network_firewall_drop_masquerade_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_drop_masquerade"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_power_psu_12v_rail_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_psu_12v"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_power_psu_5v_rail_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_psu_5v"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_power_cpu_vcore_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_vcore"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_power_max_rail_drift_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_max_rail_drift"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_cpu_machine_check_errors_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_machine_checks"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_cpu_thermal_throttle_events_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_cpu_thermal_events"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_memory_errors_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_memory_errors"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_hardware_errors_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_disk_errors"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_tdarr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_tdarr"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_vm_windows_ltsc_test_state_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_vm_manager_Windows-LTSC-test_state"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_vm_windows_ltsc_test_start_button",
+"platform": "mqtt",
+"unique_id": "nivuus_vm_manager_Windows-LTSC-test_start"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_vm_windows_ltsc_test_stop_button",
+"platform": "mqtt",
+"unique_id": "nivuus_vm_manager_Windows-LTSC-test_stop"
+},
+{
+"disabled_by": null,
+"entity_id": "button.nivuus_vm_windows_ltsc_test_restart_button",
+"platform": "mqtt",
+"unique_id": "nivuus_vm_manager_Windows-LTSC-test_restart"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd0_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd0_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd0_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd0_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd0_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd0_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd0_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd0_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd0_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd0_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd1_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd1_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd1_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd1_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd1_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd1_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd1_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd1_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd1_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd1_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd10_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd10_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd10_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd10_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd10_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd10_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd10_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd10_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd10_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd10_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd11_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd11_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd11_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd11_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd11_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd11_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd11_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd11_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd11_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd11_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd12_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd12_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd12_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd12_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd12_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd12_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd12_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd12_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd12_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd12_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd13_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd13_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd13_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd13_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd13_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd13_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd13_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd13_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd13_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd13_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd14_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd14_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd14_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd14_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd14_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd14_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd14_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd14_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd14_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd14_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd15_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd15_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd15_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd15_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd15_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd15_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd15_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd15_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd15_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd15_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd2_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd2_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd2_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd2_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd2_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd2_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd2_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd2_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd2_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd2_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd3_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd3_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd3_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd3_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd3_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd3_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd3_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd3_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd3_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd3_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd4_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd4_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd4_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd4_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd4_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd4_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd4_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd4_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd4_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd4_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd5_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd5_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd5_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd5_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd5_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd5_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd5_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd5_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd5_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd5_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd6_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd6_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd6_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd6_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd6_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd6_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd6_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd6_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd6_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd6_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd7_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd7_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd7_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd7_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd7_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd7_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd7_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd7_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd7_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd7_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd8_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd8_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd8_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd8_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd8_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd8_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd8_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd8_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd8_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd8_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd9_smart_health",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd9_smart_health"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd9_read_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd9_read_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd9_write_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd9_write_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd9_total_data_written",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd9_lbas_written"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_disk_nbd9_total_data_read",
+"platform": "mqtt",
+"unique_id": "nivuus_smart_status_nbd9_lbas_read"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_publicbridge_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_publicBridge_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_publicbridge_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_publicBridge_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_publicbridge_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_publicBridge_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_publicbridge_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_publicBridge_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_localbridge_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_localBridge_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_localbridge_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_localBridge_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_localbridge_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_localBridge_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_localbridge_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_localBridge_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_enp5s0_835_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp5s0_835_zone_select_a641b82d"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_enp5s0_835_zone_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp5s0_835_zone_ffc9695e"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_internalbridge_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_internalBridge_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_internalbridge_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_internalBridge_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_internalbridge_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_internalBridge_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_internalbridge_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_internalBridge_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_maintainerr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_maintainerr"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_lingarr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_lingarr"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_recyclarr",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_recyclarr"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enx9a972e80f143_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enx9a972e80f143_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enx9a972e80f143_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enx9a972e80f143_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enx9a972e80f143_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enx9a972e80f143_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enx9a972e80f143_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enx9a972e80f143_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_firewall_enp5s0_832_zone_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp5s0_832_zone_7b4515f6"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_firewall_enp5s0_832_zone_select",
+"platform": "mqtt",
+"unique_id": "nivuus_firewalld_manager_enp5s0_832_zone_select_8cf1433a"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enp5s0_832_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enp5s0_832_upload_speed_bdf9f645"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enp5s0_832_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enp5s0_832_download_speed_dc56f6d2"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enp5s0_832_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enp5s0_832_total_uploaded_dccb2ce8"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enp5s0_832_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enp5s0_832_total_downloaded_36609fb4"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_tdarr_node",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_tdarr-node"
+},
+{
+"disabled_by": null,
+"entity_id": "update.nivuus_docker_tdarr_node_nvenc",
+"platform": "mqtt",
+"unique_id": "nivuus_docker_updates_tdarr-node-nvenc"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enxdec1fdcd74bd_upload_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enxdec1fdcd74bd_upload_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enxdec1fdcd74bd_download_speed",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enxdec1fdcd74bd_download_speed"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enxdec1fdcd74bd_total_uploaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enxdec1fdcd74bd_total_uploaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_enxdec1fdcd74bd_total_downloaded",
+"platform": "mqtt",
+"unique_id": "nivuus_network_stats_enxdec1fdcd74bd_total_downloaded"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_ups_battery_test_result",
+"platform": "mqtt",
+"unique_id": "nivuus_ups_monitor_test_result"
+},
+{
+"disabled_by": null,
+"entity_id": "switch.nivuus_network_guest_vpn_switch",
+"platform": "mqtt",
+"unique_id": "nivuus_guest_vpn_switch"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_guest_vpn_state_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_guest_vpn_state"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.nivuus_network_guest_vpn_exit_ip_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_guest_vpn_exit_ip"
+},
+{
+"disabled_by": null,
+"entity_id": "binary_sensor.nivuus_network_guest_vpn_on_orange_sensor",
+"platform": "mqtt",
+"unique_id": "nivuus_guest_vpn_on_orange"
+},
+{
+"disabled_by": null,
+"entity_id": "select.nivuus_network_wifi_new_network_bridge",
+"platform": "mqtt",
+"unique_id": "nivuus_hostapd_manager_new_bridge_select"
+},
+{
+"disabled_by": null,
+"entity_id": "sensor.other",
+"platform": "mqtt",
+"unique_id": "other_thing"
+}
+],
+"states": {
+"binary_sensor.linux_system_agent_linux_system_agent_pppoe_config_status": {
+"attributes": {},
+"entity_id": "binary_sensor.linux_system_agent_linux_system_agent_pppoe_config_status",
+"state": "on"
+},
+"binary_sensor.linux_system_agent_linux_system_agent_system_updates_available": {
+"attributes": {},
+"entity_id": "binary_sensor.linux_system_agent_linux_system_agent_system_updates_available",
+"state": "on"
+},
+"binary_sensor.nivuus_network_firewall_docker_masquerade_sensor": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_network_firewall_docker_masquerade_sensor",
+"state": "on"
+},
+"binary_sensor.nivuus_network_firewall_drop_masquerade_sensor": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_network_firewall_drop_masquerade_sensor",
+"state": "off"
+},
+"binary_sensor.nivuus_network_firewall_external_masquerade_sensor": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_network_firewall_external_masquerade_sensor",
+"state": "on"
+},
+"binary_sensor.nivuus_network_firewall_home_masquerade_sensor": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_network_firewall_home_masquerade_sensor",
+"state": "on"
+},
+"binary_sensor.nivuus_network_firewall_internal_masquerade_sensor": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_network_firewall_internal_masquerade_sensor",
+"state": "on"
+},
+"binary_sensor.nivuus_network_firewall_public_masquerade_sensor": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_network_firewall_public_masquerade_sensor",
+"state": "on"
+},
+"binary_sensor.nivuus_network_firewall_trusted_masquerade_sensor": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_network_firewall_trusted_masquerade_sensor",
+"state": "off"
+},
+"binary_sensor.nivuus_network_guest_vpn_on_orange_sensor": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_network_guest_vpn_on_orange_sensor",
+"state": "off"
+},
+"binary_sensor.nivuus_nivuus_kvm_split_lock_active": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_nivuus_kvm_split_lock_active",
+"state": "off"
+},
+"binary_sensor.nivuus_nivuus_streaming_active": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_nivuus_streaming_active",
+"state": "off"
+},
+"binary_sensor.nivuus_ups_power_source": {
+"attributes": {},
+"entity_id": "binary_sensor.nivuus_ups_power_source",
+"state": "on"
+},
+"button.linux_system_agent_linux_system_agent_system_updates_apply_updates": {
+"attributes": {},
+"entity_id": "button.linux_system_agent_linux_system_agent_system_updates_apply_updates",
+"state": "unknown"
+},
+"button.linux_system_agent_linux_system_agent_system_updates_check_now": {
+"attributes": {},
+"entity_id": "button.linux_system_agent_linux_system_agent_system_updates_check_now",
+"state": "unknown"
+},
+"button.linux_system_agent_linux_system_agent_vm_windows_restart": {
+"attributes": {},
+"entity_id": "button.linux_system_agent_linux_system_agent_vm_windows_restart",
+"state": "unknown"
+},
+"button.linux_system_agent_linux_system_agent_vm_windows_start": {
+"attributes": {},
+"entity_id": "button.linux_system_agent_linux_system_agent_vm_windows_start",
+"state": "unknown"
+},
+"button.linux_system_agent_linux_system_agent_vm_windows_stop": {
+"attributes": {},
+"entity_id": "button.linux_system_agent_linux_system_agent_vm_windows_stop",
+"state": "unknown"
+},
+"button.nivuus_network_firewall_add_forward_button": {
+"attributes": {},
+"entity_id": "button.nivuus_network_firewall_add_forward_button",
+"state": "unknown"
+},
+"button.nivuus_network_firewall_remove_forward_button": {
+"attributes": {},
+"entity_id": "button.nivuus_network_firewall_remove_forward_button",
+"state": "unknown"
+},
+"button.nivuus_network_wifi_guest_apply": {
+"attributes": {},
+"entity_id": "button.nivuus_network_wifi_guest_apply",
+"state": "unknown"
+},
+"button.nivuus_network_wifi_guest_delete": {
+"attributes": {},
+"entity_id": "button.nivuus_network_wifi_guest_delete",
+"state": "unknown"
+},
+"button.nivuus_network_wifi_home_apply": {
+"attributes": {},
+"entity_id": "button.nivuus_network_wifi_home_apply",
+"state": "unknown"
+},
+"button.nivuus_network_wifi_home_delete": {
+"attributes": {},
+"entity_id": "button.nivuus_network_wifi_home_delete",
+"state": "unknown"
+},
+"button.nivuus_nivuus_add_hotspot": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_add_hotspot",
+"state": "unknown"
+},
+"button.nivuus_nivuus_add_port": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_add_port",
+"state": "unknown"
+},
+"button.nivuus_nivuus_add_service": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_add_service",
+"state": "unknown"
+},
+"button.nivuus_nivuus_reload_hostapd": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_reload_hostapd",
+"state": "unknown"
+},
+"button.nivuus_nivuus_remove_port": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_remove_port",
+"state": "unknown"
+},
+"button.nivuus_nivuus_remove_service": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_remove_service",
+"state": "unknown"
+},
+"button.nivuus_nivuus_restart_docker": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_restart_docker",
+"state": "unknown"
+},
+"button.nivuus_nivuus_restart_firewalld": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_restart_firewalld",
+"state": "unknown"
+},
+"button.nivuus_nivuus_restart_hostapd": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_restart_hostapd",
+"state": "unknown"
+},
+"button.nivuus_nivuus_restart_libvirtd": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_restart_libvirtd",
+"state": "unknown"
+},
+"button.nivuus_nivuus_restart_mosquitto": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_restart_mosquitto",
+"state": "unknown"
+},
+"button.nivuus_nivuus_restart_networkmanager": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_restart_networkmanager",
+"state": "unknown"
+},
+"button.nivuus_nivuus_save_pppoe_credentials": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_save_pppoe_credentials",
+"state": "unknown"
+},
+"button.nivuus_nivuus_test_pppoe_connection": {
+"attributes": {},
+"entity_id": "button.nivuus_nivuus_test_pppoe_connection",
+"state": "unknown"
+},
+"button.nivuus_ups_battery_test": {
+"attributes": {},
+"entity_id": "button.nivuus_ups_battery_test",
+"state": "unknown"
+},
+"button.nivuus_vm_windows_ltsc_test_restart_button": {
+"attributes": {},
+"entity_id": "button.nivuus_vm_windows_ltsc_test_restart_button",
+"state": "unknown"
+},
+"button.nivuus_vm_windows_ltsc_test_start_button": {
+"attributes": {},
+"entity_id": "button.nivuus_vm_windows_ltsc_test_start_button",
+"state": "unknown"
+},
+"button.nivuus_vm_windows_ltsc_test_stop_button": {
+"attributes": {},
+"entity_id": "button.nivuus_vm_windows_ltsc_test_stop_button",
+"state": "unknown"
+},
+"select.nivuus_network_firewall_enp15s0_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_enp15s0_zone_select",
+"state": "home"
+},
+"select.nivuus_network_firewall_enp17s0_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_enp17s0_zone_select",
+"state": "internal"
+},
+"select.nivuus_network_firewall_enp5s0_832_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_enp5s0_832_zone_select",
+"state": "external"
+},
+"select.nivuus_network_firewall_enp5s0_835_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_enp5s0_835_zone_select",
+"state": "drop"
+},
+"select.nivuus_network_firewall_enp5s0_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_enp5s0_zone_select",
+"state": "drop"
+},
+"select.nivuus_network_firewall_forward_protocol_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_forward_protocol_select",
+"state": "tcp"
+},
+"select.nivuus_network_firewall_forward_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_forward_zone_select",
+"state": "block"
+},
+"select.nivuus_network_firewall_internalbridge_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_internalbridge_zone_select",
+"state": "internal"
+},
+"select.nivuus_network_firewall_localbridge_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_localbridge_zone_select",
+"state": "home"
+},
+"select.nivuus_network_firewall_ppp0_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_ppp0_zone_select",
+"state": "external"
+},
+"select.nivuus_network_firewall_publicbridge_zone_select": {
+"attributes": {},
+"entity_id": "select.nivuus_network_firewall_publicbridge_zone_select",
+"state": "public"
+},
+"select.nivuus_network_wifi_guest_security": {
+"attributes": {},
+"entity_id": "select.nivuus_network_wifi_guest_security",
+"state": "WPA2/WPA3-Mixed"
+},
+"select.nivuus_network_wifi_home_security": {
+"attributes": {},
+"entity_id": "select.nivuus_network_wifi_home_security",
+"state": "WPA2/WPA3-Mixed"
+},
+"select.nivuus_network_wifi_new_network_bridge": {
+"attributes": {},
+"entity_id": "select.nivuus_network_wifi_new_network_bridge",
+"state": "publicBridge"
+},
+"select.nivuus_network_wifi_new_security_type": {
+"attributes": {},
+"entity_id": "select.nivuus_network_wifi_new_security_type",
+"state": "WPA2/WPA3-Mixed"
+},
+"select.nivuus_nivuus_firewall_protocol": {
+"attributes": {},
+"entity_id": "select.nivuus_nivuus_firewall_protocol",
+"state": "tcp"
+},
+"select.nivuus_nivuus_firewall_zone": {
+"attributes": {},
+"entity_id": "select.nivuus_nivuus_firewall_zone",
+"state": "block"
+},
+"sensor.linux_system_agent_linux_system_agent_active_firewall_zones": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_active_firewall_zones",
+"state": "7 active zone(s)"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_10_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_10_load",
+"state": "2.40"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_10_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_10_temperature",
+"state": "51.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_11_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_11_load",
+"state": "9.76"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_11_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_11_temperature",
+"state": "51.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_12_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_12_load",
+"state": "2.93"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_12_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_12_temperature",
+"state": "48.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_13_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_13_load",
+"state": "8.97"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_13_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_13_temperature",
+"state": "49.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_14_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_14_load",
+"state": "2.43"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_14_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_14_temperature",
+"state": "49.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_15_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_15_load",
+"state": "8.45"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_15_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_15_temperature",
+"state": "49.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_16_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_16_load",
+"state": "2.35"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_16_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_16_temperature",
+"state": "52.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_17_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_17_load",
+"state": "6.60"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_18_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_18_load",
+"state": "5.87"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_19_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_19_load",
+"state": "5.47"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_1_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_1_load",
+"state": "5.32"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_1_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_1_temperature",
+"state": "53.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_20_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_20_load",
+"state": "4.46"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_21_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_21_load",
+"state": "5.35"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_22_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_22_load",
+"state": "5.43"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_23_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_23_load",
+"state": "5.28"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_24_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_24_load",
+"state": "5.49"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_2_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_2_load",
+"state": "3.20"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_2_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_2_temperature",
+"state": "53.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_3_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_3_load",
+"state": "9.32"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_3_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_3_temperature",
+"state": "52.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_4_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_4_load",
+"state": "2.46"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_4_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_4_temperature",
+"state": "52.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_5_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_5_load",
+"state": "31.69"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_5_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_5_temperature",
+"state": "52.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_6_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_6_load",
+"state": "15.62"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_6_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_6_temperature",
+"state": "54.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_7_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_7_load",
+"state": "28.14"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_7_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_7_temperature",
+"state": "51.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_8_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_8_load",
+"state": "18.95"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_8_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_8_temperature",
+"state": "51.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_9_load": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_9_load",
+"state": "8.78"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_core_9_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_core_9_temperature",
+"state": "51.0"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_load_average": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_load_average",
+"state": "8.52"
+},
+"sensor.linux_system_agent_linux_system_agent_cpu_temperature": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_cpu_temperature",
+"state": "55.0"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_available": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_available",
+"state": "416.06"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_boot_available": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_boot_available",
+"state": "0.14"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_boot_efi_available": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_boot_efi_available",
+"state": "0.08"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_boot_efi_usage": {
+"attributes": {
+"mount_point": "/boot/efi",
+"total_gb": "0.50"
+},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_boot_efi_usage",
+"state": "83.5"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_boot_usage": {
+"attributes": {
+"mount_point": "/boot",
+"total_gb": "0.44"
+},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_boot_usage",
+"state": "66.0"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_media_backup_available": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_media_backup_available",
+"state": "1746.12"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_media_backup_usage": {
+"attributes": {
+"mount_point": "/media/data",
+"total_gb": "16696.29"
+},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_media_backup_usage",
+"state": "89.4"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_media_data_available": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_media_data_available",
+"state": "2555.74"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_media_data_usage": {
+"attributes": {
+"mount_point": "/media/backup",
+"total_gb": "4619.72"
+},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_media_data_usage",
+"state": "41.7"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_read_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_read_speed",
+"state": "0.55"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_smart_health": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_smart_health",
+"state": "PASSED"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_total_data_read",
+"state": "184625.75"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_total_data_written",
+"state": "158046.02"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_write_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_nvme0n1_write_speed",
+"state": "0.33"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sda_read_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_read_speed",
+"state": "0.19"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sda_smart_health": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_smart_health",
+"state": "PASSED"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sda_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_total_data_read",
+"state": "393762.53"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sda_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_total_data_written",
+"state": "210292.98"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sda_write_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sda_write_speed",
+"state": "0.88"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sdb_read_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_read_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sdb_smart_health": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_smart_health",
+"state": "PASSED"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sdb_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_total_data_read",
+"state": "81045.56"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sdb_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_total_data_written",
+"state": "89022.26"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_sdb_write_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_sdb_write_speed",
+"state": "0.03"
+},
+"sensor.linux_system_agent_linux_system_agent_disk_usage": {
+"attributes": {
+"mount_point": "/",
+"total_gb": "913.91"
+},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_disk_usage",
+"state": "52.0"
+},
+"sensor.linux_system_agent_linux_system_agent_enp15s0_zone": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_enp15s0_zone",
+"state": "home"
+},
+"sensor.linux_system_agent_linux_system_agent_enp17s0_zone": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_enp17s0_zone",
+"state": "internal"
+},
+"sensor.linux_system_agent_linux_system_agent_hostapd_ssids": {
+"attributes": {
+"list": [
+{
+"bridge": "localBridge",
+"name": "home"
+},
+{
+"bridge": "publicBridge",
+"name": "guest"
+}
+]
+},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_hostapd_ssids",
+"state": "2"
+},
+"sensor.linux_system_agent_linux_system_agent_last_fail2ban_ban": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_last_fail2ban_ban",
+"state": "2026-11-10T08:01:46.722Z"
+},
+"sensor.linux_system_agent_linux_system_agent_last_ssh_login": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_last_ssh_login",
+"state": "2026-11-09T20:34:08.874Z"
+},
+"sensor.linux_system_agent_linux_system_agent_last_syslog_error": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_last_syslog_error",
+"state": "No recent errors"
+},
+"sensor.linux_system_agent_linux_system_agent_memory_available": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_memory_available",
+"state": "35173"
+},
+"sensor.linux_system_agent_linux_system_agent_memory_usage": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_memory_usage",
+"state": "44.8"
+},
+"sensor.linux_system_agent_linux_system_agent_network_internalbridge_download_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_internalbridge_download_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_internalbridge_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_internalbridge_total_downloaded",
+"state": "19.04"
+},
+"sensor.linux_system_agent_linux_system_agent_network_internalbridge_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_internalbridge_total_uploaded",
+"state": "23.07"
+},
+"sensor.linux_system_agent_linux_system_agent_network_internalbridge_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_internalbridge_upload_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_localbridge_download_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_localbridge_download_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_localbridge_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_localbridge_total_downloaded",
+"state": "1.09"
+},
+"sensor.linux_system_agent_linux_system_agent_network_localbridge_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_localbridge_total_uploaded",
+"state": "4.04"
+},
+"sensor.linux_system_agent_linux_system_agent_network_localbridge_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_localbridge_upload_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_publicbridge_download_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_publicbridge_download_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_publicbridge_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_publicbridge_total_downloaded",
+"state": "0.19"
+},
+"sensor.linux_system_agent_linux_system_agent_network_publicbridge_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_publicbridge_total_uploaded",
+"state": "13.88"
+},
+"sensor.linux_system_agent_linux_system_agent_network_publicbridge_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_publicbridge_upload_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp10s0_download_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s0_download_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp10s0_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s0_total_downloaded",
+"state": "31.54"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp10s0_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s0_total_uploaded",
+"state": "115.75"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp10s0_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s0_upload_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp10s1_download_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s1_download_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp10s1_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s1_total_downloaded",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp10s1_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s1_total_uploaded",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp10s1_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp10s1_upload_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp11s0_download_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s0_download_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp11s0_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s0_total_downloaded",
+"state": "22.28"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp11s0_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s0_total_uploaded",
+"state": "7.27"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp11s0_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s0_upload_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp11s1_download_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s1_download_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp11s1_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s1_total_downloaded",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp11s1_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s1_total_uploaded",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_network_wlp11s1_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_network_wlp11s1_upload_speed",
+"state": "0.00"
+},
+"sensor.linux_system_agent_linux_system_agent_ppp0_zone": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_ppp0_zone",
+"state": "external"
+},
+"sensor.linux_system_agent_linux_system_agent_system_updates_count": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_system_updates_count",
+"state": "3"
+},
+"sensor.linux_system_agent_linux_system_agent_vm_windows_state": {
+"attributes": {},
+"entity_id": "sensor.linux_system_agent_linux_system_agent_vm_windows_state",
+"state": "shut off"
+},
+"sensor.nivuus_cpu_machine_check_errors_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_cpu_machine_check_errors_sensor",
+"state": "0"
+},
+"sensor.nivuus_cpu_thermal_throttle_events_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_cpu_thermal_throttle_events_sensor",
+"state": "0"
+},
+"sensor.nivuus_disk_hardware_errors_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_hardware_errors_sensor",
+"state": "11"
+},
+"sensor.nivuus_disk_nbd0_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd0_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd0_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd0_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd0_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd0_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd0_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd0_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd0_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd0_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd10_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd10_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd10_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd10_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd10_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd10_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd10_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd10_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd10_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd10_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd11_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd11_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd11_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd11_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd11_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd11_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd11_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd11_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd11_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd11_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd12_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd12_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd12_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd12_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd12_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd12_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd12_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd12_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd12_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd12_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd13_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd13_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd13_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd13_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd13_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd13_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd13_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd13_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd13_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd13_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd14_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd14_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd14_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd14_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd14_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd14_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd14_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd14_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd14_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd14_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd15_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd15_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd15_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd15_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd15_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd15_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd15_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd15_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd15_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd15_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd1_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd1_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd1_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd1_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd1_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd1_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd1_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd1_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd1_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd1_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd2_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd2_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd2_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd2_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd2_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd2_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd2_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd2_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd2_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd2_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd3_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd3_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd3_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd3_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd3_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd3_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd3_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd3_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd3_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd3_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd4_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd4_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd4_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd4_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd4_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd4_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd4_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd4_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd4_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd4_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd5_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd5_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd5_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd5_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd5_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd5_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd5_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd5_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd5_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd5_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd6_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd6_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd6_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd6_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd6_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd6_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd6_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd6_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd6_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd6_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd7_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd7_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd7_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd7_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd7_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd7_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd7_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd7_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd7_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd7_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd8_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd8_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd8_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd8_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd8_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd8_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd8_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd8_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd8_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd8_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd9_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd9_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_disk_nbd9_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd9_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_disk_nbd9_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd9_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd9_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd9_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_disk_nbd9_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_disk_nbd9_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_linux_system_agent_alert": {
+"attributes": {},
+"entity_id": "sensor.nivuus_linux_system_agent_alert",
+"state": "unknown"
+},
+"sensor.nivuus_linux_system_agent_event": {
+"attributes": {},
+"entity_id": "sensor.nivuus_linux_system_agent_event",
+"state": "systemd_failure"
+},
+"sensor.nivuus_memory_errors_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_memory_errors_sensor",
+"state": "unavailable"
+},
+"sensor.nivuus_network_enp5s0_832_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enp5s0_832_download_speed",
+"state": "0.21"
+},
+"sensor.nivuus_network_enp5s0_832_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enp5s0_832_total_downloaded",
+"state": "81.98"
+},
+"sensor.nivuus_network_enp5s0_832_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enp5s0_832_total_uploaded",
+"state": "9.52"
+},
+"sensor.nivuus_network_enp5s0_832_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enp5s0_832_upload_speed",
+"state": "0.93"
+},
+"sensor.nivuus_network_enx9a972e80f143_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enx9a972e80f143_download_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_enx9a972e80f143_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enx9a972e80f143_total_downloaded",
+"state": "0.54"
+},
+"sensor.nivuus_network_enx9a972e80f143_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enx9a972e80f143_total_uploaded",
+"state": "0.17"
+},
+"sensor.nivuus_network_enx9a972e80f143_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enx9a972e80f143_upload_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_enxaa840f91c11a_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enxaa840f91c11a_download_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_enxaa840f91c11a_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enxaa840f91c11a_total_downloaded",
+"state": "0.00"
+},
+"sensor.nivuus_network_enxaa840f91c11a_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enxaa840f91c11a_total_uploaded",
+"state": "0.00"
+},
+"sensor.nivuus_network_enxaa840f91c11a_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enxaa840f91c11a_upload_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_enxdec1fdcd74bd_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enxdec1fdcd74bd_download_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_enxdec1fdcd74bd_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enxdec1fdcd74bd_total_downloaded",
+"state": "0.00"
+},
+"sensor.nivuus_network_enxdec1fdcd74bd_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enxdec1fdcd74bd_total_uploaded",
+"state": "0.00"
+},
+"sensor.nivuus_network_enxdec1fdcd74bd_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_enxdec1fdcd74bd_upload_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_firewall_docker_port_forwards_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_docker_port_forwards_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_docker_ports_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_docker_ports_sensor",
+"state": "1"
+},
+"sensor.nivuus_network_firewall_docker_services_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_docker_services_sensor",
+"state": "9"
+},
+"sensor.nivuus_network_firewall_drop_port_forwards_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_drop_port_forwards_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_drop_ports_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_drop_ports_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_drop_services_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_drop_services_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_enp5s0_832_zone_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_enp5s0_832_zone_sensor",
+"state": "external"
+},
+"sensor.nivuus_network_firewall_enp5s0_835_zone_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_enp5s0_835_zone_sensor",
+"state": "drop"
+},
+"sensor.nivuus_network_firewall_enp5s0_zone_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_enp5s0_zone_sensor",
+"state": "drop"
+},
+"sensor.nivuus_network_firewall_external_port_forwards_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_external_port_forwards_sensor",
+"state": "6"
+},
+"sensor.nivuus_network_firewall_external_ports_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_external_ports_sensor",
+"state": "5"
+},
+"sensor.nivuus_network_firewall_external_services_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_external_services_sensor",
+"state": "4"
+},
+"sensor.nivuus_network_firewall_home_port_forwards_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_home_port_forwards_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_home_ports_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_home_ports_sensor",
+"state": "15"
+},
+"sensor.nivuus_network_firewall_home_services_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_home_services_sensor",
+"state": "26"
+},
+"sensor.nivuus_network_firewall_internal_port_forwards_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_internal_port_forwards_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_internal_ports_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_internal_ports_sensor",
+"state": "4"
+},
+"sensor.nivuus_network_firewall_internal_services_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_internal_services_sensor",
+"state": "11"
+},
+"sensor.nivuus_network_firewall_public_port_forwards_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_public_port_forwards_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_public_ports_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_public_ports_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_public_services_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_public_services_sensor",
+"state": "6"
+},
+"sensor.nivuus_network_firewall_trusted_port_forwards_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_trusted_port_forwards_sensor",
+"state": "0"
+},
+"sensor.nivuus_network_firewall_trusted_ports_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_trusted_ports_sensor",
+"state": "1"
+},
+"sensor.nivuus_network_firewall_trusted_services_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_firewall_trusted_services_sensor",
+"state": "1"
+},
+"sensor.nivuus_network_guest_vpn_exit_ip_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_guest_vpn_exit_ip_sensor",
+"state": "203.0.113.7"
+},
+"sensor.nivuus_network_guest_vpn_state_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_guest_vpn_state_sensor",
+"state": "connected"
+},
+"sensor.nivuus_network_internalbridge_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_internalbridge_download_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_internalbridge_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_internalbridge_total_downloaded",
+"state": "4.78"
+},
+"sensor.nivuus_network_internalbridge_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_internalbridge_total_uploaded",
+"state": "14.05"
+},
+"sensor.nivuus_network_internalbridge_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_internalbridge_upload_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_localbridge_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_localbridge_download_speed",
+"state": "0.71"
+},
+"sensor.nivuus_network_localbridge_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_localbridge_total_downloaded",
+"state": "8.29"
+},
+"sensor.nivuus_network_localbridge_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_localbridge_total_uploaded",
+"state": "58.56"
+},
+"sensor.nivuus_network_localbridge_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_localbridge_upload_speed",
+"state": "0.15"
+},
+"sensor.nivuus_network_publicbridge_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_publicbridge_download_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_publicbridge_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_publicbridge_total_downloaded",
+"state": "0.14"
+},
+"sensor.nivuus_network_publicbridge_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_publicbridge_total_uploaded",
+"state": "1.74"
+},
+"sensor.nivuus_network_publicbridge_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_publicbridge_upload_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_wifi_guest_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_wifi_guest_status",
+"state": "Active (2.4+5GHz)"
+},
+"sensor.nivuus_network_wifi_home_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_wifi_home_status",
+"state": "Active (2.4+5GHz)"
+},
+"sensor.nivuus_network_wlo1_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_wlo1_download_speed",
+"state": "0.00"
+},
+"sensor.nivuus_network_wlo1_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_wlo1_total_downloaded",
+"state": "0.02"
+},
+"sensor.nivuus_network_wlo1_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_wlo1_total_uploaded",
+"state": "0.08"
+},
+"sensor.nivuus_network_wlo1_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_network_wlo1_upload_speed",
+"state": "0.00"
+},
+"sensor.nivuus_nivuus_chassis_fan_1": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_chassis_fan_1",
+"state": "231.0"
+},
+"sensor.nivuus_nivuus_chassis_fan_2": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_chassis_fan_2",
+"state": "1134.0"
+},
+"sensor.nivuus_nivuus_cpu_socket_1_temperature": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_cpu_socket_1_temperature",
+"state": "55.0"
+},
+"sensor.nivuus_nivuus_cpu_socket_temperature": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_cpu_socket_temperature",
+"state": "55.5"
+},
+"sensor.nivuus_nivuus_disk_sdc_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_read_speed",
+"state": "0.00"
+},
+"sensor.nivuus_nivuus_disk_sdc_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_smart_health",
+"state": "UNKNOWN"
+},
+"sensor.nivuus_nivuus_disk_sdc_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_total_data_read",
+"state": "unknown"
+},
+"sensor.nivuus_nivuus_disk_sdc_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_total_data_written",
+"state": "unknown"
+},
+"sensor.nivuus_nivuus_disk_sdc_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_disk_sdc_write_speed",
+"state": "0.00"
+},
+"sensor.nivuus_nivuus_docker_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_docker_status",
+"state": "active"
+},
+"sensor.nivuus_nivuus_firewall_last_action": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_firewall_last_action",
+"state": "Ready"
+},
+"sensor.nivuus_nivuus_firewalld_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_firewalld_status",
+"state": "active"
+},
+"sensor.nivuus_nivuus_gpu_fan_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_gpu_fan_speed",
+"state": "0"
+},
+"sensor.nivuus_nivuus_gpu_graphics_clock": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_gpu_graphics_clock",
+"state": "210"
+},
+"sensor.nivuus_nivuus_gpu_memory_clock": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_gpu_memory_clock",
+"state": "405"
+},
+"sensor.nivuus_nivuus_gpu_performance_state": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_gpu_performance_state",
+"state": "P8"
+},
+"sensor.nivuus_nivuus_gpu_power_draw": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_gpu_power_draw",
+"state": "6.49"
+},
+"sensor.nivuus_nivuus_gpu_temperature": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_gpu_temperature",
+"state": "34.0"
+},
+"sensor.nivuus_nivuus_gpu_utilization": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_gpu_utilization",
+"state": "0"
+},
+"sensor.nivuus_nivuus_hostapd_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_hostapd_status",
+"state": "active"
+},
+"sensor.nivuus_nivuus_internalbridge_bridge_info": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_internalbridge_bridge_info",
+"state": "192.168.3.1/24"
+},
+"sensor.nivuus_nivuus_internalbridge_connected_devices": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_internalbridge_connected_devices",
+"state": "No devices"
+},
+"sensor.nivuus_nivuus_internalbridge_device_count": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_internalbridge_device_count",
+"state": "0"
+},
+"sensor.nivuus_nivuus_kvm_split_lock_count": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_kvm_split_lock_count",
+"state": "9"
+},
+"sensor.nivuus_nivuus_kvm_split_lock_last_event": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_kvm_split_lock_last_event",
+"state": "2026-11-08T16:13:08.429Z"
+},
+"sensor.nivuus_nivuus_last_clamav_virus": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_last_clamav_virus",
+"state": "2026-11-09T09:19:40.000Z"
+},
+"sensor.nivuus_nivuus_libvirtd_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_libvirtd_status",
+"state": "active"
+},
+"sensor.nivuus_nivuus_localbridge_bridge_info": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_localbridge_bridge_info",
+"state": "192.168.0.1/24"
+},
+"sensor.nivuus_nivuus_localbridge_connected_devices": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_localbridge_connected_devices",
+"state": "29 devices"
+},
+"sensor.nivuus_nivuus_localbridge_device_count": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_localbridge_device_count",
+"state": "29"
+},
+"sensor.nivuus_nivuus_mosquitto_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_mosquitto_status",
+"state": "inactive"
+},
+"sensor.nivuus_nivuus_network_ppp0_download_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_network_ppp0_download_speed",
+"state": "0.00"
+},
+"sensor.nivuus_nivuus_network_ppp0_total_downloaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_network_ppp0_total_downloaded",
+"state": "0.11"
+},
+"sensor.nivuus_nivuus_network_ppp0_total_uploaded": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_network_ppp0_total_uploaded",
+"state": "0.09"
+},
+"sensor.nivuus_nivuus_network_ppp0_upload_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_network_ppp0_upload_speed",
+"state": "0.00"
+},
+"sensor.nivuus_nivuus_networkmanager_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_networkmanager_status",
+"state": "active"
+},
+"sensor.nivuus_nivuus_nvme_temperature": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_nvme_temperature",
+"state": "57.9"
+},
+"sensor.nivuus_nivuus_pch_chipset_temperature": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_pch_chipset_temperature",
+"state": "69.0"
+},
+"sensor.nivuus_nivuus_pppoe_connection": {
+"attributes": {
+"interface": "ppp0"
+},
+"entity_id": "sensor.nivuus_nivuus_pppoe_connection",
+"state": "DISCONNECTED"
+},
+"sensor.nivuus_nivuus_pppoe_credentials_count": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_pppoe_credentials_count",
+"state": "8"
+},
+"sensor.nivuus_nivuus_pppoe_last_action": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_pppoe_last_action",
+"state": "Ready"
+},
+"sensor.nivuus_nivuus_publicbridge_bridge_info": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_publicbridge_bridge_info",
+"state": "192.168.2.1/24"
+},
+"sensor.nivuus_nivuus_publicbridge_connected_devices": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_publicbridge_connected_devices",
+"state": "1 devices"
+},
+"sensor.nivuus_nivuus_publicbridge_device_count": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_publicbridge_device_count",
+"state": "1"
+},
+"sensor.nivuus_nivuus_streaming_service": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_streaming_service",
+"state": "unknown"
+},
+"sensor.nivuus_nivuus_system_temperature": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_system_temperature",
+"state": "43.0"
+},
+"sensor.nivuus_nivuus_wifi_last_action": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_wifi_last_action",
+"state": "Ready"
+},
+"sensor.nivuus_nivuus_windows_vm_nvme_smart_health": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_windows_vm_nvme_smart_health",
+"state": "ERROR"
+},
+"sensor.nivuus_nivuus_windows_vm_nvme_total_data_read": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_windows_vm_nvme_total_data_read",
+"state": "8915.60"
+},
+"sensor.nivuus_nivuus_windows_vm_nvme_total_data_written": {
+"attributes": {},
+"entity_id": "sensor.nivuus_nivuus_windows_vm_nvme_total_data_written",
+"state": "15310.62"
+},
+"sensor.nivuus_power_cpu_vcore_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_power_cpu_vcore_sensor",
+"state": "0.62"
+},
+"sensor.nivuus_power_max_rail_drift_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_power_max_rail_drift_sensor",
+"state": "21.43"
+},
+"sensor.nivuus_power_psu_12v_rail_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_power_psu_12v_rail_sensor",
+"state": "11.90"
+},
+"sensor.nivuus_power_psu_5v_rail_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_power_psu_5v_rail_sensor",
+"state": "5.00"
+},
+"sensor.nivuus_ups_battery_level": {
+"attributes": {},
+"entity_id": "sensor.nivuus_ups_battery_level",
+"state": "100"
+},
+"sensor.nivuus_ups_battery_runtime": {
+"attributes": {},
+"entity_id": "sensor.nivuus_ups_battery_runtime",
+"state": "53"
+},
+"sensor.nivuus_ups_battery_test_result": {
+"attributes": {},
+"entity_id": "sensor.nivuus_ups_battery_test_result",
+"state": "Done and passed"
+},
+"sensor.nivuus_ups_input_voltage": {
+"attributes": {},
+"entity_id": "sensor.nivuus_ups_input_voltage",
+"state": "245"
+},
+"sensor.nivuus_ups_load": {
+"attributes": {},
+"entity_id": "sensor.nivuus_ups_load",
+"state": "15"
+},
+"sensor.nivuus_ups_power_consumption": {
+"attributes": {},
+"entity_id": "sensor.nivuus_ups_power_consumption",
+"state": "135"
+},
+"sensor.nivuus_ups_status": {
+"attributes": {},
+"entity_id": "sensor.nivuus_ups_status",
+"state": "unavailable"
+},
+"sensor.nivuus_vm_windows_ltsc_test_state_sensor": {
+"attributes": {},
+"entity_id": "sensor.nivuus_vm_windows_ltsc_test_state_sensor",
+"state": "running"
+},
+"sensor.nivuus_windows_disk_c_available": {
+"attributes": {},
+"entity_id": "sensor.nivuus_windows_disk_c_available",
+"state": "unknown"
+},
+"sensor.nivuus_windows_disk_c_read_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_windows_disk_c_read_speed",
+"state": "unknown"
+},
+"sensor.nivuus_windows_disk_c_total": {
+"attributes": {},
+"entity_id": "sensor.nivuus_windows_disk_c_total",
+"state": "unknown"
+},
+"sensor.nivuus_windows_disk_c_usage": {
+"attributes": {},
+"entity_id": "sensor.nivuus_windows_disk_c_usage",
+"state": "unknown"
+},
+"sensor.nivuus_windows_disk_c_write_speed": {
+"attributes": {},
+"entity_id": "sensor.nivuus_windows_disk_c_write_speed",
+"state": "unknown"
+},
+"switch.nivuus_network_guest_vpn_switch": {
+"attributes": {},
+"entity_id": "switch.nivuus_network_guest_vpn_switch",
+"state": "on"
+},
+"text.nivuus_network_wifi_guest_ssid": {
+"attributes": {},
+"entity_id": "text.nivuus_network_wifi_guest_ssid",
+"state": "guest"
+},
+"text.nivuus_network_wifi_home_ssid": {
+"attributes": {},
+"entity_id": "text.nivuus_network_wifi_home_ssid",
+"state": "home"
+},
+"update.nivuus_docker_barcode_decoder": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_barcode_decoder",
+"state": "off"
+},
+"update.nivuus_docker_bazarr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_bazarr",
+"state": "off"
+},
+"update.nivuus_docker_dyndns": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_dyndns",
+"state": "off"
+},
+"update.nivuus_docker_flaresolverr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_flaresolverr",
+"state": "off"
+},
+"update.nivuus_docker_grocy": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_grocy",
+"state": "off"
+},
+"update.nivuus_docker_homeassistant": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_homeassistant",
+"state": "on"
+},
+"update.nivuus_docker_languagetool": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_languagetool",
+"state": "off"
+},
+"update.nivuus_docker_lingarr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_lingarr",
+"state": "off"
+},
+"update.nivuus_docker_maintainerr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_maintainerr",
+"state": "off"
+},
+"update.nivuus_docker_openai_whisper_asr_webservice": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_openai_whisper_asr_webservice",
+"state": "off"
+},
+"update.nivuus_docker_plex": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_plex",
+"state": "on"
+},
+"update.nivuus_docker_pomerium": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_pomerium",
+"state": "off"
+},
+"update.nivuus_docker_prowlarr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_prowlarr",
+"state": "off"
+},
+"update.nivuus_docker_radarr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_radarr",
+"state": "off"
+},
+"update.nivuus_docker_rdtclient": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_rdtclient",
+"state": "off"
+},
+"update.nivuus_docker_recyclarr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_recyclarr",
+"state": "off"
+},
+"update.nivuus_docker_seerr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_seerr",
+"state": "off"
+},
+"update.nivuus_docker_sonarr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_sonarr",
+"state": "off"
+},
+"update.nivuus_docker_tautulli": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_tautulli",
+"state": "off"
+},
+"update.nivuus_docker_tdarr": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_tdarr",
+"state": "off"
+},
+"update.nivuus_docker_tdarr_node": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_tdarr_node",
+"state": "off"
+},
+"update.nivuus_docker_tdarr_node_nvenc": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_tdarr_node_nvenc",
+"state": "off"
+},
+"update.nivuus_docker_vaultwarden": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_vaultwarden",
+"state": "off"
+},
+"update.nivuus_docker_ygege": {
+"attributes": {},
+"entity_id": "update.nivuus_docker_ygege",
+"state": "off"
+},
+"update.nivuus_system_apt": {
+"attributes": {},
+"entity_id": "update.nivuus_system_apt",
+"state": "off"
+}
+}
+}
