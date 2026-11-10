@@ -84,7 +84,6 @@ export default {
   'name.guestVpnState': 'Tunnel VPN',
   'name.exitIp': 'IP de sortie',
   'name.guestsOnUplink': 'Invités en sortie directe',
-  'name.devicesOn': 'Appareils — {bridge}',
   'name.devices': 'Appareils',
   'name.connectedDevices': 'Appareils connectés',
   'name.subnet': 'Sous-réseau',

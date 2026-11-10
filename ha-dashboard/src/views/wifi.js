@@ -11,7 +11,7 @@ import {
 export function wifi(m, t) {
   const w = m.wifi;
   const hostapd = m.services.find((s) => s.name === 'hostapd');
-  return view('wifi', t('view.wifi'), 'mdi:wifi', [
+  return view('wifi', t('view.wifi'), [
     section([
       heading(t('section.accessPoint'), 'mdi:access-point'),
       tile(hostapd?.status, { name: t('name.hostapd') }),

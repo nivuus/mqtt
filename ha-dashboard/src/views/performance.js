@@ -6,7 +6,7 @@ import {
 import { CORE_CARD_TYPE } from '../cpu-cores-card.js';
 
 export function performance(m, t) {
-  return view('performance', t('view.performance'), 'mdi:chart-line', [
+  return view('performance', t('view.performance'), [
     cpu(m, t),
     memory(m, t),
     gpu(m, t),

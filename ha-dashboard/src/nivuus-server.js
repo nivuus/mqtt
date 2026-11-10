@@ -22,7 +22,6 @@ class NivuusServerDashboardStrategy extends HTMLElement {
       views: VIEWS.map((v) => ({
         title: t(`view.${v.key}`),
         path: v.key,
-        icon: v.icon,
         strategy: { type: `custom:${NAME}`, view: v.key },
       })),
     };

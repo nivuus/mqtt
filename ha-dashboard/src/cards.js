@@ -93,9 +93,11 @@ export const when = {
 export const visibleWhen = (card, ...conditions) =>
   card ? { ...card, visibility: conditions } : null;
 
-export function view(key, title, icon, sections, extra = {}) {
+// Views carry no icon on purpose: with eight tabs, Home Assistant would show
+// icons only, and nobody reads "shield" as "Firewall" at a glance.
+export function view(key, title, sections, extra = {}) {
   return {
-    type: 'sections', path: key, title, icon, max_columns: 4,
+    type: 'sections', path: key, title, max_columns: 4,
     sections: sections.filter(Boolean), ...extra,
   };
 }

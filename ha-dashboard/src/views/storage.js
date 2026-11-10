@@ -4,7 +4,7 @@ import { heading, tile, gaugeTile, trendTile, section, view } from '../cards.js'
 
 export function storage(m, t) {
   const s = m.storage;
-  return view('storage', t('view.storage'), 'mdi:harddisk', [
+  return view('storage', t('view.storage'), [
     section([
       heading(t('section.filesystems'), 'mdi:folder-multiple'),
       ...s.filesystems.flatMap((fs) => [

@@ -43,7 +43,9 @@ export function bridges(q, ifaces) {
         traffic: traffic(q, name),
       };
     })
-    .sort((a, b) => naturalCompare(a.name, b.name));
+    // Busiest network first: the home LAN, then guests, then the rest.
+    .sort((a, b) => (Number(q.state(b.count)?.state) || 0) - (Number(q.state(a.count)?.state) || 0)
+      || naturalCompare(a.name, b.name));
 }
 
 export function pppoe(q) {

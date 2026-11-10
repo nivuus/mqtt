@@ -7,7 +7,7 @@ import {
 import { devicesTable } from './templates.js';
 
 export function network(m, t) {
-  return view('network', t('view.network'), 'mdi:lan', [
+  return view('network', t('view.network'), [
     ...m.wan.map((uplink) => wan(uplink, t)),
     guestVpn(m, t),
     pppoe(m, t),

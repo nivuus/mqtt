@@ -8,7 +8,7 @@ import { packagesList, securityDetails } from './templates.js';
 
 export function maintenance(m, t, backups) {
   const u = m.updates;
-  return view('maintenance', t('view.maintenance'), 'mdi:wrench', [
+  return view('maintenance', t('view.maintenance'), [
     section([
       heading(t('section.hostUpdates'), 'mdi:debian'),
       updateTile(u.apt, { name: t('name.apt') }),
@@ -19,7 +19,7 @@ export function maintenance(m, t, backups) {
     ]),
     section([
       heading(t('section.containers'), 'mdi:docker'),
-      ...u.containers.map((c) => updateTile(c)),
+      ...u.containers.map((c) => updateTile(c.entity, { name: c.title })),
     ], { column_span: 2 }),
     backups.length ? section([
       heading(t('section.backups'), 'mdi:backup-restore'),

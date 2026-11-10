@@ -8,7 +8,7 @@ import { attentionChecks, noneFailing } from './attention.js';
 
 export function overview(m, t, nav) {
   const checks = attentionChecks(m, t);
-  return view('overview', t('view.overview'), 'mdi:view-dashboard', [
+  return view('overview', t('view.overview'), [
     attention(checks, m, t),
     vitals(m, t, nav),
     network(m, t, nav),
@@ -22,11 +22,17 @@ function attention(checks, m, t) {
   return section([
     heading(t('section.attention'), 'mdi:alert-circle-outline'),
     allFine,
-    ...checks.map((c) => visibleWhen(c.card, c.show)),
+    ...checks.map((c) => visibleWhen(wide(c.card), c.show)),
     // Pending updates install from here, without leaving the page.
-    ...[m.updates.apt, ...m.updates.containers].map((u) =>
-      visibleWhen(updateTile(u), when.state(u, 'on'))),
+    visibleWhen(wide(updateTile(m.updates.apt, { name: t('name.apt') })), when.state(m.updates.apt, 'on')),
+    ...m.updates.containers.map((u) =>
+      visibleWhen(wide(updateTile(u.entity, { name: u.title })), when.state(u.entity, 'on'))),
   ], { column_span: 2 });
+}
+
+// Half the section: room for "/media/data is filling up" without truncation.
+function wide(card) {
+  return card && { ...card, grid_options: { columns: 12 } };
 }
 
 function vitals(m, t, nav) {
@@ -50,7 +56,7 @@ function network(m, t, nav) {
     toggleTile(m.guestVpn.switch, { name: t('name.guestVpn') }),
     tile(m.guestVpn.state, { name: t('name.guestVpnState') }),
     ...m.bridges.map((b) => tile(b.count, {
-      name: t('name.devicesOn', { bridge: t.bridge(b.name) }),
+      name: t.bridge(b.name),
       icon: 'mdi:devices',
       tap_action: nav('network'),
     })),

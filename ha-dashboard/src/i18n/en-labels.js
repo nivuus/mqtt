@@ -84,7 +84,6 @@ export default {
   'name.guestVpnState': 'VPN tunnel',
   'name.exitIp': 'Exit IP',
   'name.guestsOnUplink': 'Guests on the plain uplink',
-  'name.devicesOn': 'Devices — {bridge}',
   'name.devices': 'Devices',
   'name.connectedDevices': 'Connected devices',
   'name.subnet': 'Subnet',

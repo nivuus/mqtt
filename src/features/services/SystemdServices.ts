@@ -5,13 +5,6 @@ import { MqttClient, HaDiscoveryPayload } from '../../core/types';
 import { execute_argv } from '../../utils/exec';
 import { Validators, rejectInvalid } from '../../utils/validators';
 import logger from '../../utils/logger';
-import * as fs from 'fs';
-
-const DEBUG_LOG = '/tmp/mqtt-agent-debug.log';
-function debugLog(msg: string) {
-  const timestamp = new Date().toISOString();
-  fs.appendFileSync(DEBUG_LOG, `[${timestamp}] [systemd_services] ${msg}\n`);
-}
 
 interface ServiceStatus {
   name: string;
@@ -30,13 +23,24 @@ export class SystemdServices extends BaseFeature {
     'firewalld',
     'hostapd',
     'NetworkManager',
-    'mosquitto',
   ];
+
+  // Host units this feature used to watch and must now retract from Home
+  // Assistant. mosquitto moved into the home-manager Docker stack: the host
+  // unit is gone, so its sensor read "inactive" forever and its restart
+  // button restarted nothing.
+  private retiredServices: string[] = ['mosquitto'];
 
   private serviceStatus: Map<string, ServiceStatus> = new Map();
 
   async publishDiscovery(): Promise<void> {
-    debugLog('publishDiscovery() called');
+    for (const serviceName of this.retiredServices) {
+      const serviceId = serviceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const base = `${this.deviceInfo.identifiers[0]}_service_${serviceId}`;
+      // An empty retained config is MQTT discovery's "remove this entity".
+      await this.mqttClient.publish(this.entityDiscoveryTopic('sensor', `${base}_status`), '', { qos: 1, retain: true });
+      await this.mqttClient.publish(this.entityDiscoveryTopic('button', `${base}_restart`), '', { qos: 1, retain: true });
+    }
     // Create sensor for each service
     for (const serviceName of this.services) {
       const serviceId = serviceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -56,9 +60,7 @@ export class SystemdServices extends BaseFeature {
       };
 
       const discoveryTopic = this.entityDiscoveryTopic('sensor', statusPayload.unique_id);
-      debugLog(`Publishing discovery for ${serviceName} status to ${discoveryTopic}`);
       await this.mqttClient.publish(discoveryTopic, JSON.stringify(statusPayload), { qos: 1, retain: true });
-      debugLog(`Discovery published for ${serviceName} status`);
 
       // Restart button
       const restartPayload: HaDiscoveryPayload = {
@@ -74,32 +76,22 @@ export class SystemdServices extends BaseFeature {
       };
 
       const restartDiscoveryTopic = this.entityDiscoveryTopic('button', restartPayload.unique_id);
-      debugLog(`Publishing discovery for ${serviceName} restart button to ${restartDiscoveryTopic}`);
       await this.mqttClient.publish(restartDiscoveryTopic, JSON.stringify(restartPayload), { qos: 1, retain: true });
-      debugLog(`Discovery published for ${serviceName} restart button`);
     }
-    debugLog('publishDiscovery() completed');
   }
 
   async update(): Promise<void> {
-    debugLog('update() called');
     try {
       for (const serviceName of this.services) {
-        debugLog(`Checking service: ${serviceName}`);
         await this.checkService(serviceName);
-        debugLog(`Checked service: ${serviceName}`);
       }
     } catch (error) {
-      debugLog(`Error in update(): ${error}`);
       logger.error('Error updating systemd services:', error);
     }
-    debugLog('update() completed');
   }
 
   private async checkService(serviceName: string): Promise<void> {
-    debugLog(`checkService(${serviceName}) called`);
     try {
-      debugLog(`Executing systemctl is-active ${serviceName}.service`);
       const unit = `${serviceName}.service`;
       if (!Validators.isSystemdUnit(unit)) {
         rejectInvalid('systemd_unit', unit, 'systemd_services');
@@ -110,7 +102,6 @@ export class SystemdServices extends BaseFeature {
 
       const state = result.stdout?.trim() || 'unknown';
       const isActive = state === 'active';
-      debugLog(`Service ${serviceName}: state=${state}, isActive=${isActive}`);
 
       this.serviceStatus.set(serviceName, {
         name: serviceName,
@@ -121,13 +112,11 @@ export class SystemdServices extends BaseFeature {
       // Publish state
       const stateTopic = this.prefixTopic(`${this.featureName}/${serviceId}/state`);
       const stateValue = isActive ? 'active' : state;
-      debugLog(`Publishing state for ${serviceName}: ${stateValue} to ${stateTopic}`);
       await this.mqttClient.publish(
         stateTopic,
         stateValue,
         { qos: 0, retain: true }
       );
-      debugLog(`Published state for ${serviceName}`);
 
       // Publish attributes
       const attributes = {
@@ -137,28 +126,22 @@ export class SystemdServices extends BaseFeature {
       };
 
       const attrTopic = this.prefixTopic(`${this.featureName}/${serviceId}/attributes`);
-      debugLog(`Publishing attributes for ${serviceName} to ${attrTopic}`);
       await this.mqttClient.publish(
         attrTopic,
         JSON.stringify(attributes),
         { qos: 0, retain: true }
       );
-      debugLog(`Published attributes for ${serviceName}`);
     } catch (error) {
-      debugLog(`Error checking service ${serviceName}: ${error}`);
       logger.error(`Error checking service ${serviceName}:`, error);
     }
   }
 
   async setup(): Promise<void> {
-    debugLog('setup() called');
     for (const serviceName of this.services) {
       const serviceId = serviceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const restartTopic = this.prefixTopic(`${this.featureName}/${serviceId}/restart`);
 
-      debugLog(`Subscribing to ${restartTopic}`);
       this.mqttClient.subscribe(restartTopic, { qos: 1 });
-      debugLog(`Subscribed to ${restartTopic}`);
     }
 
     this.mqttClient.on('message', async (topic: string, message: Buffer) => {
@@ -173,7 +156,6 @@ export class SystemdServices extends BaseFeature {
         }
       }
     });
-    debugLog('setup() completed');
   }
 
   private async restartService(serviceName: string): Promise<void> {

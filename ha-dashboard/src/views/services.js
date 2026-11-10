@@ -3,7 +3,7 @@
 import { heading, tile, pressTile, section, view } from '../cards.js';
 
 export function services(m, t) {
-  return view('services', t('view.services'), 'mdi:server', [
+  return view('services', t('view.services'), [
     section([
       heading(t('section.hostServices'), 'mdi:cogs'),
       ...m.services.flatMap((s) => [

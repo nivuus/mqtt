@@ -11,7 +11,7 @@ export function firewall(m, t) {
   const firewalld = m.services.find((s) => s.name === 'firewalld');
   // Zones holding no interface and no rule are firewalld's stock ones: noise.
   const zones = f.zones.filter((z) => z.interfaces.length || z.ruleCount);
-  return view('firewall', t('view.firewall'), 'mdi:shield-half-full', [
+  return view('firewall', t('view.firewall'), [
     section([
       heading(t('section.firewall'), 'mdi:shield-check'),
       tile(firewalld?.status, { name: t('name.firewalld') }),

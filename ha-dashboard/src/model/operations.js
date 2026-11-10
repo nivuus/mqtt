@@ -41,9 +41,10 @@ export function gaming(q) {
 export function updates(q) {
   return {
     apt: q.id('apt_updates_apt'),
+    // Named by the image title the agent reports ("Plex"), not the entity name.
     containers: q.all('docker_updates_(.+)')
-      .map(({ entityId }) => entityId)
-      .sort(naturalCompare),
+      .map(({ match, entityId }) => ({ entity: entityId, title: q.attr(entityId, 'title') ?? match[1] }))
+      .sort((a, b) => naturalCompare(a.title, b.title)),
     pending: q.id('system_updates_available'),
     count: q.id('system_updates_count'),
     check: q.id('system_updates_check_updates'),
