@@ -132,7 +132,7 @@ export class UpsMonitor extends BaseFeature {
   protected async setup(): Promise<void> {
     const commandTopic = this.prefixTopic(`${this.featureName}/command/#`);
     await this.mqttClient.subscribe(commandTopic);
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+    this.listenToMessages(this.handleMqttMessage.bind(this));
   }
 
   private async handleMqttMessage(topic: string, payload: Buffer): Promise<void> {

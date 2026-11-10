@@ -291,7 +291,7 @@ export class PppoeCredentials extends BaseFeature {
     await this.mqttClient.subscribe(commandTopic);
     await this.mqttClient.subscribe(inputTopic);
     
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+    this.listenToMessages(this.handleMqttMessage.bind(this));
   }
 
   private async handleMqttMessage(topic: string, payload: Buffer): Promise<void> {

@@ -53,7 +53,7 @@ export class HostapdManager extends BaseFeature {
     await this.mqttClient.subscribe(this.prefixTopic(`${this.featureName}/+/set`));
     await this.mqttClient.subscribe(this.prefixTopic(`${this.featureName}/+/+/set`));
     await this.mqttClient.subscribe(this.prefixTopic(`${this.featureName}/+/command/+`));
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+    this.listenToMessages(this.handleMqttMessage.bind(this));
   }
 
   private async report(message: string): Promise<void> {

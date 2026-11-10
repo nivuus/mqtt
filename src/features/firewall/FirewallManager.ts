@@ -110,7 +110,7 @@ export class FirewallManager extends BaseFeature {
     const allInputsTopic = this.prefixTopic(`${this.featureName}/+/set`);
     await this.mqttClient.subscribe(allInputsTopic);
 
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+    this.listenToMessages(this.handleMqttMessage.bind(this));
   }
 
   private async handleMqttMessage(topic: string, payload: Buffer): Promise<void> {

@@ -59,3 +59,27 @@ describe('BaseFeature discovery topics', () => {
     expect(removed.message).toBe('');
   });
 });
+
+describe('BaseFeature message listeners', () => {
+  class ListeningFeature extends BaseFeature {
+    received = 0;
+    constructor(client: MockMqttClient) { super(client, 'firewall'); }
+    protected async publishDiscovery(): Promise<void> { /* none */ }
+    protected async update(): Promise<void> { /* none */ }
+    protected async setup(): Promise<void> { this.listenToMessages(() => { this.received += 1; }); }
+  }
+
+  it('handles each message once however many times the feature restarts', async () => {
+    const client = new MockMqttClient();
+    await client.connect();
+    const feature = new ListeningFeature(client);
+    for (let i = 0; i < 3; i += 1) {
+      await feature.stop();
+      await feature.start();
+    }
+    client.emit('message', 'system_agent/nivuus/firewall/x', Buffer.from('1'));
+    expect(feature.received).toBe(1);
+    await feature.stop();
+    expect(client.listenerCount('message')).toBe(0);
+  });
+});

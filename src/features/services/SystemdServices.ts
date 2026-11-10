@@ -144,7 +144,7 @@ export class SystemdServices extends BaseFeature {
       this.mqttClient.subscribe(restartTopic, { qos: 1 });
     }
 
-    this.mqttClient.on('message', async (topic: string, message: Buffer) => {
+    this.listenToMessages(async (topic: string, message: Buffer) => {
       const topicStr = topic.toString();
 
       for (const serviceName of this.services) {

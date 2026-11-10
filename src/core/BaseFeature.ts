@@ -21,6 +21,10 @@ export abstract class BaseFeature {
   protected readonly payloadNotAvailable: string = 'offline';
 
   private updateIntervalId?: NodeJS.Timeout;
+  // MQTT message listeners this feature registered, removed on stop(). A
+  // feature restarts on every broker reconnection and every Home Assistant
+  // birth message: a listener left behind would run each command once more.
+  private messageListeners: Array<(...args: any[]) => void> = [];
 
   constructor(
     mqttClient: MqttClient,
@@ -94,8 +98,16 @@ export abstract class BaseFeature {
       clearInterval(this.updateIntervalId);
       this.updateIntervalId = undefined;
     }
+    for (const listener of this.messageListeners) this.mqttClient.removeListener('message', listener);
+    this.messageListeners = [];
     await this.cleanup(); // Feature-specific cleanup
     logger.info(`Feature ${this.featureName} stopped.`);
+  }
+
+  /** Listen to MQTT messages for as long as the feature runs; stop() removes the listener. */
+  protected listenToMessages(listener: (topic: string, payload: Buffer) => void | Promise<void>): void {
+    this.mqttClient.on('message', listener);
+    this.messageListeners.push(listener);
   }
 
   /**
