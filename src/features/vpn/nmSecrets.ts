@@ -34,7 +34,7 @@ export function escapeKeyfileValue(value: string): string {
   return out;
 }
 
-function sectionRange(lines: string[], name: string): { start: number; end: number } | undefined {
+export function sectionRange(lines: string[], name: string): { start: number; end: number } | undefined {
   const start = lines.findIndex(l => SECTION.exec(l)?.[1] === name);
   if (start < 0) return undefined;
   let end = start + 1;
@@ -43,7 +43,7 @@ function sectionRange(lines: string[], name: string): { start: number; end: numb
 }
 
 /** Sets `key=value` in `[section]`, dropping every previous occurrence of the key there. */
-function setKey(lines: string[], section: string, key: string, value: string): string[] {
+export function setKey(lines: string[], section: string, key: string, value: string): string[] {
   const entry = `${key}=${escapeKeyfileValue(value)}`;
   const range = sectionRange(lines, section);
   if (!range) {

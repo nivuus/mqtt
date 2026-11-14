@@ -25,7 +25,7 @@ export interface FeatureActions {
   wifi: 'get_networks' | 'add_network' | 'delete_network' | 'update_network' | 'reload';
   pppoe: 'get_credentials' | 'set_credentials' | 'test_connection' | 'restart';
   vm: 'list_vms' | 'start_vm' | 'stop_vm' | 'restart_vm' | 'get_state';
-  system: 'check_updates' | 'apply_updates' | 'get_status' | 'get_info';
+  system: 'check_updates' | 'get_status' | 'get_info';
   wizard: 'get_state' | 'set_step' | 'complete' | 'reset';
   vpn: 'import_profile' | 'get_status';
 }

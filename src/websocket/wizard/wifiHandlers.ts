@@ -1,127 +1,109 @@
 // src/websocket/wizard/wifiHandlers.ts
+//
+// Wizard Wi-Fi actions. Every file edit, validation and hostapd command goes through
+// the Wi-Fi feature (src/features/wifi/), the same code Home Assistant's own entities
+// use: a new network is a new BSS, a radio's main network is never rewritten by an
+// add or a delete, and any failure is thrown to the caller instead of answered as done.
 
 import { FeatureHandlers } from '../types';
 import { execute_argv } from '../../utils/exec';
-import { Validators } from '../../utils/validators';
-import logger from '../../utils/logger';
-import { writeRootFile } from './rootFile';
+import { SecurityType, validateNetworkConfig } from '../../features/wifi/securityProfiles';
 import {
-  ALLOWED_HOSTAPD_CONFIGS, HOSTAPD_CONFIG_24GHZ, HOSTAPD_CONFIG_5GHZ,
-  extractHostapdValue, updateHostapdValue, getSecurityConfig,
-} from './hostapdConfig';
+  addBss, defaultBridge, listBridges, parseNetworkConfig, radioSetting, removeNetwork,
+} from '../../features/wifi/hostapdConfigText';
+import {
+  ApplyMode, applyToHostapd, readHostapdConfig, writeHostapdConfig,
+} from '../../features/wifi/hostapdService';
+import { ALLOWED_HOSTAPD_CONFIGS, HOSTAPD_CONFIG_BY_BAND, bandOfConfig } from './hostapdConfig';
+
+interface WizardNetwork {
+  ssid: string;
+  security: SecurityType;
+  band: string;
+  channel?: number;
+  enabled: boolean;
+  configPath: string;
+  isPrimary: boolean;
+  bridge?: string;
+}
+
+/** Hand the change to hostapd; a command that failed is an error for the caller. */
+async function applyOrThrow(mode: ApplyMode): Promise<void> {
+  const result = await applyToHostapd(mode);
+  if (!result.ok) throw new Error(result.detail);
+}
+
+async function getNetworks(): Promise<WizardNetwork[]> {
+  const hostapdStatus = await execute_argv('systemctl', ['is-active', 'hostapd'], { quiet: true });
+  const hostapdActive = hostapdStatus.stdout.trim() === 'active';
+  const networks: WizardNetwork[] = [];
+  for (const configPath of ALLOWED_HOSTAPD_CONFIGS) {
+    const content = await readHostapdConfig(configPath);
+    const channel = radioSetting(content, 'channel');
+    // Passphrases stay on the host: the wizard only needs to know what exists.
+    for (const network of parseNetworkConfig(content, configPath).values()) {
+      networks.push({
+        ssid: network.ssid,
+        security: network.securityType,
+        band: bandOfConfig(configPath),
+        channel: channel ? parseInt(channel, 10) : undefined,
+        enabled: hostapdActive,
+        configPath,
+        isPrimary: network.isPrimary,
+        bridge: network.bridge,
+      });
+    }
+  }
+  return networks;
+}
+
+async function addNetwork(params: Record<string, unknown>): Promise<unknown> {
+  const { ssid, password = '', security = 'WPA2-PSK', band = '2.4GHz' } = params;
+  if (typeof ssid !== 'string' || typeof password !== 'string'
+      || typeof security !== 'string' || typeof band !== 'string') {
+    throw new Error('Missing ssid or password parameter');
+  }
+  const configPath = HOSTAPD_CONFIG_BY_BAND.get(band);
+  if (!configPath) throw new Error(`Unknown band: ${band}`);
+  const invalid = validateNetworkConfig(ssid, password, security);
+  if (invalid) throw new Error(invalid);
+
+  const content = await readHostapdConfig(configPath);
+  const existing = parseNetworkConfig(content, configPath);
+  if (existing.has(ssid)) throw new Error(`Network ${ssid} already exists on ${band}`);
+  const bridge = defaultBridge(existing.values(), listBridges(content));
+  if (!bridge) throw new Error(`No bridge= line in ${configPath}: cannot attach a new network`);
+
+  const updated = addBss(content, { ssid, password, securityType: security as SecurityType, bridge });
+  await writeHostapdConfig(configPath, updated.content);
+  // A new BSS is a new virtual interface: a reload cannot create it.
+  await applyOrThrow('restart');
+  return { success: true, ssid, band };
+}
+
+async function deleteNetwork(params: Record<string, unknown>): Promise<unknown> {
+  const { configPath, ssid } = params;
+  if (!configPath) throw new Error('Missing configPath parameter');
+  // configPath is wizard-controlled — restrict it to the known hostapd files.
+  if (typeof configPath !== 'string' || !ALLOWED_HOSTAPD_CONFIGS.includes(configPath)) {
+    throw new Error('Invalid configPath parameter');
+  }
+  if (typeof ssid !== 'string' || !ssid) throw new Error('Missing ssid parameter');
+
+  // removeNetwork refuses the radio's main network and an SSID that is not there.
+  const updated = removeNetwork(await readHostapdConfig(configPath), ssid);
+  await writeHostapdConfig(configPath, updated);
+  await applyOrThrow('restart');
+  return { success: true };
+}
 
 export function createWifiHandlers(): FeatureHandlers {
-  const configPaths = [HOSTAPD_CONFIG_24GHZ, HOSTAPD_CONFIG_5GHZ];
-
   return {
-    get_networks: async () => {
-      const networks: Array<{
-        ssid: string;
-        password?: string;
-        security: string;
-        band: string;
-        channel?: number;
-        enabled: boolean;
-        configPath: string;
-      }> = [];
-
-      // Check if hostapd is running (argv: exit 0 + "active" means running)
-      const hostapdStatus = await execute_argv('systemctl', ['is-active', 'hostapd']);
-      const hostapdActive = hostapdStatus.stdout.trim() === 'active';
-
-      for (const configPath of configPaths) {
-        try {
-          const result = await execute_argv('cat', [configPath]);
-          if (result.exitCode !== 0) continue;
-
-          const content = result.stdout;
-          const ssid = extractHostapdValue(content, 'ssid');
-          const wpa = extractHostapdValue(content, 'wpa');
-          const wpaKeyMgmt = extractHostapdValue(content, 'wpa_key_mgmt');
-          const channel = extractHostapdValue(content, 'channel');
-          const password = extractHostapdValue(content, 'wpa_passphrase');
-
-          let security = 'Open';
-          if (wpa === '2' && wpaKeyMgmt?.includes('WPA-PSK')) security = 'WPA2-PSK';
-          if (wpa === '2' && wpaKeyMgmt?.includes('SAE')) security = 'WPA3-SAE';
-          if (wpa === '3' || (wpaKeyMgmt?.includes('WPA-PSK') && wpaKeyMgmt?.includes('SAE'))) security = 'WPA2/WPA3-Mixed';
-
-          const band = configPath.includes('2.4') ? '2.4GHz' : '5GHz';
-
-          if (ssid) {
-            networks.push({
-              ssid,
-              password: password || undefined,
-              security,
-              band,
-              channel: channel ? parseInt(channel) : undefined,
-              enabled: hostapdActive && !!ssid,
-              configPath,
-            });
-          }
-        } catch (error) {
-          logger.error(`Error reading hostapd config ${configPath}:`, error);
-        }
-      }
-
-      return networks;
-    },
-
-    add_network: async (params) => {
-      const { ssid, password, security = 'WPA2-PSK', band = '2.4GHz' } = params as {
-        ssid: string; password: string; security?: string; band?: string;
-      };
-      if (!ssid || !password) throw new Error('Missing ssid or password parameter');
-      // SSID/passphrase are written verbatim into the config file — reject
-      // control characters that would corrupt it (or inject extra directives).
-      if (!Validators.isConfigSafeLine(ssid) || !Validators.isConfigSafeLine(password)) {
-        throw new Error('Invalid characters in ssid or password');
-      }
-
-      const configPath = band === '5GHz' ? HOSTAPD_CONFIG_5GHZ : HOSTAPD_CONFIG_24GHZ;
-
-      // Read existing config
-      const existing = await execute_argv('cat', [configPath]);
-      let content = existing.stdout;
-
-      // Update SSID and password
-      content = updateHostapdValue(content, 'ssid', ssid);
-      content = updateHostapdValue(content, 'wpa_passphrase', password);
-
-      // Update security settings
-      const securityConfig = getSecurityConfig(security);
-      content = updateHostapdValue(content, 'wpa', securityConfig.wpa);
-      content = updateHostapdValue(content, 'wpa_key_mgmt', securityConfig.wpa_key_mgmt);
-      if (securityConfig.rsn_pairwise) {
-        content = updateHostapdValue(content, 'rsn_pairwise', securityConfig.rsn_pairwise);
-      }
-
-      // Write config and reload
-      await writeRootFile(configPath, content);
-      await execute_argv('sudo', ['systemctl', 'reload', 'hostapd']);
-
-      return { success: true, ssid, band };
-    },
-
-    delete_network: async (params) => {
-      // For simplicity, we just clear the SSID - in reality you might want to disable the interface
-      const { configPath } = params as { configPath: string };
-      if (!configPath) throw new Error('Missing configPath parameter');
-      // configPath is wizard-controlled — restrict it to the known hostapd files.
-      if (!ALLOWED_HOSTAPD_CONFIGS.includes(configPath)) throw new Error('Invalid configPath parameter');
-
-      // Set SSID to empty or disable
-      const existing = await execute_argv('cat', [configPath]);
-      const content = updateHostapdValue(existing.stdout, 'ssid', '');
-
-      await writeRootFile(configPath, content);
-      await execute_argv('sudo', ['systemctl', 'reload', 'hostapd']);
-
-      return { success: true };
-    },
-
+    get_networks: getNetworks,
+    add_network: addNetwork,
+    delete_network: deleteNetwork,
     reload: async () => {
-      await execute_argv('sudo', ['systemctl', 'reload', 'hostapd']);
+      await applyOrThrow('reload');
       return { success: true };
     },
   };

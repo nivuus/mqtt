@@ -98,6 +98,18 @@ export function parseNetworkConfig(content: string, filePath: string): Map<strin
   return networks;
 }
 
+/** A setting of the radio itself (`channel`, `hw_mode`...): read before the first `bss=` line. */
+export function radioSetting(content: string, key: string): string | undefined {
+  const lines = content.split('\n');
+  return sectionValue(lines, sections(lines)[0], key);
+}
+
+/** The bridge a new network goes on: one no radio's main network uses (a guest one), else the first. */
+export function defaultBridge(networks: Iterable<NetworkConfig>, bridges: string[]): string {
+  const mainBridges = [...networks].filter((n) => n.isPrimary).map((n) => n.bridge);
+  return bridges.find((b) => !mainBridges.includes(b)) ?? bridges[0] ?? '';
+}
+
 /** Bridges the BSSes of this file are attached to, in file order. */
 export function listBridges(content: string): string[] {
   const lines = content.split('\n');

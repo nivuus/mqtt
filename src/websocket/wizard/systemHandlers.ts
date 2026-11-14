@@ -150,10 +150,8 @@ export function createSystemHandlers(): FeatureHandlers {
       const updates = result.stdout.trim().split('\n').filter(line => line.length > 0);
       return { count: updates.length, packages: updates };
     },
-
-    apply_updates: async () => {
-      await execute_argv('sudo', ['apt-get', 'upgrade', '-y']);
-      return { success: true };
-    },
+    // No apply_updates: upgrades belong to the AptUpdates feature
+    // (src/features/updates/), which runs them with a time-out sized for dpkg and
+    // reports their real outcome.
   };
 }
