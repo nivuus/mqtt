@@ -29,6 +29,22 @@ export class VmManager extends BaseFeature {
                          { enabled: true, update_interval_seconds: 60 };
   }
 
+  /**
+   * The VMs libvirt knows, or undefined when virsh could not be read. execute_argv never
+   * rejects, so a failed virsh (libvirtd down or restarting) has to be told apart here from
+   * an empty list: taken as "no VM", it withdrew every VM entity from Home Assistant.
+   */
+  private async listVms(): Promise<VmInfo[] | undefined> {
+    const result = await execute_argv('virsh', ['-c', 'qemu:///system', 'list', '--all']);
+    // execute_argv runs children with LC_ALL=C.utf8, so the header is not localized.
+    const header = result.stdout.split('\n')[0] ?? '';
+    if (result.exitCode !== 0 || !/^\s*Id\s+Name\s+State\s*$/.test(header)) {
+      logger.warn(`[${this.featureName}] 'virsh list --all' could not be read (exit code ${result.exitCode}): ${result.stderr.trim()}`);
+      return undefined;
+    }
+    return this.parseVirshList(result.stdout);
+  }
+
   private parseVirshList(output: string): VmInfo[] {
     const vms: VmInfo[] = [];
     if (!output) return vms;
@@ -56,14 +72,12 @@ export class VmManager extends BaseFeature {
     // Discovery will be dynamic based on VMs found.
     // We'll create a sensor for each VM's state and control buttons.
     let vmsToMonitor: VmInfo[] = [];
+    // Until virsh answers, nothing is known to be gone (see isStale()).
+    this.liveVmObjectIds = undefined;
     try {
       logger.debug(`[${this.featureName}] Discovering VMs with 'virsh list --all'`);
-      const virshListOutput = await execute_argv('virsh', ['-c', 'qemu:///system', 'list', '--all']);
-      logger.debug(`[${this.featureName}] 'virsh list --all' raw output:`, virshListOutput.stdout);
-      if (virshListOutput.stderr) {
-        logger.warn(`[${this.featureName}] 'virsh list --all' stderr during discovery:`, virshListOutput.stderr);
-      }
-      const vms = this.parseVirshList(virshListOutput.stdout);
+      const vms = await this.listVms();
+      if (!vms) return; // skip this round: the next restart or reconnection retries
       logger.debug(`[${this.featureName}] Parsed VMs:`, JSON.stringify(vms, null, 2));
 
       vmsToMonitor = this.featureConfig.vm_names && this.featureConfig.vm_names.length > 0
@@ -198,11 +212,8 @@ export class VmManager extends BaseFeature {
         // If no specific VMs are configured, discover all and update them
         try {
             logger.debug(`[${this.featureName}] Updating all VMs: fetching list with 'virsh list --all'`);
-            const virshListOutput = await execute_argv('virsh', ['-c', 'qemu:///system', 'list', '--all']);
-             if (virshListOutput.stderr) {
-                logger.warn(`[${this.featureName}] 'virsh list --all' stderr during update:`, virshListOutput.stderr);
-            }
-            const allVms = this.parseVirshList(virshListOutput.stdout);
+            const allVms = await this.listVms();
+            if (!allVms) return; // states stay as last published until virsh answers
             vmsToMonitorNames = allVms.map(vm => vm.name);
         } catch (error: any) {
             const errorMessage = error.message || 'Unknown error listing VMs during update';
@@ -229,13 +240,12 @@ export class VmManager extends BaseFeature {
             // Using 'virsh dominfo' might be more reliable for a single VM's state
             // However, 'virsh list --all' is also fine if we parse it correctly.
             // For simplicity, let's stick to 'virsh list --all' and parse.
-            const virshListOutput = await execute_argv('virsh', ['-c', 'qemu:///system', 'list', '--all']);
-            if (virshListOutput.stderr && !virshListOutput.stderr.includes("Domain not found")) { // Ignore "Domain not found" if VM was deleted
-                logger.warn(`[${this.featureName}] 'virsh list --all' stderr while fetching state for ${vmName}:`, virshListOutput.stderr);
-            }
-            const vms = this.parseVirshList(virshListOutput.stdout);
-            const vmInfo = vms.find(v => v.name === vmName);
-            if (vmInfo) {
+            const vms = await this.listVms();
+            const vmInfo = vms?.find(v => v.name === vmName);
+            if (!vms) {
+                currentState = 'error';
+                attributes.error = 'virsh could not be read';
+            } else if (vmInfo) {
                 currentState = vmInfo.state;
                 attributes.id = vmInfo.id; // Add ID as an attribute
             } else {
@@ -252,9 +262,7 @@ export class VmManager extends BaseFeature {
     } else {
         // If state is provided (e.g., from initial discovery), try to get ID
         try {
-            const virshListOutput = await execute_argv('virsh', ['-c', 'qemu:///system', 'list', '--all']);
-            const vms = this.parseVirshList(virshListOutput.stdout);
-            const vmInfo = vms.find(v => v.name === vmName);
+            const vmInfo = (await this.listVms())?.find(v => v.name === vmName);
             if (vmInfo) attributes.id = vmInfo.id;
         } catch { /* ignore, ID is optional here */ }
     }
