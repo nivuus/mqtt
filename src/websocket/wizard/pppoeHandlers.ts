@@ -4,9 +4,12 @@ import { FeatureHandlers } from '../types';
 import { execute_argv } from '../../utils/exec';
 import { Validators } from '../../utils/validators';
 import { sectionRange, setKey } from '../../features/vpn/nmSecrets';
-import { writeRootFile } from './rootFile';
+import { writeFileAtomic0600 } from '../../features/vpn/atomicFile';
 
-const NMCONNECTION_PATH = '/etc/NetworkManager/system-connections/pppoe-enp6s0.835.nmconnection';
+const CONNECTION_NAME = 'pppoe-enp6s0.835';
+const NMCONNECTION_PATH = `/etc/NetworkManager/system-connections/${CONNECTION_NAME}.nmconnection`;
+// nmcli waits up to 90 s for an activation by default: give the process time to finish it.
+const NMCLI_TIMEOUT_MS = 100000;
 
 function extractIniValue(content: string, section: string, key: string): string | null {
   const sectionRegex = new RegExp(`\\[${section}\\]([\\s\\S]*?)(?=\\[|$)`, 'i');
@@ -29,6 +32,24 @@ export function setPppoeCredentials(content: string, username: string, password:
   lines = setKey(lines, 'pppoe', 'username', username);
   lines = setKey(lines, 'pppoe', 'password', password);
   return lines.join('\n');
+}
+
+/** Run nmcli and throw with its own message when it fails (execute_argv never rejects). */
+async function nmcli(args: string[], quiet = false): Promise<string> {
+  const result = await execute_argv('sudo', ['nmcli', ...args], { timeoutMs: NMCLI_TIMEOUT_MS, quiet });
+  if (result.exitCode !== 0) {
+    const why = result.stderr.trim() || result.spawnError || `exit ${result.exitCode}`;
+    throw new Error(`nmcli ${args.join(' ')} failed: ${why}`);
+  }
+  return result.stdout;
+}
+
+async function readProfile(): Promise<string> {
+  const result = await execute_argv('sudo', ['cat', NMCONNECTION_PATH], { quiet: true });
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to read ${NMCONNECTION_PATH}: ${result.stderr.trim() || `exit ${result.exitCode}`}`);
+  }
+  return result.stdout;
 }
 
 export function createPppoeHandlers(): FeatureHandlers {
@@ -56,21 +77,23 @@ export function createPppoeHandlers(): FeatureHandlers {
         throw new Error('Invalid characters in username or password');
       }
 
-      // Read current config
-      const result = await execute_argv('sudo', ['cat', NMCONNECTION_PATH]);
-      const content = setPppoeCredentials(result.stdout, username, password);
+      // A failed read or a profile without [pppoe] throws before anything is written.
+      const original = await readProfile();
+      const content = setPppoeCredentials(original, username, password);
 
-      // Backup and write (via fs → no shell, no injection), then lock down perms
-      await writeRootFile(NMCONNECTION_PATH, content, 0o600);
-      await execute_argv('sudo', ['chmod', '600', NMCONNECTION_PATH]);
+      // Each file is replaced atomically: created 0600 next to its target, fsynced, renamed.
+      await writeFileAtomic0600(`${NMCONNECTION_PATH}.backup`, original);
+      await writeFileAtomic0600(NMCONNECTION_PATH, content);
 
       return { success: true };
     },
 
     restart: async () => {
-      await execute_argv('sudo', ['nmcli', 'connection', 'reload']);
-      await execute_argv('sudo', ['nmcli', 'connection', 'down', 'pppoe-enp6s0.835']); // may fail if already down
-      await execute_argv('sudo', ['nmcli', 'connection', 'up', 'pppoe-enp6s0.835']);
+      await nmcli(['connection', 'reload']);
+      // Take the link down only when it is up: `down` on an inactive profile is an error.
+      const active = (await nmcli(['-g', 'NAME', 'connection', 'show', '--active'], true)).split('\n');
+      if (active.includes(CONNECTION_NAME)) await nmcli(['connection', 'down', CONNECTION_NAME]);
+      await nmcli(['connection', 'up', CONNECTION_NAME]);
       return { success: true };
     },
 

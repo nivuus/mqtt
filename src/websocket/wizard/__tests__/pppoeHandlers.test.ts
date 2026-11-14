@@ -60,3 +60,71 @@ describe('pppoe.set_credentials writes the values byte for byte', () => {
     expect(written.split('[ipv4]')[1]).toBe(ORIGINAL.split('[ipv4]')[1]);
   });
 });
+
+describe('pppoe.set_credentials reports failures', () => {
+  const profileWrites = () => [...host.calls.filter((c) => c.args[0] === 'mv' && c.args[2] === PROFILE),
+    ...mockedAtomic.mock.calls.filter(([path]) => path === PROFILE)];
+
+  it('rejects and writes nothing when the profile cannot be read', async () => {
+    host.exitCodes.set(`sudo cat ${PROFILE}`, 1);
+    await expect(pppoe.set_credentials({ username: 'u', password: 'p' })).rejects.toThrow(/read/);
+    expect(profileWrites()).toEqual([]);
+    expect(host.files.has(`${PROFILE}.backup`)).toBe(false);
+    expect(host.files.get(PROFILE)).toBe(ORIGINAL);
+  });
+
+  it('rejects and writes nothing when the profile has no [pppoe] section', async () => {
+    host.files.set(PROFILE, '[connection]\nid=x\n');
+    await expect(pppoe.set_credentials({ username: 'u', password: 'p' })).rejects.toThrow(/\[pppoe\]/);
+    expect(profileWrites()).toEqual([]);
+  });
+
+  it('rejects when the file cannot be replaced', async () => {
+    // Whatever the write path is (a moved temp file or an atomic rename), its failure must surface.
+    mockedExec.mockImplementation(async (command, args) => {
+      if (command === 'sudo' && (args[0] === 'mv' || args[0] === 'cp')) return { stdout: '', stderr: 'denied', exitCode: 1 };
+      return host.exec(command, args) as never;
+    });
+    mockedAtomic.mockRejectedValue(new Error('EACCES: rename failed'));
+    await expect(pppoe.set_credentials({ username: 'u', password: 'p' })).rejects.toThrow();
+  });
+});
+
+describe('pppoe.restart reports failures', () => {
+  const nmcli = () => host.calls.filter((c) => c.args[0] === 'nmcli').map((c) => c.args.slice(1).join(' '));
+
+  it('takes an active link down, then up, and succeeds only then', async () => {
+    mockedExec.mockImplementation(async (command, args) => {
+      if (args.includes('--active')) {
+        host.calls.push({ command, args });
+        return { stdout: `lo\n${CONNECTION}\n`, stderr: '', exitCode: 0 };
+      }
+      return host.exec(command, args) as never;
+    });
+    await expect(pppoe.restart({})).resolves.toEqual({ success: true });
+    expect(nmcli()).toEqual([
+      'connection reload', '-g NAME connection show --active',
+      `connection down ${CONNECTION}`, `connection up ${CONNECTION}`,
+    ]);
+  });
+
+  it('rejects when nmcli cannot take the active link down', async () => {
+    mockedExec.mockImplementation(async (command, args) => {
+      if (args.includes('--active')) return { stdout: `${CONNECTION}\n`, stderr: '', exitCode: 0 };
+      if (args.includes('down')) return { stdout: '', stderr: 'deactivation failed', exitCode: 5 };
+      return host.exec(command, args) as never;
+    });
+    await expect(pppoe.restart({})).rejects.toThrow(/down/);
+  });
+
+  it('rejects when nmcli cannot bring the connection up', async () => {
+    host.exitCodes.set(`sudo nmcli connection up ${CONNECTION}`, 4);
+    await expect(pppoe.restart({})).rejects.toThrow(/up/);
+  });
+
+  it('rejects when nmcli cannot reload the profiles, without touching the link', async () => {
+    host.exitCodes.set('sudo nmcli connection reload', 1);
+    await expect(pppoe.restart({})).rejects.toThrow(/reload/);
+    expect(nmcli()).toEqual(['connection reload']);
+  });
+});
