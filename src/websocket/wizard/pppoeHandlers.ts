@@ -3,6 +3,7 @@
 import { FeatureHandlers } from '../types';
 import { execute_argv } from '../../utils/exec';
 import { Validators } from '../../utils/validators';
+import { sectionRange, setKey } from '../../features/vpn/nmSecrets';
 import { writeRootFile } from './rootFile';
 
 const NMCONNECTION_PATH = '/etc/NetworkManager/system-connections/pppoe-enp6s0.835.nmconnection';
@@ -17,14 +18,17 @@ function extractIniValue(content: string, section: string, key: string): string 
   return keyMatch ? keyMatch[1].trim() : null;
 }
 
-function updateIniValue(content: string, section: string, key: string, value: string): string {
-  const sectionRegex = new RegExp(`(\\[${section}\\][\\s\\S]*?)^${key}=.*$`, 'm');
-  if (content.match(sectionRegex)) {
-    return content.replace(sectionRegex, `$1${key}=${value}`);
-  }
-  // Key not found, add it to section
-  const sectionHeaderRegex = new RegExp(`(\\[${section}\\])`, 'i');
-  return content.replace(sectionHeaderRegex, `$1\n${key}=${value}`);
+/**
+ * Set the [pppoe] credentials of a NetworkManager keyfile. Line-based (no replacement
+ * patterns, so `$` in a value is literal) and escaped as GKeyFile reads it, so any
+ * printable value in any script round-trips. Every other line stays as it was.
+ */
+export function setPppoeCredentials(content: string, username: string, password: string): string {
+  let lines = content.split('\n');
+  if (!sectionRange(lines, 'pppoe')) throw new Error(`${NMCONNECTION_PATH} has no [pppoe] section`);
+  lines = setKey(lines, 'pppoe', 'username', username);
+  lines = setKey(lines, 'pppoe', 'password', password);
+  return lines.join('\n');
 }
 
 export function createPppoeHandlers(): FeatureHandlers {
@@ -54,11 +58,7 @@ export function createPppoeHandlers(): FeatureHandlers {
 
       // Read current config
       const result = await execute_argv('sudo', ['cat', NMCONNECTION_PATH]);
-      let content = result.stdout;
-
-      // Update credentials
-      content = updateIniValue(content, 'pppoe', 'username', username);
-      content = updateIniValue(content, 'pppoe', 'password', password);
+      const content = setPppoeCredentials(result.stdout, username, password);
 
       // Backup and write (via fs → no shell, no injection), then lock down perms
       await writeRootFile(NMCONNECTION_PATH, content, 0o600);
