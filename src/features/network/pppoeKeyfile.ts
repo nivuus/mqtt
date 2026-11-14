@@ -50,12 +50,13 @@ export function readPppoeKeyfile(text: string): PppoeKeyfileFields {
 }
 
 /**
- * The keyfile with `username` and `password` set in `[pppoe]`: existing keys are replaced in
- * place, missing ones are added at the end of the group, every other line is kept verbatim.
- * Throws when the file has no `[pppoe]` group.
+ * The keyfile with `username`, and `password` unless undefined, set in `[pppoe]`: existing
+ * keys are replaced in place, missing ones are added at the end of the group, every other line
+ * is kept verbatim. Throws when the file has no `[pppoe]` group.
  */
-export function withPppoeCredentials(text: string, username: string, password: string): string {
-  const wanted = new Map([['username', escapeKeyfileValue(username)], ['password', escapeKeyfileValue(password)]]);
+export function withPppoeCredentials(text: string, username: string, password: string | undefined): string {
+  const wanted = new Map([['username', escapeKeyfileValue(username)]]);
+  if (password !== undefined) wanted.set('password', escapeKeyfileValue(password));
   const lines = text.split('\n');
   const out: string[] = [];
   let group: string | undefined;

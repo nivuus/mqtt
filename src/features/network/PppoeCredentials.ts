@@ -2,11 +2,11 @@
 
 import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient, FeatureConfig } from '../../core/types';
-import { execute_command, execute_argv } from '../../utils/exec';
+import { execute_command } from '../../utils/exec';
 import { Validators, rejectInvalid } from '../../utils/validators';
 import logger from '../../utils/logger';
 import * as fs from 'fs';
-import { isProfileActive, saveCredentials } from './pppoeProfile';
+import { isProfileActive, readStoredUsername, saveCredentials } from './pppoeProfile';
 
 interface PppoeCredentialsFeatureConfig extends FeatureConfig {
   chap_secrets_path?: string;
@@ -33,62 +33,9 @@ export class PppoeCredentials extends BaseFeature {
                          };
   }
 
-  // Read PPPoE credentials from NetworkManager connection file
-  // Form values as typed in Home Assistant, staged until Save.
+  // Form values as typed in Home Assistant, staged until Save. The stored password is never
+  // read into it: an empty password means "keep the one in the keyfile".
   private form = { username: '', password: '' };
-
-  private async readNetworkManagerCredentials(): Promise<{ username: string; password: string } | null> {
-    try {
-      const nmPath = this.featureConfig.nmconnection_path || DEFAULT_NMCONNECTION_PATH;
-
-      // Read file with sudo (nmconnection files are restricted to root)
-      const result = await execute_argv('sudo', ['cat', nmPath]);
-
-      if (result.exitCode !== 0) {
-        logger.warn(`Failed to read NetworkManager connection file: ${nmPath}`);
-        return null;
-      }
-
-      const content = result.stdout;
-      let username = '';
-      let password = '';
-
-      // Parse INI-style format for [pppoe] section
-      const lines = content.split('\n');
-      let inPppoeSection = false;
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-
-        if (trimmed === '[pppoe]') {
-          inPppoeSection = true;
-          continue;
-        }
-
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-          inPppoeSection = false;
-          continue;
-        }
-
-        if (inPppoeSection) {
-          if (trimmed.startsWith('username=')) {
-            username = trimmed.substring('username='.length);
-          } else if (trimmed.startsWith('password=')) {
-            password = trimmed.substring('password='.length);
-          }
-        }
-      }
-
-      if (username || password) {
-        return { username, password };
-      }
-
-      return null;
-    } catch (error: any) {
-      logger.error(`Error reading NetworkManager credentials:`, error.message);
-      return null;
-    }
-  }
 
   private async getPppoeConnectionStatus(): Promise<{
     status: string;
@@ -214,10 +161,19 @@ export class PppoeCredentials extends BaseFeature {
     // Initialize states - read real credentials from NetworkManager
     await this.publishState(`${this.featureName}/last_action/state`, 'Ready', true);
 
-    const credentials = await this.readNetworkManagerCredentials();
-    this.form = { username: credentials?.username ?? '', password: credentials?.password ?? '' };
-    await this.publishTextState(`${this.featureName}/username_input/state`, this.form.username);
-    await this.publishTextState(`${this.featureName}/password_input/state`, this.form.password);
+    const nmPath = this.featureConfig.nmconnection_path || DEFAULT_NMCONNECTION_PATH;
+    let username = '';
+    try {
+      username = (await readStoredUsername(nmPath)) ?? '';
+    } catch (error: any) {
+      logger.warn(`Cannot read the PPPoE user name from ${nmPath}: ${error.message}`);
+    }
+    this.form = { username, password: '' };
+    await this.publishTextState(`${this.featureName}/username_input/state`, username);
+    // The ISP password is never published: a retained state is readable by every broker
+    // account allowed on this tree and kept in Home Assistant's history. Publishing the empty
+    // value on every start also overwrites a secret retained by an older agent.
+    await this.publishTextState(`${this.featureName}/password_input/state`, '');
   }
 
   private async checkFileExists(filePath: string): Promise<boolean> {
@@ -304,7 +260,8 @@ export class PppoeCredentials extends BaseFeature {
       await this.publishTextState(`${this.featureName}/username_input/state`, message);
     } else if (topic === this.prefixTopic(`${this.featureName}/password_input/set`)) {
       this.form.password = message;
-      await this.publishTextState(`${this.featureName}/password_input/state`, message);
+      await this.publishTextState(`${this.featureName}/password_input/state`, '');
+      await this.publishState(`${this.featureName}/last_action/state`, 'New password staged; press Save to apply it', true);
     }
 
     // Handle action commands
@@ -325,8 +282,8 @@ export class PppoeCredentials extends BaseFeature {
       const newUsername = this.form.username.trim();
       const newPassword = this.form.password.trim();
 
-      if (!newUsername || !newPassword) {
-        await this.publishState(`${this.featureName}/last_action/state`, 'Error: Username and password required', true);
+      if (!newUsername) {
+        await this.publishState(`${this.featureName}/last_action/state`, 'Error: Username required', true);
         return;
       }
 
@@ -339,12 +296,13 @@ export class PppoeCredentials extends BaseFeature {
       }
 
       const nmPath = this.featureConfig.nmconnection_path || DEFAULT_NMCONNECTION_PATH;
-      const outcome = await saveCredentials(nmPath, newUsername, newPassword);
+      const outcome = await saveCredentials(nmPath, newUsername, newPassword || undefined);
       if (!outcome.ok) {
         logger.error(`Saving PPPoE credentials for ${this.featureName} failed: ${outcome.error}`);
         await this.publishState(`${this.featureName}/last_action/state`, `Error: ${outcome.error}`, true);
         return;
       }
+      this.form.password = '';
       await this.publishState(`${this.featureName}/last_action/state`, outcome.restarted
         ? 'Credentials saved; connection restarted'
         : 'Credentials saved; the connection is inactive and was left down', true);

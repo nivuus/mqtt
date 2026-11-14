@@ -254,7 +254,10 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 
 **Key Features:**
 - **NetworkManager integration**: Reads and writes credentials directly to `/etc/NetworkManager/system-connections/pppoe-enp6s0.835.nmconnection`
-- **Real credential display**: Username and password are read from nmconnection file and displayed in Home Assistant
+- **Username display only**: the username is read from the keyfile; the ISP password is **never
+  published** (its retained state is always `{"value":""}`, which also overwrites a secret retained
+  by agents older than 2026-11-14). A typed password is staged, not echoed; Save with an empty
+  password keeps the stored one.
 - **Connection restart**: Automatically reloads and restarts PPPoE connection after credential changes
 - **No server field**: Previous "server" input was removed as it's not needed for PPPoE configuration
 

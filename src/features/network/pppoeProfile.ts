@@ -39,7 +39,8 @@ export async function isProfileActive(keyfile: string): Promise<boolean> {
   return isUuidActive(await profileUuid(keyfile));
 }
 
-export async function saveCredentials(keyfile: string, username: string, password: string): Promise<SaveOutcome> {
+/** Saves `username`, and `password` when given; an undefined password keeps the stored one. */
+export async function saveCredentials(keyfile: string, username: string, password: string | undefined): Promise<SaveOutcome> {
   let uuid: string;
   let wasActive: boolean;
   try {
