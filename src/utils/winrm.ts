@@ -10,6 +10,17 @@ interface WinRMConfig {
   port: number;
 }
 
+export const WINRM_PASSWORD_ENV_VAR = 'WINDOWS_ADMIN_PASSWORD';
+
+/**
+ * A password that can be sent: not empty, and not a public placeholder of the
+ * repository (CHANGE_ME*, any case) or an unresolved `${VAR}` reference, the
+ * rule serverConfig.ts applies to the wizard token.
+ */
+function isUsablePassword(password: string): boolean {
+  return password !== '' && !password.toUpperCase().startsWith('CHANGE_ME') && !/^\$\{.*\}$/.test(password);
+}
+
 /**
  * WinRM Client for executing commands on Windows machines
  * Uses winrm-client (the maintained fork of nodejs-winrm) for direct WinRM
@@ -30,6 +41,9 @@ export class WinRMClient {
    * @returns Promise resolving to the command output
    */
   async executeCommand(command: string): Promise<string> {
+    if (!isUsablePassword(this.config.password)) {
+      throw new Error(`WinRM password is not set: put ${WINRM_PASSWORD_ENV_VAR} in /etc/mqtt-system-agent.env`);
+    }
     logger.debug(`[WinRM] Executing command: ${command}`);
     // Run through cmd.exe: callers pass complete command lines, PowerShell ones included.
     const output = await runCommand(
@@ -82,7 +96,9 @@ export class WinRMClient {
 /**
  * Factory function to create a configured WinRMClient
  * Reads configuration from agent.yaml windows_vm section
- * Falls back to environment variables if not found in config
+ * Falls back to environment variables if not found in config, except for the
+ * password: WINDOWS_ADMIN_PASSWORD wins over the YAML, whose shipped
+ * placeholder each package upgrade puts back, as for the agent's other secrets.
  */
 export function createWinRMClient(): WinRMClient {
   const configManager = getConfigManager();
@@ -91,11 +107,14 @@ export function createWinRMClient(): WinRMClient {
   const config: WinRMConfig = {
     hostname: windowsVmConfig?.hostname || process.env.WINDOWS_HOSTNAME || '192.168.3.2',
     username: windowsVmConfig?.username || process.env.WINDOWS_ADMIN_USERNAME || 'Administrateur',
-    password: windowsVmConfig?.password || process.env.WINDOWS_ADMIN_PASSWORD || '',
+    password: process.env[WINRM_PASSWORD_ENV_VAR] || windowsVmConfig?.password || '',
     port: windowsVmConfig?.port || parseInt(process.env.WINDOWS_PORT || '5985', 10)
   };
 
   logger.info(`[WinRM] Creating client for ${config.hostname}:${config.port} as ${config.username}`);
+  if (!isUsablePassword(config.password)) {
+    logger.error(`[WinRM] No usable password (missing or placeholder): set ${WINRM_PASSWORD_ENV_VAR}; WinRM commands are refused until then.`);
+  }
 
   return new WinRMClient(config);
 }

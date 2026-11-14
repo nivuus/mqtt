@@ -419,6 +419,10 @@ placeholder is back but the env drop-in still wins.
 host's power). The battery test command is picked from `upscmd -l`, because models differ:
 the APC Back-UPS BX1600MI has no plain `test.battery.start`, only `.quick` and `.deep`.
 
+**WinRM password follows the same rule** (`WINDOWS_ADMIN_PASSWORD` in `/etc/mqtt-system-agent.env`,
+wins over `windows_vm.password`). `src/utils/winrm.ts` refuses to send an empty or placeholder
+(`CHANGE_ME*`, `${VAR}`) password: WinRM commands reject until the variable is set.
+
 **Wizard WebSocket token follows the same rule** (`NIVUUS_WS_TOKEN` in
 `/etc/mqtt-system-agent.env`, ≥ 32 chars, `openssl rand -hex 32`). The channel
 (`src/websocket/`) runs root-level actions for the HA `nivuus_wizard` integration, so

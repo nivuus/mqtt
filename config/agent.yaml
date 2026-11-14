@@ -53,6 +53,8 @@ windows_vm:
   hostname: "192.168.3.2"
   port: 5985
   username: "Administrateur"
+  # Placeholder, never sent: provide WINDOWS_ADMIN_PASSWORD in /etc/mqtt-system-agent.env
+  # (mode 600, survives .deb upgrades, wins over this value).
   password: "CHANGE_ME_PASSWORD"
 
 # Feature Configuration
