@@ -87,9 +87,11 @@ export class MockMqttClient extends EventEmitter implements MqttClientInterface 
     return this;
   }
 
-  // Helper to simulate an incoming message for testing features
-  public simulateMessage(topic: string, message: string | Buffer): void {
-    this.emit('message', topic, message);
+  // Helper to simulate an incoming message for testing features. Like mqtt.js,
+  // the payload is a Buffer and the packet carries the retain flag.
+  public simulateMessage(topic: string, message: string | Buffer, opts: { retain?: boolean } = {}): void {
+    const payload = Buffer.isBuffer(message) ? message : Buffer.from(message);
+    this.emit('message', topic, payload, { cmd: 'publish', topic, payload, retain: opts.retain === true, qos: 0, dup: false });
   }
 
   // Helper to clear records for fresh tests

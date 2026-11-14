@@ -4,6 +4,7 @@ import { MqttClient, AgentConfig, FeatureConfig, HaDiscoveryPayload, DeviceInfo 
 import { getConfigManager } from '../config';
 import logger from '../utils/logger';
 import { discoveryTopic, toTopicSegment } from '../homeassistant/discovery/discoveryTopic';
+import type { IPublishPacket } from 'mqtt';
 
 /**
  * Abstract base class for all features.
@@ -113,12 +114,14 @@ export abstract class BaseFeature {
    * async listener returns, so its rejection was unhandled and the agent exited on it,
    * and a synchronous throw kept the next features' listeners from the message.
    */
-  protected listenToMessages(listener: (topic: string, payload: Buffer) => void | Promise<void>): void {
+  protected listenToMessages(
+    listener: (topic: string, payload: Buffer, packet?: IPublishPacket) => void | Promise<void>,
+  ): void {
     const report = (error: unknown) =>
       logger.error(`[${this._featureName}] MQTT message handler failed:`, error);
-    const isolated = (topic: string, payload: Buffer) => {
+    const isolated = (topic: string, payload: Buffer, packet?: IPublishPacket) => {
       try {
-        Promise.resolve(listener(topic, payload)).catch(report);
+        Promise.resolve(listener(topic, payload, packet)).catch(report);
       } catch (error) {
         report(error);
       }
