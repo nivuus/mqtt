@@ -36,8 +36,10 @@ The MQTT agent uses a **feature-based architecture** with class inheritance:
 
 1. **Configuration System** (`src/config.ts`):
    - Singleton ConfigManager loads `config/agent.yaml`
-   - Provides fallback configuration if loading fails
-   - **IMPORTANT**: Error fallback uses same `device_info.identifiers` and `base_topic` as normal config to maintain Home Assistant entity consistency
+   - **No fallback**: a missing, empty, malformed or incomplete file (`mqtt.host`, `mqtt.base_topic`,
+     `device_info.identifiers`, `features`) throws `ConfigError`, so the agent exits non-zero and systemd
+     shows it. A built-in minimal fallback used to run a do-nothing agent the unit reported healthy.
+   - `device_info.sw_version` always comes from `package.json`, never from the YAML
 
 2. **MQTT Client** (`src/mqtt/MqttClient.ts`):
    - Wrapper around `mqtt` npm package
@@ -129,7 +131,7 @@ sudo journalctl -u mqtt-system-agent.service -f
 
 `config/agent.yaml` contains:
 - MQTT broker connection (host: 192.168.0.1, port: 1883)
-- Device info (identifiers, name, model) - **must match error fallback in config.ts**
+- Device info (identifiers, name, model): changing `identifiers` creates a new device in Home Assistant
 - Feature enable/disable flags and update intervals
 
 ### MQTT Connection for Testing
@@ -197,7 +199,7 @@ Topic notes in `docs/claude/`:
 
 ## Critical Implementation Notes
 
-1. **Entity Consistency**: The `device_info.identifiers` must remain consistent between normal and error configurations to prevent duplicate Home Assistant entities
+1. **Entity Consistency**: `device_info.identifiers` must never change, or Home Assistant gets duplicate entities
 
 2. **Feature Registration**: Features must be added to `availableFeatures` map in `Agent.ts` to be discoverable
 
