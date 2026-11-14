@@ -158,3 +158,48 @@ describe("quiet option — routine read-only calls log at debug", () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 });
+
+describe("redactArgs — argv entries that must never be logged", () => {
+  const logged = () => [logger.debug, logger.info, logger.warn, logger.error]
+    .flatMap(fn => (fn as jest.Mock).mock.calls.flat().map(String));
+
+  it("still passes the entry to the program", async () => {
+    const result = await execute_argv("sh", ["-c", 'printf "%s" "$0"', "the-real-value"], { redactArgs: [2] });
+    expect(result.stdout).toBe("the-real-value");
+  });
+
+  it("keeps the entry out of the attempt line and the failure line", async () => {
+    const secret = "do-not-log-this-arg";
+    const result = await execute_argv("sh", ["-c", "exit 2", secret], { redactArgs: [2] });
+    expect(result.exitCode).toBe(2);
+    expect(logged().some(line => line.includes(secret))).toBe(false);
+    expect(logged().some(line => line.includes("Attempting to execute argv command: sh -c exit 2 ***"))).toBe(true);
+  });
+
+  it("keeps the entry out of the timeout line", async () => {
+    const secret = "do-not-log-this-arg-either";
+    await execute_argv("sh", ["-c", "sleep 5", secret], { redactArgs: [2], timeoutMs: 200 });
+    expect(logged().some(line => line.includes(secret))).toBe(false);
+  });
+});
+
+describe("child environment", () => {
+  const SECRET_VARS = ["MQTT_PASSWORD", "NUT_PASSWORD", "NIVUUS_WS_TOKEN", "WINDOWS_ADMIN_PASSWORD"];
+
+  beforeEach(() => { for (const name of SECRET_VARS) process.env[name] = `value-of-${name}`; });
+  afterEach(() => { for (const name of SECRET_VARS) delete process.env[name]; });
+
+  it.each([
+    ["execute_argv", () => execute_argv("env", [])],
+    ["execute_argv_input", () => execute_argv_input("env", [], "")],
+    // A whitelisted prefix; the shell's children inherit its environment.
+    ["execute_command", () => execute_command("cat /proc/self/environ | tr '\\0' '\\n'", false)],
+  ])("%s does not hand the agent's secrets to the child", async (_name, run) => {
+    const { stdout, exitCode } = await run();
+    expect(exitCode).toBe(0);
+    // Booleans only: a failure must not print the environment into the test log.
+    expect(SECRET_VARS.filter(name => stdout.includes(`value-of-${name}`))).toEqual([]);
+    expect(/^PATH=/m.test(stdout)).toBe(true);
+    expect(/^LC_ALL=C\.utf8$/m.test(stdout)).toBe(true);
+  });
+});

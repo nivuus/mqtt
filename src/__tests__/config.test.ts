@@ -109,3 +109,34 @@ describe('a valid configuration', () => {
     expect(config.device_info.sw_version).toBe(packageVersion);
   });
 });
+
+describe('describeConfig', () => {
+  it('masks every credential, whichever section holds it', () => {
+    process.env.MQTT_PASSWORD = 'mqtt-secret-value';
+    const config = initialize(writeConfig(`${VALID_YAML}
+windows_vm:
+  hostname: "192.0.2.1"
+  port: 5985
+  username: "Administrator"
+  password: "winrm-secret-value"
+websocket:
+  enabled: true
+  auth:
+    type: "token"
+    token: "wizard-secret-value"
+`));
+    let described = '';
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      described = require('../config').describeConfig(config);
+    });
+    for (const secret of ['mqtt-secret-value', 'winrm-secret-value', 'wizard-secret-value']) {
+      expect(described.includes(secret)).toBe(false);
+    }
+    expect(JSON.parse(described)).toMatchObject({
+      mqtt: { host: 'broker.test', username: 'from-yaml', password: '***' },
+      windows_vm: { username: 'Administrator', password: '***' },
+      websocket: { auth: { type: 'token', token: '***' } },
+    });
+  });
+});

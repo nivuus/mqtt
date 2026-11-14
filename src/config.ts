@@ -105,6 +105,19 @@ export function loadAgentConfig(configPath: string, env: NodeJS.ProcessEnv = pro
   return config as unknown as AgentConfig;
 }
 
+// Configuration keys (English identifiers of agent.yaml, not user text) whose value is a credential.
+const CREDENTIAL_KEY = /password|passphrase|token|secret/i;
+
+/**
+ * The configuration as index.ts logs it, every credential masked: the loaded value
+ * carries the broker password of the environment file, and the journal is readable
+ * far more widely than that file.
+ */
+export function describeConfig(config: AgentConfig): string {
+  return JSON.stringify(config, (key, value) =>
+    CREDENTIAL_KEY.test(key) && typeof value === 'string' && value !== '' ? '***' : value, 2);
+}
+
 /**
  * Loads, validates, and provides access to the agent's configuration.
  */

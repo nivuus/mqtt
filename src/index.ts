@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Agent } from './core/Agent';
-import { initializeConfigManager, getConfigManager } from './config';
+import { initializeConfigManager, getConfigManager, describeConfig } from './config';
 import logger, { initializeLogger } from './utils/logger';
 import minimist from 'minimist';
 import { runCli } from './cli/index';
@@ -17,7 +17,7 @@ try {
   initializeConfigManager(configPath);
   initializeLogger();
   const config = getConfigManager().config;
-  logger.debug('Configuration loaded:', JSON.stringify(config, null, 2));
+  logger.debug('Configuration loaded:', describeConfig(config));
 } catch (e: any) {
   console.error('Configuration error:', e.message);
   process.exit(1);

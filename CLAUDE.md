@@ -375,6 +375,10 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
 - `execute_argv` never rejects and logs any non-zero exit at warn. A command whose exit code
   is the answer (`firewall-cmd --query-*`: 1 = no) passes `answerExitCodes: [1]`, and the caller
   still treats any other code as a failure.
+- `execute_argv` logs its argv: a secret a program only takes as argv is passed with
+  `redactArgs: [<index>]` (shown `***` in every log line). Children get `childEnvironment()`,
+  the agent's environment without `AGENT_SECRET_ENV_VARS` (broker / NUT / WinRM passwords,
+  wizard token). The configuration is logged through `describeConfig()`, credentials masked.
 - WinRM goes through `winrm-client` (`src/utils/winrm.ts`), which rejects on failure. Its
   abandoned ancestor `nodejs-winrm` *returned* the Error, which callers then parsed as output.
 - Publish error messages to `{feature_name}/last_action/state` sensor
