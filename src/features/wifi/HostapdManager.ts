@@ -9,7 +9,7 @@ import { MqttClient, FeatureConfig } from '../../core/types';
 import logger from '../../utils/logger';
 import { SecurityType, isSecurityType, validateNetworkConfig } from './securityProfiles';
 import {
-  NetworkConfig, parseNetworkConfig, listBridges, addBss, updateNetwork, removeNetwork,
+  NetworkConfig, parseNetworkConfig, listBridges, addBss, updateNetwork, removeNetwork, defaultBridge,
 } from './hostapdConfigText';
 import { ApplyMode, readHostapdConfig, writeHostapdConfig, applyToHostapd } from './hostapdService';
 import { EntitySpec, globalEntities, networkEntities, bandsLabel } from './hostapdEntities';
@@ -173,10 +173,8 @@ export class HostapdManager extends BaseFeature {
     this.pendingChanges.delete(ssid);
   }
 
-  /** A bridge no radio's main network uses (a guest network), else the first one. */
   private defaultBridge(): string {
-    const mainBridges = [...this.networks.values()].filter((n) => n.isPrimary).map((n) => n.bridge);
-    return this.bridges.find((b) => !mainBridges.includes(b)) ?? this.bridges[0] ?? '';
+    return defaultBridge(this.networks.values(), this.bridges);
   }
 
   private async loadNetworks(): Promise<boolean> {

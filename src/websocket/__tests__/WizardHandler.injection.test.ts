@@ -65,7 +65,7 @@ describe('WizardHandler — injection payloads are rejected before execution', (
   it('rejects a newline-injected SSID (add_network)', async () => {
     await expect(handler.handleCommand(cmd('wifi', 'add_network', {
       ssid: 'evil\ninterface=wlan9', password: 'password123',
-    }))).rejects.toThrow('Invalid characters in ssid or password');
+    }))).rejects.toThrow('SSID contains invalid characters');
   });
 
   it('rejects newline-injected PPPoE credentials (set_credentials)', async () => {

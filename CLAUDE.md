@@ -244,6 +244,8 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
   `exitCode`. Before 2026-11-09 the host unit had no `ExecReload` and every reload failed
   while HA said "reloaded successfully".
 - Delete removes the whole `bss=` section; a radio's main network cannot be deleted.
+- The wizard's `wifi.*` actions (`src/websocket/wizard/wifiHandlers.ts`) use these same modules:
+  add = new BSS + restart, delete needs `ssid`, failures throw, `get_networks` returns no password.
 - SSID limit is 32 **bytes** (UTF-8), not characters; SAE passwords may use any script, WPA2
   and mixed-mode passphrases must be 8-63 printable ASCII (802.11i).
 - Known issues left open on purpose: `docs/claude/wifi-known-issues.md` (world-readable files
