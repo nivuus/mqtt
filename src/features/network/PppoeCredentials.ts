@@ -6,6 +6,7 @@ import { execute_command, execute_argv } from '../../utils/exec';
 import { Validators, rejectInvalid } from '../../utils/validators';
 import logger from '../../utils/logger';
 import * as fs from 'fs';
+import { isProfileActive, saveCredentials } from './pppoeProfile';
 
 interface PppoeCredentialsFeatureConfig extends FeatureConfig {
   chap_secrets_path?: string;
@@ -285,7 +286,8 @@ export class PppoeCredentials extends BaseFeature {
   protected async setup(): Promise<void> {
     // Subscribe to command topics for PPPoE management
     const commandTopic = this.prefixTopic(`${this.featureName}/command/#`);
-    const inputTopic = this.prefixTopic(`${this.featureName}/*/set`);
+    // `+` is the MQTT single-level wildcard; a `*` is a literal character that matches nothing.
+    const inputTopic = this.prefixTopic(`${this.featureName}/+/set`);
     
     await this.mqttClient.subscribe(commandTopic);
     await this.mqttClient.subscribe(inputTopic);
@@ -337,61 +339,15 @@ export class PppoeCredentials extends BaseFeature {
       }
 
       const nmPath = this.featureConfig.nmconnection_path || DEFAULT_NMCONNECTION_PATH;
-
-      // Read current config
-      const readResult = await execute_argv('sudo', ['cat', nmPath]);
-      if (readResult.exitCode !== 0) {
-        throw new Error(`Failed to read NetworkManager config: ${nmPath}`);
+      const outcome = await saveCredentials(nmPath, newUsername, newPassword);
+      if (!outcome.ok) {
+        logger.error(`Saving PPPoE credentials for ${this.featureName} failed: ${outcome.error}`);
+        await this.publishState(`${this.featureName}/last_action/state`, `Error: ${outcome.error}`, true);
+        return;
       }
-
-      const lines = readResult.stdout.split('\n');
-      const updatedLines: string[] = [];
-      let inPppoeSection = false;
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-
-        if (trimmed === '[pppoe]') {
-          inPppoeSection = true;
-          updatedLines.push(line);
-          continue;
-        }
-
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-          inPppoeSection = false;
-          updatedLines.push(line);
-          continue;
-        }
-
-        if (inPppoeSection) {
-          if (trimmed.startsWith('username=')) {
-            updatedLines.push(`username=${newUsername}`);
-          } else if (trimmed.startsWith('password=')) {
-            updatedLines.push(`password=${newPassword}`);
-          } else {
-            updatedLines.push(line);
-          }
-        } else {
-          updatedLines.push(line);
-        }
-      }
-
-      // Create backup
-      await execute_argv('sudo', ['cp', nmPath, `${nmPath}.backup`]);
-
-      // Write to temp file via fs (no shell → no injection), then move into place
-      const tempFile = `/tmp/pppoe_nm_${Date.now()}.nmconnection`;
-      const content = updatedLines.join('\n');
-      fs.writeFileSync(tempFile, content, { mode: 0o600 });
-      await execute_argv('sudo', ['mv', tempFile, nmPath]);
-      await execute_argv('sudo', ['chmod', '600', nmPath]);
-
-      // Reload NetworkManager connection to apply changes
-      await execute_argv('sudo', ['nmcli', 'connection', 'reload']);
-      await execute_argv('sudo', ['nmcli', 'connection', 'down', 'pppoe-enp6s0.835']);
-      await execute_argv('sudo', ['nmcli', 'connection', 'up', 'pppoe-enp6s0.835']);
-
-      await this.publishState(`${this.featureName}/last_action/state`, 'Credentials saved and connection restarted', true);
+      await this.publishState(`${this.featureName}/last_action/state`, outcome.restarted
+        ? 'Credentials saved; connection restarted'
+        : 'Credentials saved; the connection is inactive and was left down', true);
       logger.info(`PPPoE credentials updated in ${nmPath}`);
 
     } catch (error: any) {
@@ -405,15 +361,12 @@ export class PppoeCredentials extends BaseFeature {
     try {
       await this.publishState(`${this.featureName}/last_action/state`, 'Testing connection...', true);
       
-      // Test PPPoE connection
-      const result = await execute_argv('sudo', ['pppd', 'call', 'provider']);
-      
-      if (result.exitCode === 0) {
-        await this.publishState(`${this.featureName}/last_action/state`, 'Connection test successful', true);
-      } else {
-        await this.publishState(`${this.featureName}/last_action/state`, 'Connection test failed', true);
-      }
-      
+      // A status read of the NetworkManager profile: whether it is active. It never brings
+      // the link up (the profile may be a fallback uplink kept down on purpose).
+      const nmPath = this.featureConfig.nmconnection_path || DEFAULT_NMCONNECTION_PATH;
+      const active = await isProfileActive(nmPath);
+      await this.publishState(`${this.featureName}/last_action/state`, active ? 'Connection active' : 'Connection inactive', true);
+
     } catch (error: any) {
       const errorMessage = error.message || 'Unknown error during connection test';
       logger.error(`Error testing PPPoE connection for ${this.featureName}:`, errorMessage);

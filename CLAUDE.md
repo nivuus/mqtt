@@ -261,10 +261,15 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 **Critical Implementation Points:**
 - Password input uses `mode: 'password'`: Home Assistant renders an editable, masked input
   (verified on 2026-11-10 in the 2026.11 frontend; `mode: 'text'` showed it in clear on dashboards)
-- Credentials are read with sudo due to nmconnection file permissions (600)
-- INI-style parser for `[pppoe]` section: `username=` and `password=` lines
-- After saving: `nmcli connection reload` + `nmcli connection down/up pppoe-enp6s0.835`
-- Backup created before any modification: `{path}.backup`
+- Form fields arrive on `pppoe_credentials/+/set` (`*` is not an MQTT wildcard: before
+  2026-11-14 the form never reached the agent and Save rewrote the old values).
+- Save (`pppoeProfile.ts`, `pppoeKeyfile.ts`): asks NM whether the profile (by the keyfile's
+  UUID) is active, writes the keyfile atomically 0600 (`vpn/atomicFile.ts`, GLib escapes),
+  `nmcli connection load <file>`, then `nmcli connection up uuid <uuid>` **only if it was
+  active**: the profile is the fallback WAN, kept down while the DHCP WAN works; it is never
+  brought up by a save. Every step's failure is published as `Error: ...` in `last_action`.
+- The "test" button is a status read (`Connection active|inactive`), never `pppd`.
+- No `.backup` copy (a second keyfile in `system-connections/` may be loaded as a profile).
 
 **Legacy files not used:**
 - `/etc/ppp/chap-secrets` and `/etc/ppp/pap-secrets` - monitored but not modified
