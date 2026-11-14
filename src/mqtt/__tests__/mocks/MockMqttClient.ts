@@ -2,7 +2,7 @@
 
 import { EventEmitter } from 'node:events';
 import { MqttClient as MqttClientInterface } from '../../../core/types';
-import { IClientPublishOptions, IClientSubscribeOptions, PacketCallback, ClientSubscribeCallback } from 'mqtt';
+import { IClientPublishOptions, IClientSubscribeOptions } from 'mqtt';
 
 export interface PublishedMessage {
   topic: string;
@@ -10,11 +10,15 @@ export interface PublishedMessage {
   options?: IClientPublishOptions;
 }
 
+// Mirrors src/mqtt/MqttClient.ts: a mock more permissive than the real client
+// hides the failures production meets (a disconnected subscribe rejects).
 export class MockMqttClient extends EventEmitter implements MqttClientInterface {
   public connected: boolean = false;
   public connecting: boolean = false;
   
   public publishedMessages: PublishedMessage[] = [];
+  /** Retained messages published while disconnected, as the real client queues them. */
+  public queuedMessages: PublishedMessage[] = [];
   public subscribedTopics: string[] = [];
   public unsubscribedTopics: string[] = []; // For testing cleanup
 
@@ -30,25 +34,20 @@ export class MockMqttClient extends EventEmitter implements MqttClientInterface 
     return Promise.resolve(); 
   }
 
-  async publish(topic: string, message: string | Buffer, options?: IClientPublishOptions, callback?: PacketCallback): Promise<this> {
+  // Like the real client: resolves while disconnected, keeping only retained messages.
+  async publish(topic: string, message: string | Buffer, options?: IClientPublishOptions): Promise<this> {
     if (!this.connected) {
-      if (callback) callback(new Error('MockMQTT: Not connected'));
-      // To conform to Promise<this>, we should probably throw or return a rejected promise
-      // For a mock, simply returning a resolved promise of this might be acceptable for tests not checking failure.
-      // Or, throw new Error('MockMQTT: Not connected');
-      return Promise.reject(new Error('MockMQTT: Not connected'));
+      if (options?.retain) this.queuedMessages.push({ topic, message, options });
+      return this;
     }
     this.publishedMessages.push({ topic, message, options });
-    if (callback) callback(undefined); // Simulate success
-    return Promise.resolve(this);
+    return this;
   }
 
-  async subscribe(topic: string | string[], options?: IClientSubscribeOptions | ClientSubscribeCallback, callback?: ClientSubscribeCallback): Promise<this> {
+  // Like the real client: rejects while disconnected.
+  async subscribe(topic: string | string[], _options?: IClientSubscribeOptions): Promise<this> {
     if (!this.connected) {
-      const err = new Error('MockMQTT: Not connected');
-      if (typeof options === 'function') options(err, undefined);
-      else if (callback) callback(err, undefined);
-      return Promise.reject(err);
+      throw new Error('MockMQTT: Not connected');
     }
 
     const topics = Array.isArray(topic) ? topic : [topic];
@@ -57,10 +56,7 @@ export class MockMqttClient extends EventEmitter implements MqttClientInterface 
         this.subscribedTopics.push(t);
       }
     });
-    
-    if (typeof options === 'function') options(null, topics.map(t => ({ topic: t, qos: 0 }))); 
-    else if (callback) callback(null, topics.map(t => ({ topic: t, qos: 0 })));
-    return Promise.resolve(this);
+    return this;
   }
 
   // Unsubscribe can remain synchronous or also be async if the underlying lib is.
@@ -99,6 +95,7 @@ export class MockMqttClient extends EventEmitter implements MqttClientInterface 
   // Helper to clear records for fresh tests
   public reset(): void {
     this.publishedMessages = [];
+    this.queuedMessages = [];
     this.subscribedTopics = [];
     this.unsubscribedTopics = [];
     this.connected = false;

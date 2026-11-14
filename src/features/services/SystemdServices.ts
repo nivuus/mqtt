@@ -141,7 +141,7 @@ export class SystemdServices extends BaseFeature {
       const serviceId = serviceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const restartTopic = this.prefixTopic(`${this.featureName}/${serviceId}/restart`);
 
-      this.mqttClient.subscribe(restartTopic, { qos: 1 });
+      await this.mqttClient.subscribe(restartTopic, { qos: 1 });
     }
 
     this.listenToMessages(async (topic: string, message: Buffer) => {

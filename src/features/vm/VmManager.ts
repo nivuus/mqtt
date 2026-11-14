@@ -113,18 +113,14 @@ export class VmManager extends BaseFeature {
   protected async setup(): Promise<void> {
     // Subscribe to command topics for all potential VMs.
     // A more optimized approach might subscribe only to discovered/configured VMs.
+    // A failed subscription fails setup(): BaseFeature.start() logs it and the
+    // next broker connection restarts the feature.
     const commandTopicPattern = this.prefixTopic(`${this.featureName}/+/command`); // '+' is wildcard for VM name
-    this.mqttClient.subscribe(commandTopicPattern, undefined, (err: Error | null) => {
-      if (err) {
-        logger.error(`Failed to subscribe to VM command topics (${commandTopicPattern}):`, err);
-      }
-    });
+    await this.mqttClient.subscribe(commandTopicPattern);
     this.listenToMessages(this.handleMqttMessage.bind(this));
     // The broker sends back every retained discovery config of this device:
     // withdrawStaleVm() removes those of VMs libvirt no longer has.
-    this.mqttClient.subscribe(this.discoveryPattern, { qos: 1 }, (err: Error | null) => {
-      if (err) logger.error(`Failed to subscribe to ${this.discoveryPattern}:`, err);
-    });
+    await this.mqttClient.subscribe(this.discoveryPattern, { qos: 1 });
   }
 
   private get discoveryPattern(): string {

@@ -358,7 +358,11 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
   come back at once.
 - MQTT message handlers are registered with `listenToMessages()`, which `stop()` removes. A raw
   `mqttClient.on('message')` in `setup()` adds one more handler at every restart, so each command ran
-  once per reconnection.
+  once per reconnection. A handler that throws or rejects is logged there; it no longer exits the agent.
+- `MqttClient.publish` / `subscribe` are promise-only (no callbacks). `subscribe` rejects while
+  disconnected: always `await` it (in `setup()`, a failure is logged by `start()` and the next
+  connection restarts the feature). `publish` resolves while disconnected and queues retained messages.
+  `MockMqttClient` mirrors both behaviours.
 - Publish states AFTER publishing discovery entities
 - Use `mode: 'password'` for password fields: they stay editable, masked on screen
 

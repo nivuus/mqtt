@@ -149,45 +149,10 @@ export class Agent {
     await this.initializeWebSocketServer(); // Initialize WebSocket server for Wizard API
 
     // Setup MQTT event handlers
-    this.mqttClient.on('connect', async () => {
-      logger.info(`Connected to MQTT broker at ${this.config.mqtt.host}:${this.config.mqtt.port}`);
-      await this.mqttClient.publish(this.availabilityTopic, this.payloadAvailable, { qos: 1, retain: true });
-      // Inline Home Assistant MQTT discovery for alerts and events
-      try {
-        const cfg = this.config;
-        const base = cfg.mqtt.base_topic;
-        const device = {
-          identifiers: cfg.device_info.identifiers,
-          name: cfg.device_info.name,
-          model: cfg.device_info.model,
-          manufacturer: cfg.device_info.manufacturer,
-          sw_version: cfg.device_info.sw_version,
-        };
-        for (const deviceId of cfg.device_info.identifiers) {
-          // Per-id Alert discovery
-          const alertConfigTopic = discoveryTopic('sensor', deviceId, 'alert');
-          const alertStateTopic = `${base}/${deviceId}/alert`;
-          const alertConfig = { name: `System Alert Sensor`, state_topic: alertStateTopic, json_attributes_topic: alertStateTopic, value_template: "{{ value_json.message }}", unique_id: `${deviceId}_alert`, device, icon: "mdi:alert" };
-          await this.mqttClient.publish(alertConfigTopic, JSON.stringify(alertConfig), { qos: 1, retain: true });
-          // Per-id Event discovery
-          const eventConfigTopic = discoveryTopic('sensor', deviceId, 'event');
-          const eventStateTopic = `${base}/${deviceId}/event`;
-          const eventConfig = { name: `System Event Sensor`, state_topic: eventStateTopic, json_attributes_topic: eventStateTopic, value_template: "{{ value_json.type }}", unique_id: `${deviceId}_event`, device, icon: "mdi:bell" };
-          await this.mqttClient.publish(eventConfigTopic, JSON.stringify(eventConfig), { qos: 1, retain: true });
-        }
-        logger.info('HA discovery inline for alerts and events published for all ids.');
-      } catch (err) {
-        logger.error('HA discovery inline failed:', err);
-      }
-      
-      logger.info(`Agent status published: ${this.payloadAvailable}`);
-      
-      try {
-        await this.haBirth.subscribe();
-      } catch (error) {
-        logger.error('Could not subscribe to the Home Assistant status topic:', error);
-      }
-      await this.haBirth.trigger('Connected to the MQTT broker');
+    // A failure here (the link dropping again mid-way) is logged, never left as an
+    // unhandled rejection, on which the agent exits: the next connection runs it again.
+    this.mqttClient.on('connect', () => {
+      this.onConnected().catch((error) => logger.error('Handling the MQTT connection failed:', error));
     });
 
     this.mqttClient.on('error', (error: Error) => {
@@ -219,6 +184,48 @@ export class Agent {
       // For now, MqttClient's internal reconnect logic will handle retries.
     });
     logger.info('Agent start sequence initiated, MQTT connection attempt in progress.');
+  }
+
+  /** Availability, inline discovery for alerts and events, then a full republish. */
+  private async onConnected(): Promise<void> {
+    logger.info(`Connected to MQTT broker at ${this.config.mqtt.host}:${this.config.mqtt.port}`);
+    await this.mqttClient.publish(this.availabilityTopic, this.payloadAvailable, { qos: 1, retain: true });
+    // Inline Home Assistant MQTT discovery for alerts and events
+    try {
+      const cfg = this.config;
+      const base = cfg.mqtt.base_topic;
+      const device = {
+        identifiers: cfg.device_info.identifiers,
+        name: cfg.device_info.name,
+        model: cfg.device_info.model,
+        manufacturer: cfg.device_info.manufacturer,
+        sw_version: cfg.device_info.sw_version,
+      };
+      for (const deviceId of cfg.device_info.identifiers) {
+        // Per-id Alert discovery
+        const alertConfigTopic = discoveryTopic('sensor', deviceId, 'alert');
+        const alertStateTopic = `${base}/${deviceId}/alert`;
+        const alertConfig = { name: `System Alert Sensor`, state_topic: alertStateTopic, json_attributes_topic: alertStateTopic, value_template: "{{ value_json.message }}", unique_id: `${deviceId}_alert`, device, icon: "mdi:alert" };
+        await this.mqttClient.publish(alertConfigTopic, JSON.stringify(alertConfig), { qos: 1, retain: true });
+        // Per-id Event discovery
+        const eventConfigTopic = discoveryTopic('sensor', deviceId, 'event');
+        const eventStateTopic = `${base}/${deviceId}/event`;
+        const eventConfig = { name: `System Event Sensor`, state_topic: eventStateTopic, json_attributes_topic: eventStateTopic, value_template: "{{ value_json.type }}", unique_id: `${deviceId}_event`, device, icon: "mdi:bell" };
+        await this.mqttClient.publish(eventConfigTopic, JSON.stringify(eventConfig), { qos: 1, retain: true });
+      }
+      logger.info('HA discovery inline for alerts and events published for all ids.');
+    } catch (err) {
+      logger.error('HA discovery inline failed:', err);
+    }
+    
+    logger.info(`Agent status published: ${this.payloadAvailable}`);
+    
+    try {
+      await this.haBirth.subscribe();
+    } catch (error) {
+      logger.error('Could not subscribe to the Home Assistant status topic:', error);
+    }
+    await this.haBirth.trigger('Connected to the MQTT broker');
   }
 
   /** Stop then start every feature: discovery, setup and states are published afresh. */
