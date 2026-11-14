@@ -278,6 +278,15 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 - `/etc/ppp/chap-secrets` and `/etc/ppp/pap-secrets` - monitored but not modified
 - NetworkManager is the single source of truth for active PPPoE configuration
 
+### Connected devices (`src/features/network/ConnectedDevices.ts`)
+- Host names: the bridge's own dnsmasq lease file `/var/lib/NetworkManager/dnsmasq-<bridge>.leases`
+  (`dnsmasqLeases.ts`, 5 fields), then a PTR lookup via Node's `dns.promises.Resolver`
+  (`reverseDns.ts`). Names are untrusted (`cleanHostname`). Only `ip` runs, through `execute_argv`.
+- Vendors (`src/utils/macVendor/`, the only import path): offline from Debian `ieee-data`
+  (`/usr/share/ieee-data/{oui,mam,oui36,iab}.csv`, a `.deb` dependency), longest prefix wins;
+  locally administered MACs (bit 0x02) get a fixed label without lookup. **No MAC ever leaves the
+  host** (the online macvendors lookup was removed on 2026-11-14; a test forbids http imports).
+
 ### Firewall Management (`src/features/firewall/FirewallManager.ts`)
 
 **Key Features:**

@@ -161,36 +161,9 @@ export class ConnectedDevices extends BaseFeature {
         await Promise.all(hostnameResolutions);
       }
 
-      // Batch lookup MAC vendors for better performance
-      const macAddresses = devices.filter(d => d.mac).map(d => d.mac);
-      if (macAddresses.length > 0) {
-        try {
-          const vendorResults = await MacVendorLookup.batchLookup(macAddresses);
-          for (const device of devices) {
-            if (device.mac) {
-              const vendorInfo = vendorResults.get(device.mac);
-              if (vendorInfo && vendorInfo.vendor) {
-                device.vendor = vendorInfo.vendor;
-              }
-            }
-          }
-        } catch (error) {
-          logger.error(`Error during batch vendor lookup for bridge ${bridgeName}:`, error);
-          // Fallback to individual lookups
-          for (const device of devices) {
-            if (device.mac) {
-              try {
-                const vendorInfo = await MacVendorLookup.lookupVendor(device.mac);
-                if (vendorInfo.vendor) {
-                  device.vendor = vendorInfo.vendor;
-                }
-              } catch (err) {
-                logger.debug(`Error looking up vendor for MAC ${device.mac}:`, err);
-              }
-            }
-          }
-        }
-      }
+      // Vendors come from the offline IEEE registry: no address leaves the host.
+      const vendorResults = await MacVendorLookup.batchLookup(devices.map(d => d.mac));
+      for (const device of devices) device.vendor = vendorResults.get(device.mac)?.vendor;
 
     } catch (error) {
       logger.error(`Error getting devices for bridge ${bridgeName}:`, error);
