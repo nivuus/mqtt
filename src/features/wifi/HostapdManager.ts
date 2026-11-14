@@ -105,17 +105,23 @@ export class HostapdManager extends BaseFeature {
   /** Rewrite every file with `edit`, then hand the change to hostapd. False if nothing was written. */
   private async editFiles(files: string[], edit: (content: string, file: string) => string,
                           mode: ApplyMode, done: string): Promise<boolean> {
+    if (!await this.writeFiles(files, edit)) return false;
+    await this.applyAndReport(mode, done);
+    return true;
+  }
+
+  /** Rewrite every file with `edit`; reports and returns false when the change could not be written. */
+  private async writeFiles(files: string[], edit: (content: string, file: string) => string): Promise<boolean> {
     try {
       // Every edit is computed before anything is written: one bad file leaves all untouched.
       const updated = await Promise.all(files.map(async (file) => [file, edit(await readHostapdConfig(file), file)] as const));
       for (const [file, content] of updated) await writeHostapdConfig(file, content);
+      return true;
     } catch (error: any) {
       logger.error(`hostapd configuration change failed: ${error.message}`);
       await this.report(`Error: ${error.message}`);
       return false;
     }
-    await this.applyAndReport(mode, done);
-    return true;
   }
 
   private async applyAndReport(mode: ApplyMode, done: string): Promise<void> {
@@ -152,16 +158,20 @@ export class HostapdManager extends BaseFeature {
     if (invalid) return this.report(`Validation error: ${invalid}`);
     if (newSsid !== ssid && this.networks.has(newSsid)) return this.report(`Error: network ${newSsid} already exists`);
 
+    const written = await this.writeFiles(network.configFiles,
+      (content) => updateNetwork(content, ssid, newSsid, password, securityType));
+    // Not written: the network still has its old SSID, its entities and its pending edits.
+    if (!written) return;
     this.pendingChanges.delete(ssid);
     if (newSsid !== ssid) {
-      // Keep the entity id: the HA entities follow the network through a rename.
+      // Keep the entity id: the HA entities follow the network through a rename. This must
+      // happen before applyAndReport's update() publishes the networks read back from disk.
       this.ssidToId.set(newSsid, this.ssidToId.get(ssid)!);
       this.ssidToId.delete(ssid);
       this.discovered.delete(ssid);
       this.discovered.add(newSsid);
     }
-    await this.editFiles(network.configFiles,
-      (content) => updateNetwork(content, ssid, newSsid, password, securityType), 'reload', `Update ${ssid}`);
+    await this.applyAndReport('reload', `Update ${ssid}`);
   }
 
   private async deleteNetwork(ssid: string): Promise<void> {
