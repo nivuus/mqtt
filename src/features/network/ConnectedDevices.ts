@@ -2,14 +2,17 @@
 
 import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient, FeatureConfig } from '../../core/types';
-import { execute_command } from '../../utils/exec';
+import { execute_argv } from '../../utils/exec';
 import { Validators } from '../../utils/validators';
 import { MacVendorLookup } from '../../utils/macVendor';
 import logger from '../../utils/logger';
+import { cleanHostname, DEFAULT_DNSMASQ_LEASE_DIR, readBridgeLeases } from './dnsmasqLeases';
+import { reverseLookup } from './reverseDns';
 
 interface ConnectedDevicesFeatureConfig extends FeatureConfig {
   bridge_interfaces?: string[];
-  dhcp_lease_paths?: string[];
+  /** Where NetworkManager's dnsmasq keeps `dnsmasq-<bridge>.leases`. */
+  dnsmasq_lease_dir?: string;
 }
 
 interface ConnectedDevice {
@@ -29,303 +32,99 @@ interface BridgeInfo {
   cidr?: string;
 }
 
+/** The host's LAN bridges; Docker and libvirt bridges are left out. */
+const MONITORED_BRIDGES = new Set(['localBridge', 'publicBridge', 'internalBridge']);
+
+/** Every command here only reads, on every tick: logged at debug (see execute_argv `quiet`). */
+const run = (file: string, args: string[]) => execute_argv(file, args, { quiet: true });
+
 export class ConnectedDevices extends BaseFeature {
   protected featureConfig: ConnectedDevicesFeatureConfig;
-  private hostnameCache: Map<string, { hostname: string | undefined, timestamp: number }> = new Map();
-  private readonly HOSTNAME_CACHE_TTL = 3600000; // 1 hour in milliseconds
 
   constructor(mqttClient: MqttClient, featureName: string = 'connected_devices') {
     super(mqttClient, featureName);
     this.featureConfig = this.agentConfig.features[featureName] as ConnectedDevicesFeatureConfig ||
-                         { 
-                           enabled: true, 
-                           update_interval_seconds: 60,
-                           dhcp_lease_paths: [
-                             '/var/lib/dhcp/dhcpd.leases',
-                             '/var/lib/dhcp/dhcpd6.leases',
-                             '/var/lib/dhcpcd5/dhcpcd.leases'
-                           ]
-                         };
+                         { enabled: true, update_interval_seconds: 60 };
   }
 
   private async getBridgeInterfaces(): Promise<BridgeInfo[]> {
     const bridges: BridgeInfo[] = [];
-    
-    try {
-      // Get all interfaces that look like bridges
-      const interfaceResult = await execute_command('ip addr show', false);
-      const interfaceLines = interfaceResult.stdout.split('\n');
-      
-      for (const line of interfaceLines) {
-        // Look for bridge-like interface names
-        const match = line.match(/^\d+:\s*([\w-]+):/);
-        if (match) {
-          const ifName = match[1];
-          // Only include main bridges, exclude Docker bridges
-          if (ifName === 'localBridge' || ifName === 'publicBridge' || ifName === 'internalBridge') {
-            const bridgeInfo = await this.getBridgeInfo(ifName);
-            if (bridgeInfo) {
-              bridges.push(bridgeInfo);
-            }
-          }
-        }
-      }
-
-      // Also check brctl for Linux bridges
-      try {
-        const bridgeOutput = await execute_command('brctl show 2>/dev/null', false);
-        if (bridgeOutput.stdout) {
-          const lines = bridgeOutput.stdout.split('\n');
-          for (const line of lines) {
-            if (line.includes('bridge name') || line.trim() === '') continue;
-            const parts = line.trim().split(/\s+/);
-            if (parts.length >= 1 && parts[0]) {
-              const bridgeName = parts[0];
-              // Only include main bridges, exclude Docker bridges
-              if ((bridgeName === 'localBridge' || bridgeName === 'publicBridge' || bridgeName === 'internalBridge') &&
-                  !bridges.find(b => b.name === bridgeName)) {
-                const bridgeInfo = await this.getBridgeInfo(bridgeName);
-                if (bridgeInfo) {
-                  bridges.push(bridgeInfo);
-                }
-              }
-            }
-          }
-        }
-      } catch (error) {
-        // brctl not available, continue
-      }
-
-    } catch (error) {
-      logger.error(`Error detecting bridge interfaces:`, error);
+    const result = await run('ip', ['addr', 'show']);
+    if (result.exitCode !== 0) {
+      logger.error(`Error detecting bridge interfaces: ip addr show exited ${result.exitCode}: ${result.stderr.trim()}`);
+      return bridges;
     }
-
+    for (const line of result.stdout.split('\n')) {
+      const match = line.match(/^\d+:\s*([\w-]+):/);
+      if (match && MONITORED_BRIDGES.has(match[1])) {
+        const bridgeInfo = await this.getBridgeInfo(match[1]);
+        if (bridgeInfo) bridges.push(bridgeInfo);
+      }
+    }
     return bridges;
   }
 
   private async getBridgeInfo(bridgeName: string): Promise<BridgeInfo | null> {
-    try {
-      const result = await execute_command(`ip addr show ${bridgeName}`, false);
-      if (result.exitCode !== 0) return null;
+    const result = await run('ip', ['addr', 'show', bridgeName]);
+    if (result.exitCode !== 0) return null;
 
-      const bridge: BridgeInfo = { name: bridgeName };
-      
-      // Extract IP and subnet
-      const ipMatch = result.stdout.match(/inet (\d+\.\d+\.\d+\.\d+)\/(\d+)/);
-      if (ipMatch) {
-        bridge.ip = ipMatch[1];
-        bridge.cidr = ipMatch[2];
-        
-        // Calculate subnet mask
-        const cidr = parseInt(ipMatch[2]);
-        const mask = Array(4).fill(0).map((_, i) => {
-          const bits = Math.max(0, Math.min(8, cidr - i * 8));
-          return 256 - Math.pow(2, 8 - bits);
-        }).join('.');
-        bridge.subnet = mask;
-      }
-
-      return bridge;
-    } catch (error) {
-      return null;
+    const bridge: BridgeInfo = { name: bridgeName };
+    const ipMatch = result.stdout.match(/inet (\d+\.\d+\.\d+\.\d+)\/(\d+)/);
+    if (ipMatch) {
+      bridge.ip = ipMatch[1];
+      bridge.cidr = ipMatch[2];
+      const cidr = parseInt(ipMatch[2]);
+      bridge.subnet = Array(4).fill(0).map((_, i) => {
+        const bits = Math.max(0, Math.min(8, cidr - i * 8));
+        return 256 - Math.pow(2, 8 - bits);
+      }).join('.');
     }
+    return bridge;
   }
 
   private async getArpDevices(bridgeName: string): Promise<ConnectedDevice[]> {
     const devices: ConnectedDevice[] = [];
-    
-    try {
-      // Try modern ip neigh command first
-      const neighResult = await execute_command(`ip neigh show dev ${bridgeName}`, false);
-      if (neighResult.exitCode === 0 && neighResult.stdout) {
-        const lines = neighResult.stdout.split('\n');
-        for (const line of lines) {
-          if (line.trim() === '') continue;
-          
-          const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+lladdr\s+([\w:]+)\s+(\w+)/);
-          if (match) {
-            const ip = match[1];
-            const mac = match[2];
-            const state = match[3];
-            
-            if (state === 'REACHABLE' || state === 'STALE' || state === 'DELAY') {
-              devices.push({
-                ip,
-                mac,
-                vendor: undefined, // Will be filled later with batch lookup
-                bridge: bridgeName,
-                connection_type: 'arp'
-              });
-            }
-          }
-        }
-      }
-
-      // Fallback to traditional arp command
-      if (devices.length === 0) {
-        const arpResult = await execute_command(`arp -i ${bridgeName} -a 2>/dev/null || arp -a | grep ${bridgeName}`, false);
-        if (arpResult.stdout) {
-          const lines = arpResult.stdout.split('\n');
-          for (const line of lines) {
-            const match = line.match(/\(([\d.]+)\)\s+at\s+([\w:]+)/);
-            if (match) {
-              const ip = match[1];
-              const mac = match[2];
-              devices.push({
-                ip,
-                mac,
-                vendor: undefined, // Will be filled later with batch lookup
-                bridge: bridgeName,
-                connection_type: 'arp'
-              });
-            }
-          }
-        }
-      }
-
-    } catch (error) {
-      logger.error(`Error getting ARP devices for ${bridgeName}:`, error);
+    const neighResult = await run('ip', ['neigh', 'show', 'dev', bridgeName]);
+    if (neighResult.exitCode !== 0) {
+      logger.error(`Error getting neighbours of ${bridgeName}: exit ${neighResult.exitCode}: ${neighResult.stderr.trim()}`);
+      return devices;
     }
-
+    for (const line of neighResult.stdout.split('\n')) {
+      const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+lladdr\s+([\w:]+)\s+(\w+)/);
+      if (match && (match[3] === 'REACHABLE' || match[3] === 'STALE' || match[3] === 'DELAY')) {
+        devices.push({ ip: match[1], mac: match[2].toLowerCase(), bridge: bridgeName, connection_type: 'arp' });
+      }
+    }
     return devices;
   }
 
   private async getDhcpDevices(bridgeName: string): Promise<ConnectedDevice[]> {
-    const devices: ConnectedDevice[] = [];
-    
-    for (const leasePath of this.featureConfig.dhcp_lease_paths || []) {
-      try {
-        const result = await execute_command(`cat ${leasePath} 2>/dev/null || true`, false);
-        if (result.stdout) {
-          const leaseBlocks = result.stdout.split('lease ');
-          for (const block of leaseBlocks) {
-            if (!block.trim()) continue;
-            
-            const ipMatch = block.match(/^(\d+\.\d+\.\d+\.\d+)/);
-            const macMatch = block.match(/hardware ethernet\s+([\w:]+);/);
-            const hostnameMatch = block.match(/client-hostname\s+"([^"]+)";/);
-            const endTimeMatch = block.match(/ends\s+\d+\s+([\d\/]+\s+[\d:]+);/);
-            
-            if (ipMatch && macMatch) {
-              devices.push({
-                ip: ipMatch[1],
-                mac: macMatch[1],
-                hostname: hostnameMatch ? hostnameMatch[1] : undefined,
-                lease_time: endTimeMatch ? endTimeMatch[1] : undefined,
-                vendor: undefined, // Will be filled later with batch lookup
-                bridge: bridgeName,
-                connection_type: 'dhcp'
-              });
-            }
-          }
-        }
-      } catch (error) {
-        // File not found or permission error, continue
-      }
+    const dir = this.featureConfig.dnsmasq_lease_dir || DEFAULT_DNSMASQ_LEASE_DIR;
+    try {
+      const leases = await readBridgeLeases(dir, bridgeName);
+      return leases.map(lease => ({
+        ip: lease.ip,
+        mac: lease.mac,
+        hostname: lease.hostname,
+        lease_time: lease.expires,
+        bridge: bridgeName,
+        connection_type: 'dhcp' as const,
+      }));
+    } catch (error: any) {
+      logger.error(`Error reading the DHCP leases of ${bridgeName} in ${dir}: ${error.message}`);
+      return [];
     }
-
-    return devices;
   }
 
+  /** The short reverse-DNS name of a LAN address, cleaned like a lease name. */
   private async resolveHostname(ip: string): Promise<string | undefined> {
-    try {
-      // Defence in depth: only ever pass a strict dotted-quad to the shell
-      // lookups below. IPs already come from strict regexes, but guard anyway.
-      if (!Validators.isIPv4(ip)) return undefined;
-
-      // Skip common Docker/virtual IPs to avoid unnecessary timeouts
-      if (ip.startsWith('172.17.') || ip.startsWith('172.18.') || ip.startsWith('172.19.') || 
-          ip.startsWith('172.20.') || ip.startsWith('169.254.') || ip === '127.0.0.1') {
-        return undefined;
-      }
-
-      // Check cache first
-      const cached = this.hostnameCache.get(ip);
-      if (cached && (Date.now() - cached.timestamp) < this.HOSTNAME_CACHE_TTL) {
-        return cached.hostname;
-      }
-
-      // Method 1: Try getent hosts (works with /etc/hosts and DNS) - fastest
-      const getentResult = await execute_command(`timeout 2 getent hosts ${ip} 2>/dev/null`, false);
-      if (getentResult.exitCode === 0 && getentResult.stdout.trim()) {
-        const parts = getentResult.stdout.trim().split(/\s+/);
-        if (parts.length >= 2) {
-          const hostname = parts[1];
-          if (hostname && hostname !== ip) {
-            // Accept hostname, but prefer short name over FQDN
-            if (!hostname.includes('.')) {
-              // Cache and return
-              this.hostnameCache.set(ip, { hostname, timestamp: Date.now() });
-              return hostname;
-            } else {
-              // Extract short name from FQDN
-              const shortName = hostname.split('.')[0];
-              if (shortName && shortName !== ip && shortName.length > 1) {
-                // Cache and return
-                this.hostnameCache.set(ip, { hostname: shortName, timestamp: Date.now() });
-                return shortName;
-              }
-            }
-          }
-        }
-      }
-
-      // Method 2: Try dig with reverse DNS (faster than nslookup)
-      const digResult = await execute_command(`timeout 2 dig +short -x ${ip} 2>/dev/null`, false);
-      if (digResult.exitCode === 0 && digResult.stdout.trim()) {
-        const hostname = digResult.stdout.trim().replace(/\.$/, ''); // Remove trailing dot
-        if (hostname && hostname !== ip && !hostname.includes('NXDOMAIN')) {
-          // Accept hostname, but prefer short name over FQDN
-          if (!hostname.includes('.')) {
-            // Cache and return
-            this.hostnameCache.set(ip, { hostname, timestamp: Date.now() });
-            return hostname;
-          } else {
-            // Extract short name from FQDN
-            const shortName = hostname.split('.')[0];
-            if (shortName && shortName !== ip && shortName.length > 1) {
-              // Cache and return
-              this.hostnameCache.set(ip, { hostname: shortName, timestamp: Date.now() });
-              return shortName;
-            }
-          }
-        }
-      }
-
-      // Method 3: Try ping with hostname resolution (some systems report this)
-      const pingResult = await execute_command(`timeout 1 ping -c 1 -W 1 ${ip} 2>/dev/null | head -1`, false);
-      if (pingResult.exitCode === 0) {
-        const pingMatch = pingResult.stdout.match(/PING ([^\s]+) \(/);
-        if (pingMatch) {
-          const hostname = pingMatch[1];
-          if (hostname && hostname !== ip && !hostname.includes(ip)) {
-            // Accept hostname, but prefer short name over FQDN
-            if (!hostname.includes('.')) {
-              // Cache and return
-              this.hostnameCache.set(ip, { hostname, timestamp: Date.now() });
-              return hostname;
-            } else {
-              // Extract short name from FQDN
-              const shortName = hostname.split('.')[0];
-              if (shortName && shortName !== ip && shortName.length > 1) {
-                // Cache and return
-                this.hostnameCache.set(ip, { hostname: shortName, timestamp: Date.now() });
-                return shortName;
-              }
-            }
-          }
-        }
-      }
-
-      // Cache negative result too to avoid repeated lookups
-      this.hostnameCache.set(ip, { hostname: undefined, timestamp: Date.now() });
-      return undefined;
-    } catch (error) {
-      logger.debug(`Error resolving hostname for ${ip}:`, error);
-      // Cache negative result
-      this.hostnameCache.set(ip, { hostname: undefined, timestamp: Date.now() });
-      return undefined;
-    }
+    if (!Validators.isIPv4(ip)) return undefined;
+    // Docker, link-local and loopback addresses have no useful PTR record.
+    if (/^172\.(1[7-9]|20)\./.test(ip) || ip.startsWith('169.254.') || ip === '127.0.0.1') return undefined;
+    const fqdn = cleanHostname(await reverseLookup(ip));
+    if (!fqdn) return undefined;
+    const shortName = fqdn.replace(/\.$/, '').split('.')[0];
+    return shortName.length > 1 ? shortName : fqdn;
   }
 
   private async getBridgeDevices(bridgeName: string): Promise<ConnectedDevice[]> {
