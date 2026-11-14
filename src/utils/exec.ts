@@ -24,11 +24,31 @@ interface ExecArgvOptions {
    * `firewall-cmd --query-*` ("no"). They are returned as usual but logged at debug, not warn.
    */
   answerExitCodes?: number[];
+  /**
+   * Positions in `args` of entries never to log (a password a program only takes as argv):
+   * they are shown as `***` in every log line. The program still receives them.
+   */
+  redactArgs?: number[];
 }
 
 // How long a child that timed out gets to exit on the SIGTERM sent at its
 // timeout before it is sent SIGKILL.
 const FORCE_KILL_GRACE_MS = 5000;
+
+/**
+ * The agent's own secrets, read from its environment file, which no child needs: the
+ * broker password (config.ts), the NUT password (features/ups/nutCommands.ts), the wizard
+ * token (websocket/serverConfig.ts) and the WinRM password (utils/winrm.ts). A child
+ * that inherited them could leak them (a crash dump, a debug log, a hook it runs).
+ */
+export const AGENT_SECRET_ENV_VARS = ['MQTT_PASSWORD', 'NUT_PASSWORD', 'NIVUUS_WS_TOKEN', 'WINDOWS_ADMIN_PASSWORD'];
+
+/** The environment of every child: the agent's, without its secrets, with a stable locale. */
+export function childEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const childEnv: NodeJS.ProcessEnv = { ...env, LC_ALL: 'C.utf8' };
+  for (const name of AGENT_SECRET_ENV_VARS) delete childEnv[name];
+  return childEnv;
+}
 
 /**
  * Executes a shell command.
@@ -56,7 +76,7 @@ export function execute_command(command: string, _requiresApproval: boolean, tim
       timeout: timeoutMs,
       maxBuffer: 1024 * 1024, // 1MB buffer
       killSignal: 'SIGTERM',
-      env: { ...process.env, LC_ALL: 'C.utf8' }
+      env: childEnvironment()
     }, (error, stdout, stderr) => {
       if (error) {
         if (error.killed) {
@@ -104,10 +124,14 @@ export function execute_argv_input(file: string, args: string[], input: string, 
 
 function runFile(file: string, args: string[], input: string | undefined, opts: ExecArgvOptions): Promise<CommandResult> {
   const timeoutMs = opts.timeoutMs ?? 60000;
-  const label = `${file} ${args.join(' ')}`;
+  const redacted = new Set(opts.redactArgs ?? []);
+  const secrets = args.filter((arg, i) => redacted.has(i) && arg !== '');
+  // execFile repeats the whole argv in error.message, and a program may echo an argument.
+  const scrub = (text: string) => secrets.reduce((out, secret) => out.split(secret).join('***'), text);
+  const label = `${file} ${args.map((arg, i) => (redacted.has(i) ? '***' : arg)).join(' ')}`;
   // A child fed input may echo it (`nft -f -` quotes the failing line on stderr), and execFile
   // copies stderr into error.message: with input, outputs are logged by length only.
-  const shown = (text: string) => (input === undefined ? text : `<${text.length} chars>`);
+  const shown = (text: string) => (input === undefined ? scrub(text) : `<${text.length} chars>`);
   const attempt = `Attempting to execute argv command: ${label}`;
   if (opts.quiet) logger.debug(attempt);
   else logger.info(attempt);
@@ -117,7 +141,7 @@ function runFile(file: string, args: string[], input: string | undefined, opts: 
       timeout: timeoutMs,
       maxBuffer: 1024 * 1024, // 1MB buffer
       killSignal: 'SIGTERM',
-      env: { ...process.env, LC_ALL: 'C.utf8' }
+      env: childEnvironment()
     }, (error, stdout, stderr) => {
       if (error) {
         const anyError = error as NodeJS.ErrnoException & { killed?: boolean; code?: number | string };
@@ -126,7 +150,7 @@ function runFile(file: string, args: string[], input: string | undefined, opts: 
         } else if (typeof anyError.code === 'number' && opts.answerExitCodes?.includes(anyError.code)) {
           logger.debug(`Command "${label}" answered with exit code ${anyError.code}`);
         } else {
-          const message = input === undefined ? `${error.message}. ` : '';
+          const message = input === undefined ? `${scrub(error.message)}. ` : '';
           logger.warn(`Error executing command "${label}": ${message}Exit code: ${anyError.code}. Stderr: ${shown(stderr)}`);
         }
         // execFile reports the exit code in error.code (number). A string code

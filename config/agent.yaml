@@ -26,7 +26,7 @@ device_info:
   name: "Nivuus" # Friendly name of the device in Home Assistant
   manufacturer: "nivuus"
   model: "System Agent v1.0"
-  sw_version: "0.1.1" # Agent software version, can be updated from package.json
+  # sw_version is not set here: the agent reports the version of its own build (package.json).
 
 # WebSocket Server Configuration for Wizard API
 # This allows direct communication between Home Assistant and the agent
@@ -53,6 +53,8 @@ windows_vm:
   hostname: "192.168.3.2"
   port: 5985
   username: "Administrateur"
+  # Placeholder, never sent: provide WINDOWS_ADMIN_PASSWORD in /etc/mqtt-system-agent.env
+  # (mode 600, survives .deb upgrades, wins over this value).
   password: "CHANGE_ME_PASSWORD"
 
 # Feature Configuration

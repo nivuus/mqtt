@@ -1,7 +1,7 @@
 // src/core/types.ts
 import { RawWebSocketConfig } from '../websocket/serverConfig';
 
-import { IClientPublishOptions, IClientSubscribeOptions, PacketCallback, ClientSubscribeCallback } from 'mqtt';
+import { IClientPublishOptions, IClientSubscribeOptions } from 'mqtt';
 import { EventEmitter } from 'node:events'; // Import EventEmitter
 
 /**
@@ -16,8 +16,13 @@ export interface MqttClient extends EventEmitter {
   connect(): Promise<void>; // Custom connect method for our wrapper
 
   // Methods for interacting with MQTT broker
-  publish(topic: string, message: string | Buffer, options?: IClientPublishOptions, callback?: PacketCallback): Promise<this>; // Changed to Promise<this>
-  subscribe(topic: string | string[], options?: IClientSubscribeOptions, callback?: ClientSubscribeCallback): Promise<this>; // Changed to Promise<this>
+  // Promise-only, each settling exactly once: a callback beside the promise
+  // reported one failure twice, and a caller that did not await the promise
+  // left a rejection unhandled, on which the agent exits.
+  /** Resolves when sent; while disconnected it resolves too, queuing a retained message for the reconnection. */
+  publish(topic: string, message: string | Buffer, options?: IClientPublishOptions): Promise<this>;
+  /** Resolves when the broker grants the subscription; rejects while disconnected or when refused. */
+  subscribe(topic: string | string[], options?: IClientSubscribeOptions): Promise<this>;
   end(force?: boolean, opts?: object, cb?: (...args: any[]) => void): this; // Return this for chaining
 
   // Event methods are inherited from EventEmitter.

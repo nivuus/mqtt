@@ -36,8 +36,10 @@ The MQTT agent uses a **feature-based architecture** with class inheritance:
 
 1. **Configuration System** (`src/config.ts`):
    - Singleton ConfigManager loads `config/agent.yaml`
-   - Provides fallback configuration if loading fails
-   - **IMPORTANT**: Error fallback uses same `device_info.identifiers` and `base_topic` as normal config to maintain Home Assistant entity consistency
+   - **No fallback**: a missing, empty, malformed or incomplete file (`mqtt.host`, `mqtt.base_topic`,
+     `device_info.identifiers`, `features`) throws `ConfigError`, so the agent exits non-zero and systemd
+     shows it. A built-in minimal fallback used to run a do-nothing agent the unit reported healthy.
+   - `device_info.sw_version` always comes from `package.json`, never from the YAML
 
 2. **MQTT Client** (`src/mqtt/MqttClient.ts`):
    - Wrapper around `mqtt` npm package
@@ -129,7 +131,7 @@ sudo journalctl -u mqtt-system-agent.service -f
 
 `config/agent.yaml` contains:
 - MQTT broker connection (host: 192.168.0.1, port: 1883)
-- Device info (identifiers, name, model) - **must match error fallback in config.ts**
+- Device info (identifiers, name, model): changing `identifiers` creates a new device in Home Assistant
 - Feature enable/disable flags and update intervals
 
 ### MQTT Connection for Testing
@@ -197,7 +199,7 @@ Topic notes in `docs/claude/`:
 
 ## Critical Implementation Notes
 
-1. **Entity Consistency**: The `device_info.identifiers` must remain consistent between normal and error configurations to prevent duplicate Home Assistant entities
+1. **Entity Consistency**: `device_info.identifiers` must never change, or Home Assistant gets duplicate entities
 
 2. **Feature Registration**: Features must be added to `availableFeatures` map in `Agent.ts` to be discoverable
 
@@ -356,7 +358,11 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
   come back at once.
 - MQTT message handlers are registered with `listenToMessages()`, which `stop()` removes. A raw
   `mqttClient.on('message')` in `setup()` adds one more handler at every restart, so each command ran
-  once per reconnection.
+  once per reconnection. A handler that throws or rejects is logged there; it no longer exits the agent.
+- `MqttClient.publish` / `subscribe` are promise-only (no callbacks). `subscribe` rejects while
+  disconnected: always `await` it (in `setup()`, a failure is logged by `start()` and the next
+  connection restarts the feature). `publish` resolves while disconnected and queues retained messages.
+  `MockMqttClient` mirrors both behaviours.
 - Publish states AFTER publishing discovery entities
 - Use `mode: 'password'` for password fields: they stay editable, masked on screen
 
@@ -369,6 +375,10 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
 - `execute_argv` never rejects and logs any non-zero exit at warn. A command whose exit code
   is the answer (`firewall-cmd --query-*`: 1 = no) passes `answerExitCodes: [1]`, and the caller
   still treats any other code as a failure.
+- `execute_argv` logs its argv: a secret a program only takes as argv is passed with
+  `redactArgs: [<index>]` (shown `***` in every log line). Children get `childEnvironment()`,
+  the agent's environment without `AGENT_SECRET_ENV_VARS` (broker / NUT / WinRM passwords,
+  wizard token). The configuration is logged through `describeConfig()`, credentials masked.
 - WinRM goes through `winrm-client` (`src/utils/winrm.ts`), which rejects on failure. Its
   abandoned ancestor `nodejs-winrm` *returned* the Error, which callers then parsed as output.
 - Publish error messages to `{feature_name}/last_action/state` sensor
@@ -412,6 +422,10 @@ placeholder is back but the env drop-in still wins.
 `test.battery.stop` — never give it `instcmds = ALL`, which includes `load.off` (cuts the
 host's power). The battery test command is picked from `upscmd -l`, because models differ:
 the APC Back-UPS BX1600MI has no plain `test.battery.start`, only `.quick` and `.deep`.
+
+**WinRM password follows the same rule** (`WINDOWS_ADMIN_PASSWORD` in `/etc/mqtt-system-agent.env`,
+wins over `windows_vm.password`). `src/utils/winrm.ts` refuses to send an empty or placeholder
+(`CHANGE_ME*`, `${VAR}`) password: WinRM commands reject until the variable is set.
 
 **Wizard WebSocket token follows the same rule** (`NIVUUS_WS_TOKEN` in
 `/etc/mqtt-system-agent.env`, ≥ 32 chars, `openssl rand -hex 32`). The channel

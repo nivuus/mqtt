@@ -7,8 +7,6 @@ import {
   MqttClient as ExternalMqttClient, // Renamed to avoid confusion
   IClientPublishOptions, 
   IClientSubscribeOptions, 
-  PacketCallback, 
-  ClientSubscribeCallback 
 } from 'mqtt';
 import * as fs from 'fs';
 import { getConfigManager } from '../config';
@@ -177,27 +175,17 @@ export class MqttClient extends EventEmitter implements MqttClientInterface {
     }, delay);
   }
 
-  public async publish(topic: string, message: string | Buffer, options?: IClientPublishOptions, callback?: PacketCallback): Promise<this> {
+  public async publish(topic: string, message: string | Buffer, options?: IClientPublishOptions): Promise<this> {
     if (!this.client || !this.connected) {
       // Queue retained messages for delivery on reconnect
       if (options?.retain) {
         this.enqueue({ topic, message, options });
       }
-      const err = new Error(`MQTT client not connected. Cannot publish to ${topic}.`);
-      logger.debug(err.message);
-      if (callback) callback(err);
+      logger.debug(`MQTT client not connected. Cannot publish to ${topic}.`);
       return this;
     }
-    return new Promise((resolve, reject) => {
-      this.client!.publish(topic, message, options, (err, packet) => {
-        if (callback) callback(err, packet);
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this);
-        }
-      });
-    });
+    await this.client.publishAsync(topic, message, options ?? {});
+    return this;
   }
 
   private enqueue(msg: QueuedMessage): void {
@@ -218,37 +206,23 @@ export class MqttClient extends EventEmitter implements MqttClientInterface {
     for (const msg of queue) {
       if (!this.connected) break;
       try {
-        await new Promise<void>((resolve, reject) => {
-          this.client!.publish(msg.topic, msg.message, msg.options, (err) => err ? reject(err) : resolve());
-        });
+        await this.client!.publishAsync(msg.topic, msg.message, msg.options ?? {});
       } catch { /* skip failed messages */ }
     }
   }
 
-  public async subscribe(topic: string | string[], options?: IClientSubscribeOptions, callback?: ClientSubscribeCallback): Promise<this> {
+  public async subscribe(topic: string | string[], options?: IClientSubscribeOptions): Promise<this> {
     if (!this.client || !this.connected) {
-      const err = new Error(`MQTT client not connected. Cannot subscribe to ${Array.isArray(topic) ? topic.join(', ') : topic}.`);
-      logger.warn(err.message);
-      if (callback) callback(err, undefined);
-      return Promise.reject(err);
+      throw new Error(`MQTT client not connected. Cannot subscribe to ${Array.isArray(topic) ? topic.join(', ') : topic}.`);
     }
-    return new Promise((resolve, reject) => {
-      const cb: ClientSubscribeCallback = (err, granted) => {
-        if (err) {
-          logger.error(`Failed to subscribe to ${topic}:`, err);
-          reject(err);
-        } else {
-          logger.debug(`Subscribed to ${topic}`, granted);
-          resolve(this);
-        }
-        if (callback) callback(err, granted);
-      };
-      if (typeof options === 'function') { // (topic, cb)
-          this.client!.subscribe(topic, options as ClientSubscribeCallback); // This case is tricky, mqtt.js might not have this overload for Promise
-      } else { // (topic, opts, cb) or (topic, cb) where cb is the last arg
-          this.client!.subscribe(topic, options || {}, cb);
-      }
-    });
+    try {
+      const granted = await this.client.subscribeAsync(topic, options ?? { qos: 0 });
+      logger.debug(`Subscribed to ${topic}`, granted);
+    } catch (err) {
+      logger.error(`Failed to subscribe to ${topic}:`, err);
+      throw err;
+    }
+    return this;
   }
 
   public end(force?: boolean, opts?: object, cb?: (...args: any[]) => void): this {

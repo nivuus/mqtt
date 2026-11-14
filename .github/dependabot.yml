@@ -10,5 +10,9 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # The release script only releases on fix|perf|refactor|feat subjects: a runtime
+    # dependency update (a security fix included) must be a "fix" to reach the server.
+    # Development dependencies (devDependencies) never ship and keep "chore".
     commit-message:
-      prefix: "chore"
+      prefix: "fix"
+      prefix-development: "chore"

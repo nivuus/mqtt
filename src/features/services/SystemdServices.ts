@@ -6,6 +6,13 @@ import { execute_argv } from '../../utils/exec';
 import { Validators, rejectInvalid } from '../../utils/validators';
 import logger from '../../utils/logger';
 
+/**
+ * The only payload that restarts a unit: the restart button's press, declared in its
+ * discovery config. Any other message on the command topic (empty, stray, retained) is
+ * ignored, since restarting firewalld, NetworkManager or docker cuts the network.
+ */
+export const RESTART_PAYLOAD_PRESS = 'PRESS';
+
 interface ServiceStatus {
   name: string;
   active: boolean;
@@ -67,6 +74,7 @@ export class SystemdServices extends BaseFeature {
         unique_id: `${this.deviceInfo.identifiers[0]}_service_${serviceId}_restart`,
         name: `System Service ${serviceName} Restart Button`,
         command_topic: this.prefixTopic(`${this.featureName}/${serviceId}/restart`),
+        payload_press: RESTART_PAYLOAD_PRESS,
         availability_topic: this.availabilityTopic,
         payload_available: this.payloadAvailable,
         payload_not_available: this.payloadNotAvailable,
@@ -141,17 +149,24 @@ export class SystemdServices extends BaseFeature {
       const serviceId = serviceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const restartTopic = this.prefixTopic(`${this.featureName}/${serviceId}/restart`);
 
-      this.mqttClient.subscribe(restartTopic, { qos: 1 });
+      await this.mqttClient.subscribe(restartTopic, { qos: 1 });
     }
 
-    this.listenToMessages(async (topic: string, message: Buffer) => {
+    this.listenToMessages(async (topic, message, packet) => {
       const topicStr = topic.toString();
 
       for (const serviceName of this.services) {
         const serviceId = serviceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
         const restartTopic = this.prefixTopic(`${this.featureName}/${serviceId}/restart`);
+        if (topicStr !== restartTopic) continue;
 
-        if (topicStr === restartTopic) {
+        // A retained command is replayed by the broker on every (re)subscription: a
+        // button press is an event, never a state to re-apply.
+        if (packet?.retain) {
+          logger.warn(`Ignoring a retained restart command for ${serviceName}.`);
+        } else if (message.toString() !== RESTART_PAYLOAD_PRESS) {
+          logger.warn(`Ignoring a restart command for ${serviceName} without the press payload.`);
+        } else {
           await this.restartService(serviceName);
         }
       }

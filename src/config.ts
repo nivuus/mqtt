@@ -3,14 +3,120 @@
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import * as path from 'path';
-import { AgentConfig, DeviceInfo } from './core/types';
-// Import logger directly for internal use within ConfigManager, carefully.
-// This creates a potential circular dependency if logger itself tries to use ConfigManager during its own static initialization.
-// However, for simple console logging within ConfigManager's error paths, it's generally acceptable if logger's own static init doesn't call getConfigManager.
-// We will use console.error directly in critical error paths of ConfigManager to be safe.
-import { version as agentVersion } from '../package.json'; // Get version from package.json
+import { AgentConfig } from './core/types';
+// ConfigManager reports its own failures by throwing, never through the logger:
+// the logger reads its level from this configuration.
+import { version as agentVersion } from '../package.json';
 
 const DEFAULT_CONFIG_PATH = path.join(__dirname, '../config/agent.yaml');
+
+/**
+ * A configuration the agent cannot run with. There is no fallback: a missing,
+ * empty, truncated or malformed file used to be replaced by a built-in minimal
+ * configuration (localhost broker, no credentials, no feature), and the agent
+ * then ran doing nothing while systemd reported it healthy. Throwing makes the
+ * entry point exit non-zero, so the unit shows the failure.
+ */
+export class ConfigError extends Error {
+  constructor(configPath: string, reason: string) {
+    super(`Invalid configuration ${configPath}: ${reason}`);
+    this.name = 'ConfigError';
+  }
+}
+
+type Mapping = Record<string, unknown>;
+
+function isMapping(value: unknown): value is Mapping {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+function readYaml(configPath: string): unknown {
+  let contents: string;
+  try {
+    contents = fs.readFileSync(configPath, 'utf8');
+  } catch (error) {
+    throw new ConfigError(configPath, `cannot be read (${(error as Error).message})`);
+  }
+  try {
+    return yaml.load(contents);
+  } catch (error) {
+    throw new ConfigError(configPath, `is not valid YAML (${(error as Error).message})`);
+  }
+}
+
+/**
+ * Reads and validates the configuration file, then applies the environment
+ * overrides: MQTT_USERNAME / MQTT_PASSWORD win over the file, which a package
+ * upgrade overwrites with placeholders.
+ */
+export function loadAgentConfig(configPath: string, env: NodeJS.ProcessEnv = process.env): AgentConfig {
+  const loaded = readYaml(configPath);
+  const fail = (reason: string): never => { throw new ConfigError(configPath, reason); };
+
+  if (!isMapping(loaded)) fail('the file is empty or is not a YAML mapping');
+  const root = loaded as Mapping;
+
+  const mqtt = root.mqtt;
+  if (!isMapping(mqtt)) fail('the mqtt section is missing');
+  const mqttSection = mqtt as Mapping;
+  if (!isNonEmptyString(mqttSection.host)) fail('mqtt.host is required');
+  if (!isNonEmptyString(mqttSection.base_topic)) fail('mqtt.base_topic is required');
+  const port = mqttSection.port ?? 1883;
+  if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
+    fail('mqtt.port must be an integer between 1 and 65535');
+  }
+
+  const deviceInfo = root.device_info;
+  if (!isMapping(deviceInfo)) fail('the device_info section is missing');
+  const deviceSection = deviceInfo as Mapping;
+  const rawIdentifiers = deviceSection.identifiers;
+  const identifiers = typeof rawIdentifiers === 'string' ? [rawIdentifiers] : rawIdentifiers;
+  if (!Array.isArray(identifiers) || identifiers.length === 0 || !identifiers.every(isNonEmptyString)) {
+    fail('device_info.identifiers must be a non-empty list of names');
+  }
+
+  if (!isMapping(root.features)) fail('the features section is missing');
+  if (root.logging !== undefined && !isMapping(root.logging)) fail('logging must be a mapping');
+
+  const config = {
+    ...root,
+    mqtt: {
+      ...mqttSection,
+      port,
+      username: env.MQTT_USERNAME || mqttSection.username,
+      password: env.MQTT_PASSWORD || mqttSection.password,
+    },
+    device_info: {
+      name: 'System Agent',
+      manufacturer: 'nivuus',
+      model: 'System Agent',
+      ...deviceSection,
+      identifiers,
+      // The version of the running build, never a value copied into the YAML.
+      sw_version: agentVersion,
+    },
+    features: root.features,
+    logging: { level: 'info', ...(root.logging as Mapping | undefined) },
+  };
+  return config as unknown as AgentConfig;
+}
+
+// Configuration keys (English identifiers of agent.yaml, not user text) whose value is a credential.
+const CREDENTIAL_KEY = /password|passphrase|token|secret/i;
+
+/**
+ * The configuration as index.ts logs it, every credential masked: the loaded value
+ * carries the broker password of the environment file, and the journal is readable
+ * far more widely than that file.
+ */
+export function describeConfig(config: AgentConfig): string {
+  return JSON.stringify(config, (key, value) =>
+    CREDENTIAL_KEY.test(key) && typeof value === 'string' && value !== '' ? '***' : value, 2);
+}
 
 /**
  * Loads, validates, and provides access to the agent's configuration.
@@ -20,28 +126,7 @@ class ConfigManager {
   public readonly config: AgentConfig;
 
   private constructor(configPath: string = DEFAULT_CONFIG_PATH) {
-    try {
-      const fileContents = fs.readFileSync(configPath, 'utf8');
-      // Use type assertion for yaml.load if @types/js-yaml is not being picked up
-      const loadedConfig = (yaml.load(fileContents) as any) as Partial<AgentConfig>;
-      this.config = this.validateAndMergeDefaults(loadedConfig);
-
-      // Update sw_version with actual package version if not explicitly set or still placeholder
-      if (!this.config.device_info.sw_version || this.config.device_info.sw_version.includes('0.1.0')) {
-        this.config.device_info.sw_version = agentVersion;
-      }
-
-      // Ensure device_info.identifiers is an array
-      if (typeof this.config.device_info.identifiers === 'string') {
-        this.config.device_info.identifiers = [this.config.device_info.identifiers];
-      }
-
-    } catch (error: any) {
-      // Use console.error directly here to avoid issues if logger itself fails or isn't ready
-      console.error(`Error loading or parsing configuration file from ${configPath}:`, error.message);
-      this.config = this.getMinimalDefaultConfig();
-      console.warn("Agent is running with minimal default configuration due to loading error. Please check your config/agent.yaml file.");
-    }
+    this.config = loadAgentConfig(configPath);
   }
 
   public static getInstance(configPath?: string): ConfigManager {
@@ -49,83 +134,6 @@ class ConfigManager {
       ConfigManager.instance = new ConfigManager(configPath);
     }
     return ConfigManager.instance;
-  }
-
-  private validateAndMergeDefaults(loadedConfig: Partial<AgentConfig>): AgentConfig {
-    const defaultConfig: AgentConfig = {
-      mqtt: {
-        host: 'localhost',
-        port: 1883,
-        base_topic: 'system_agent',
-        username: '',
-        password: '',
-      },
-      device_info: {
-        identifiers: ['default_mqtt_system_agent_id'],
-        name: 'System Agent',
-        manufacturer: 'Cline Agent',
-        model: 'System Agent vDefault',
-        sw_version: agentVersion,
-      },
-      features: {},
-      logging: {
-        level: 'info',
-      },
-    };
-
-    // Deep merge, prioritizing loadedConfig values
-    const mergedConfig = { ...defaultConfig, ...loadedConfig };
-    mergedConfig.mqtt = { ...defaultConfig.mqtt, ...loadedConfig.mqtt };
-    mergedConfig.device_info = { ...defaultConfig.device_info, ...loadedConfig.device_info } as DeviceInfo; // Cast needed after spread
-    mergedConfig.features = { ...defaultConfig.features, ...loadedConfig.features };
-    mergedConfig.logging = { ...defaultConfig.logging, ...loadedConfig.logging };
-
-    // Override MQTT credentials with environment variables if provided
-    // This allows securing sensitive credentials outside of config files
-    if (process.env.MQTT_USERNAME) {
-      mergedConfig.mqtt.username = process.env.MQTT_USERNAME;
-    }
-    if (process.env.MQTT_PASSWORD) {
-      mergedConfig.mqtt.password = process.env.MQTT_PASSWORD;
-    }
-
-    // Ensure essential fields are present
-    if (!mergedConfig.mqtt.host || !mergedConfig.mqtt.base_topic) {
-        throw new Error('MQTT host and base_topic are required in configuration.');
-    }
-    if (!mergedConfig.device_info.identifiers || mergedConfig.device_info.identifiers.length === 0) {
-        throw new Error('Device identifiers are required in configuration.');
-    }
-    if (typeof mergedConfig.device_info.identifiers === 'string') {
-        mergedConfig.device_info.identifiers = [mergedConfig.device_info.identifiers];
-    }
-
-
-    return mergedConfig as AgentConfig;
-  }
-
-  private getMinimalDefaultConfig(): AgentConfig {
-    // This is a fallback for critical errors, allowing the agent to *potentially* start
-    // but likely in a non-functional or limited state.
-    // Uses the same device identifier to maintain entity consistency in Home Assistant
-    return {
-      mqtt: {
-        host: 'localhost', // Sensible default, but likely needs user config
-        port: 1883,
-        base_topic: 'system_agent', // Same base topic as normal config for consistency
-      },
-      device_info: {
-        identifiers: ['nivuus'], // Same identifier to maintain entity consistency
-        name: 'Nivuus',
-        manufacturer: 'nivuus',
-        model: 'System Agent v1.0',
-        sw_version: agentVersion,
-      },
-      features: {}, // No features enabled by default on error
-      logging: {
-        level: 'debug', // More verbose logging if in error state
-      },
-    };
   }
 
   public getFeatureConfig(featureName: string) {
@@ -140,6 +148,7 @@ let configManagerInstance: ConfigManager;
  * This should be called once at application startup.
  * @param configPath Optional path to the configuration file.
  * @returns The initialized ConfigManager instance.
+ * @throws ConfigError when the file is missing, malformed or incomplete.
  */
 export function initializeConfigManager(configPath?: string): ConfigManager {
     if (!configManagerInstance) {
