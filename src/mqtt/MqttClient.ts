@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import { getConfigManager } from '../config';
 import logger from '../utils/logger';
 import { EventEmitter } from 'node:events'; // Import EventEmitter
+import { RetainedPublishCache } from './retainedPublishCache';
 
 interface QueuedMessage {
   topic: string;
@@ -36,6 +37,8 @@ export class MqttClient extends EventEmitter implements MqttClientInterface {
   // Publish queue for retained messages when disconnected (Bug 7)
   private publishQueue: QueuedMessage[] = [];
   private readonly maxQueueSize: number = 200;
+  // Retained payloads the broker holds, so unchanged ones are not sent again.
+  private readonly retained = new RetainedPublishCache();
 
   public connected: boolean = false;
   public connecting: boolean = false; // Part of our custom interface
@@ -110,6 +113,8 @@ export class MqttClient extends EventEmitter implements MqttClientInterface {
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = null;
       }
+      // A new connection may reach a broker that lost its retained store.
+      this.retained.clear();
       this.drainQueue();
       this.emit('connect');
       if (this.resolveConnectionPromise) this.resolveConnectionPromise();
@@ -184,8 +189,25 @@ export class MqttClient extends EventEmitter implements MqttClientInterface {
       logger.debug(`MQTT client not connected. Cannot publish to ${topic}.`);
       return this;
     }
-    await this.client.publishAsync(topic, message, options ?? {});
+    if (options?.retain && !this.retained.claim(topic, message)) {
+      logger.debug(`Retained payload unchanged on ${topic}, not sent again.`);
+      return this;
+    }
+    try {
+      await this.client.publishAsync(topic, message, options ?? {});
+    } catch (error) {
+      if (options?.retain) this.retained.failed(topic, message);
+      throw error;
+    }
     return this;
+  }
+
+  /**
+   * Send every retained payload again from now on, even unchanged: Home
+   * Assistant's birth message calls for a full republish (see haBirth.ts).
+   */
+  public forgetRetained(): void {
+    this.retained.clear();
   }
 
   private enqueue(msg: QueuedMessage): void {
@@ -205,9 +227,13 @@ export class MqttClient extends EventEmitter implements MqttClientInterface {
     this.publishQueue = [];
     for (const msg of queue) {
       if (!this.connected) break;
+      if (!this.retained.claim(msg.topic, msg.message)) continue;
       try {
         await this.client!.publishAsync(msg.topic, msg.message, msg.options ?? {});
-      } catch { /* skip failed messages */ }
+      } catch {
+        // skip failed messages; the next publish on the topic sends it again
+        this.retained.failed(msg.topic, msg.message);
+      }
     }
   }
 

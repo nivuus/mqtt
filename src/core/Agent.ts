@@ -230,6 +230,8 @@ export class Agent {
 
   /** Stop then start every feature: discovery, setup and states are published afresh. */
   private async restartFeatures(): Promise<void> {
+    // A full republish: unchanged retained values are sent again too.
+    this.mqttClient.forgetRetained();
     // Stop all features before restarting them (prevents duplicate timers/watchers on reconnect)
     logger.info('Stopping all features before (re)starting...');
     for (const feature of this.features) {
