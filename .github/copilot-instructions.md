@@ -29,7 +29,7 @@ Attention de bien lié avec des noms commun et clair chaque entité:
 
 Découpe au maximum les fichiers, et range dans une architecture de dossier coherente. Le code doit être le plus simple possible.
 Si un fichier est trop gros, il faut le découper.
-Chaque fichier doit être le plus court possible, et ne pas dépasser 200 lignes.
+Chaque fichier doit être le plus court possible, et ne pas dépasser 500 lignes.
 Le code doit être le plus simple possible.
 Utilise au maximum des packages npm existants.
 Travaille principalement avec des classes et heritages.
@@ -43,6 +43,6 @@ Essaye de comprendre et adapter le code en fonction de la configuration de la ma
 Pour obtenir la liste des entités déclarés dans home assistant:
 ./list-entities.sh
 Pour se connecter à mqtt, il faut se connecter à mqtt sur l'hote avec cette url:
- mosquitto_sub -h 192.168.0.1 -t "homeassistant/#" -v -u mqtt -P CHANGE_ME_MQTT_PASSWORD
+ mosquitto_sub -h 192.168.0.1 -t "homeassistant/#" -v -u <compte> -P <mot de passe>
 
 On est en mode développement, n'installe rien!

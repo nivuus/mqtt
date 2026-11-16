@@ -51,7 +51,7 @@ The MQTT agent uses a **feature-based architecture** with class inheritance:
 
 4. **Features** (`src/features/`):
    - Each subdirectory represents a category (cpu, memory, disk, network, etc.)
-   - Features must extend BaseFeature and implement abstract methods
+   - Features must extend BaseFeature and implement its abstract methods (`publishDiscovery()`, `update()`)
    - Features self-register their Home Assistant entities via MQTT discovery
 
 ### MQTT Topic Structure
@@ -73,7 +73,9 @@ homeassistant/                          # HA Discovery prefix
 ### Adding a New Feature
 
 1. Create class extending BaseFeature in appropriate `src/features/` subdirectory
-2. Implement required methods: `setupDiscovery()`, `update()`, `setupCommandHandlers()`
+2. Implement the two abstract methods of `BaseFeature`: `publishDiscovery()` and `update()`
+   (`src/core/BaseFeature.ts`). Optional hooks: `setup()` (subscriptions, one-off init) and
+   `cleanup()`; subscribe with `listenToMessages()` so `stop()` removes the listener
 3. Add to `availableFeatures` map in `src/core/Agent.ts`
 4. Add configuration to `config/agent.yaml`
 ## Development Commands
@@ -134,19 +136,24 @@ sudo journalctl -u mqtt-system-agent.service -f
 
 ### MQTT Connection for Testing
 
+The shared `mqtt` account no longer exists: the broker uses one Dynamic Security account per
+client (see `docs/claude/mqtt-accounts.md` in `nivuus/home-manager`). Ask the operator for an
+account allowed to read these topics and keep its password out of the shell history
+(`-P` is visible in `ps`; prefer `MQTT_PASSWORD` in the environment and a password file or prompt).
+
 ```bash
 # Subscribe to all Home Assistant discovery messages
-mosquitto_sub -h 192.168.0.1 -t "homeassistant/#" -v -u mqtt -P CHANGE_ME_MQTT_PASSWORD
+mosquitto_sub -h 192.168.0.1 -t "homeassistant/#" -v -u <account> -P <password>
 
 # Subscribe to all agent state topics
-mosquitto_sub -h 192.168.0.1 -t "system_agent/#" -v -u mqtt -P CHANGE_ME_MQTT_PASSWORD
+mosquitto_sub -h 192.168.0.1 -t "system_agent/#" -v -u <account> -P <password>
 ```
 
 ## Code Style Guidelines
 
 From `.github/copilot-instructions.md`:
 
-- **File Organization**: Maximum 200 lines per file - split if larger
+- **File Organization**: Maximum 500 lines per file (suite rule, enforced by CI) - split along a real seam if larger
 - **Architecture**: Use classes and inheritance extensively
 - **Modularity**: Each file should be self-contained and minimal
 - **Comments**: English only
@@ -177,7 +184,7 @@ All entities are linked to a single device in HA with:
 │   ├── mqtt/              # MQTT client wrapper
 │   ├── utils/             # Utilities (logger, exec, MAC vendor lookup)
 │   ├── homeassistant/     # HA discovery services
-│   ├── cli/               # CLI tools for sending alerts/events
+│   ├── cli/               # `event` CLI (the `alert` sender exists but is not wired, see docs/CLI.md)
 │   └── config.ts          # Configuration manager (CRITICAL: maintains entity consistency)
 ├── config/
 │   └── agent.yaml         # Main configuration file
@@ -189,6 +196,9 @@ All entities are linked to a single device in HA with:
 plain ES modules, `npm run test:dashboard`). It finds entities by **unique_id**, so renaming an
 entity's `unique_id` or `objectId` breaks it: run its tests (`test/fixtures/host.json`). See
 `ha-dashboard/README.md` for deployment.
+
+User documentation: `README.md` (install, configuration), `docs/CLI.md` (the `event` CLI),
+`docs/ALERTS.md` (alert and event sensors), `docs/index.md` (index), `ENTITIES.md` (entity list).
 
 Topic notes in `docs/claude/`:
 - `guest-vpn-host-notes.md` — guest VPN bench findings: firewalld reload failure (12:09 incident), NM/OpenVPN behaviour
@@ -286,7 +296,7 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 - **Zone detail sensors** per active zone: forwards, services, ports (count + list attribute),
   masquerade (`--query-masquerade`: exit 1 = no, declared with `answerExitCodes`).
 
-**Active Zones (Current Configuration):**
+**Active Zones (snapshot of the live host, undated: re-read with `firewall-cmd` before relying on it; `vnet*` interfaces are transient VM ports):**
 - **docker**: 5 interfaces, masquerade enabled, 7 port forwards to 192.168.3.2
 - **external**: enp6s0.835 + ppp0, masquerade enabled, target REJECT, exposed services
 - **home**: localBridge, target ACCEPT, 26 services, no masquerade
@@ -407,14 +417,18 @@ overrides, so **they survive package upgrades** — after any `dpkg -i`, the con
 placeholder is back but the env drop-in still wins.
 
 **NUT credentials follow the same rule** (`NUT_USERNAME`/`NUT_PASSWORD` in
-`/etc/mqtt-system-agent.env`, read by `src/features/ups/nutCommands.ts`). The upsd user is
+`/etc/mqtt-system-agent.env`, read by `src/features/ups/nutCommands.ts` from `process.env`).
+**Nothing in this repository loads or creates that file**: the packaged unit has no
+`EnvironmentFile=` (only `Environment=NODE_ENV` and commented `MQTT_*` lines) and `postinst.sh`
+does not touch it, so on a fresh `.deb` install the operator must create it and load it
+with a systemd drop-in. The upsd user is
 `mqtt-agent`, restricted in `/etc/nut/upsd.users` to `test.battery.start.quick` and
 `test.battery.stop` — never give it `instcmds = ALL`, which includes `load.off` (cuts the
 host's power). The battery test command is picked from `upscmd -l`, because models differ:
 the APC Back-UPS BX1600MI has no plain `test.battery.start`, only `.quick` and `.deep`.
 
 **Wizard WebSocket token follows the same rule** (`NIVUUS_WS_TOKEN` in
-`/etc/mqtt-system-agent.env`, ≥ 32 chars, `openssl rand -hex 32`). The channel
+`/etc/mqtt-system-agent.env`, ≥ 32 chars, `openssl rand -hex 32`; same loading caveat as above). The channel
 (`src/websocket/`) runs root-level actions for the HA `nivuus_wizard` integration, so
 `serverConfig.ts` refuses to start it (agent keeps running, error logged) with a missing,
 placeholder (`CHANGE_ME*`, `${VAR}`) or short token, or `auth.type` other than `token`. It
