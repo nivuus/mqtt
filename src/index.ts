@@ -3,12 +3,12 @@ import { Agent } from './core/Agent';
 import { initializeConfigManager, getConfigManager, describeConfig } from './config';
 import logger, { initializeLogger } from './utils/logger';
 import minimist from 'minimist';
-import { runCli } from './cli/index';
+import { runCli, selectMode } from './cli/index';
 import * as path from 'path';
 
 // Parse command line arguments and determine mode (CLI vs agent)
 const args = minimist(process.argv.slice(2));
-const command = args._[0] as string;
+const command = args._[0] === undefined ? undefined : String(args._[0]);
 // Determine config path: flag or default to workspace config/agent.yaml
 const configPath = args.config || path.resolve(process.cwd(), 'config', 'agent.yaml');
 
@@ -24,7 +24,7 @@ try {
 }
 
 // Dispatch CLI or start agent
-if (command === 'alert' || command === 'event') {
+if (command !== undefined && selectMode(command) === 'cli') {
   runCli(command, args)
     .then(() => process.exit(0))
     .catch((err: any) => {
