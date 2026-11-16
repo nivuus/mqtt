@@ -59,6 +59,8 @@ export interface PppoeHarness {
   /** nmcli verbs (`load`, `up`, ...) that exit 1. */
   failing: Set<string>;
   lastAction(): string | undefined;
+  /** Delivers a message and returns once the feature published its final answer to it. */
+  send(suffix: string, payload: string): Promise<boolean>;
   nmcliVerbs(): string[];
   cleanup(): Promise<void>;
 }
@@ -78,6 +80,16 @@ export async function makePppoeHarness(exec: jest.Mocked<typeof execModule>): Pr
     mqtt, keyfile, calls: [], active: false, failing: new Set(),
     feature: undefined as unknown as PppoeCredentials,
     lastAction: () => mqtt.payloadsOn(TOPIC('last_action/state')).pop(),
+    send: (suffix, payload) => {
+      // The feature's last publish for each kind of message; intermediate statuses end in '...'.
+      const actions = () => mqtt.payloadsOn(TOPIC('last_action/state'));
+      const count = (topic: string) => mqtt.payloadsOn(topic).length;
+      const [kind] = suffix.split('/');
+      const target = kind === 'username_input' ? TOPIC('username_input/state') : TOPIC('last_action/state');
+      const before = count(target);
+      const final = () => count(target) > before && !(kind === 'command' && actions().pop()!.endsWith('...'));
+      return mqtt.deliver(TOPIC(suffix), payload, final);
+    },
     nmcliVerbs: () => h.calls.filter(c => c[0] === 'nmcli').map(c => c[c.indexOf('connection') + 1]),
     cleanup: () => fs.rm(dir, { recursive: true, force: true }),
   };

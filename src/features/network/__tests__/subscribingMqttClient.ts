@@ -18,11 +18,23 @@ export function topicMatches(filter: string, topic: string): boolean {
 }
 
 export class SubscribingMqttClient extends MockMqttClient {
-  /** Delivers `payload` like a broker and waits for every listener; false when nothing matched. */
-  async deliver(topic: string, payload: string): Promise<boolean> {
+  /**
+   * Delivers `payload` like a broker and returns once `settled` holds; false when nothing matched.
+   *
+   * A broker does not wait for a handler, and the message listeners' return values are not part
+   * of the contract (BaseFeature isolates them), so completion is observed through what the
+   * feature publishes, which is what the tests assert on anyway. `settled` defaults to "the
+   * feature published something"; pass the feature's last publish when it publishes several.
+   */
+  async deliver(topic: string, payload: string, settled: () => boolean = () => true): Promise<boolean> {
     if (!this.subscribedTopics.some(filter => topicMatches(filter, topic))) return false;
-    const listeners = this.listeners('message') as Array<(t: string, p: Buffer) => unknown>;
-    await Promise.all(listeners.map(listener => listener(topic, Buffer.from(payload))));
+    const before = this.publishedMessages.length;
+    this.emit('message', topic, Buffer.from(payload));
+    const deadline = Date.now() + 5000;
+    while (this.publishedMessages.length === before || !settled()) {
+      if (Date.now() > deadline) throw new Error(`No settled publish after delivering on ${topic}`);
+      await new Promise(resolve => setTimeout(resolve, 1));
+    }
     return true;
   }
 

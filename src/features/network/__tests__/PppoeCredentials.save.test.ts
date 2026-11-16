@@ -21,13 +21,13 @@ describe('PppoeCredentials save', () => {
   });
 
   const typeAndSave = async (username: string, password: string) => {
-    expect(await h.mqtt.deliver(TOPIC('username_input/set'), username)).toBe(true);
-    expect(await h.mqtt.deliver(TOPIC('password_input/set'), password)).toBe(true);
-    expect(await h.mqtt.deliver(TOPIC('command/save_credentials'), 'SAVE_CREDENTIALS')).toBe(true);
+    expect(await h.send('username_input/set', username)).toBe(true);
+    expect(await h.send('password_input/set', password)).toBe(true);
+    expect(await h.send('command/save_credentials', 'SAVE_CREDENTIALS')).toBe(true);
   };
 
   it('receives the form fields through a subscription that matches their set topics', async () => {
-    expect(await h.mqtt.deliver(TOPIC('username_input/set'), 'new-user@isp.example')).toBe(true);
+    expect(await h.send('username_input/set', 'new-user@isp.example')).toBe(true);
     expect(h.mqtt.payloadsOn(TOPIC('username_input/state')).pop()).toBe('{"value":"new-user@isp.example"}');
   });
 
@@ -90,11 +90,11 @@ describe('PppoeCredentials save', () => {
 
   it('checks the connection with a NetworkManager status read, never pppd', async () => {
     h.active = true;
-    expect(await h.mqtt.deliver(TOPIC('command/test_connection'), 'TEST_CONNECTION')).toBe(true);
+    expect(await h.send('command/test_connection', 'TEST_CONNECTION')).toBe(true);
     expect(h.calls.some(c => c.includes('pppd'))).toBe(false);
     expect(h.lastAction()).toBe('Connection active');
     h.active = false;
-    await h.mqtt.deliver(TOPIC('command/test_connection'), 'TEST_CONNECTION');
+    await h.send('command/test_connection', 'TEST_CONNECTION');
     expect(h.lastAction()).toBe('Connection inactive');
   });
 });

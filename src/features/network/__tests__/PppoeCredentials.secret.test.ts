@@ -28,14 +28,14 @@ describe('PppoeCredentials never publishes the ISP password', () => {
   });
 
   it('does not echo a newly typed password, and says it is staged', async () => {
-    await h.mqtt.deliver(TOPIC('password_input/set'), 'typed-secret-91');
+    await h.send('password_input/set', 'typed-secret-91');
     expect(h.mqtt.allPayloads().filter(p => p.includes('typed-secret-91'))).toEqual([]);
     expect(h.lastAction()).toBe('New password staged; press Save to apply it');
   });
 
   it('keeps the stored password when only the username is changed', async () => {
-    await h.mqtt.deliver(TOPIC('username_input/set'), 'renamed@isp.example');
-    await h.mqtt.deliver(TOPIC('command/save_credentials'), 'SAVE_CREDENTIALS');
+    await h.send('username_input/set', 'renamed@isp.example');
+    await h.send('command/save_credentials', 'SAVE_CREDENTIALS');
     const text = await fs.readFile(h.keyfile, 'utf8');
     expect(text).toContain('\nusername=renamed@isp.example\n');
     expect(text).toContain(`\npassword=${OLD_SECRET}\n`);
@@ -43,10 +43,10 @@ describe('PppoeCredentials never publishes the ISP password', () => {
   });
 
   it('forgets a staged password once it is saved', async () => {
-    await h.mqtt.deliver(TOPIC('password_input/set'), 'typed-secret-91');
-    await h.mqtt.deliver(TOPIC('command/save_credentials'), 'SAVE_CREDENTIALS');
+    await h.send('password_input/set', 'typed-secret-91');
+    await h.send('command/save_credentials', 'SAVE_CREDENTIALS');
     await fs.writeFile(h.keyfile, (await fs.readFile(h.keyfile, 'utf8')).replace('typed-secret-91', 'rotated-elsewhere'));
-    await h.mqtt.deliver(TOPIC('command/save_credentials'), 'SAVE_CREDENTIALS');
+    await h.send('command/save_credentials', 'SAVE_CREDENTIALS');
     expect(await fs.readFile(h.keyfile, 'utf8')).toContain('\npassword=rotated-elsewhere\n');
   });
 });
