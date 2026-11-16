@@ -14,9 +14,12 @@ Restart=always
 RestartSec=5
 User=root
 Environment=NODE_ENV=production
-# Uncomment and set these to override MQTT credentials from config file:
-# Environment=MQTT_USERNAME=mqtt
-# Environment=MQTT_PASSWORD=your_secure_password_here
+# Secrets live outside the package, in a root-only file (mode 600) that a .deb upgrade never
+# touches: MQTT_USERNAME / MQTT_PASSWORD (the broker client; written by home-manager's install
+# hook on a fresh install), NIVUUS_WS_TOKEN, NUT_USERNAME / NUT_PASSWORD.
+# The "-" prefix makes the file optional: without it a missing file fails the unit before the
+# agent starts (systemd.exec(5)). Its values override any Environment= line, drop-ins included.
+EnvironmentFile=-/etc/mqtt-system-agent.env
 
 # Security options - relaxed for debugging
 NoNewPrivileges=no
