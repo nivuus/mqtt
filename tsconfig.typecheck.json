@@ -1,0 +1,11 @@
+{
+  // Type-checks everything `npm run build` leaves out: the tests, their mocks and
+  // fixtures, and the Jest config. Run by CI through the `typecheck` npm script.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "jest.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}
