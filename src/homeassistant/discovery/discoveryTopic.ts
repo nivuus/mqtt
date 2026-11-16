@@ -43,6 +43,29 @@ export function toTopicSegment(value: string): string {
   return readable.length > 0 ? `${readable}_${digest}` : digest;
 }
 
+// Printable ASCII: the characters the historical slug replaced one for one.
+const PRINTABLE_ASCII = /^[\x20-\x7e]+$/;
+
+/**
+ * The object id of an entity named after a system value (a disk, a VM, a
+ * network bridge, a filesystem): used in its unique_id AND in its state
+ * topics, so it must be stable, legal, and distinct for distinct names.
+ *
+ * - A printable-ASCII name keeps the id it always had: every character outside
+ *   [a-zA-Z0-9_-] becomes "_" ("/dev/sda1" -> "_dev_sda1", "enp6s0.835" ->
+ *   "enp6s0_835"). Home Assistant has registered those ids, and the "Serveur"
+ *   dashboard finds entities by unique_id.
+ * - Any other name (a letter outside ASCII, in any script, or an empty name)
+ *   goes through toTopicSegment(): readable part plus a digest of the raw name.
+ *   The old slug replaced each such character by "_", so "Bureau 日本" and
+ *   "Bureau 中国" became the same entity and a name written only in Arabic or
+ *   Japanese became a row of underscores.
+ */
+export function toObjectId(name: string): string {
+  if (PRINTABLE_ASCII.test(name)) return name.replace(ILLEGAL_CHAR, '_');
+  return toTopicSegment(name);
+}
+
 /** Build the retained config topic for one entity, with both ids made legal. */
 export function discoveryTopic(component: string, nodeId: string, objectId: string): string {
   return `homeassistant/${component}/${toTopicSegment(nodeId)}/${toTopicSegment(objectId)}/config`;

@@ -1,6 +1,7 @@
 // src/features/network/ConnectedDevices.ts
 
 import { BaseFeature } from '../../core/BaseFeature';
+import { toObjectId } from '../../homeassistant/discovery/discoveryTopic';
 import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_command } from '../../utils/exec';
 import { Validators } from '../../utils/validators';
@@ -404,7 +405,7 @@ export class ConnectedDevices extends BaseFeature {
     const bridges = await this.getBridgeInterfaces();
     
     for (const bridge of bridges) {
-      const objectId = bridge.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const objectId = toObjectId(bridge.name);
       
       await this.publishEntityDiscovery('sensor', `${objectId}_device_count`, {
         name: `Network ${bridge.name} Device Count`,
@@ -440,7 +441,7 @@ export class ConnectedDevices extends BaseFeature {
     }
 
     for (const bridge of bridges) {
-      const objectId = bridge.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const objectId = toObjectId(bridge.name);
       
       try {
         const devices = await this.getBridgeDevices(bridge.name);

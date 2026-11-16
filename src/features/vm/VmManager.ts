@@ -7,6 +7,7 @@ import { Validators, rejectInvalid } from '../../utils/validators';
 import logger from '../../utils/logger';
 import { runVmAction } from './virshLifecycle';
 import { vmEntityFromDiscovery, isStale } from './staleVmEntities';
+import { toObjectId } from '../../homeassistant/discovery/discoveryTopic';
 
 interface VmManagerFeatureConfig extends FeatureConfig {
   vm_names?: string[]; // Optional: specific VMs to manage by name
@@ -85,10 +86,10 @@ export class VmManager extends BaseFeature {
         : vms;
       
       logger.debug(`[${this.featureName}] VMs to monitor after filtering:`, JSON.stringify(vmsToMonitor, null, 2));
-      this.liveVmObjectIds = new Set(vmsToMonitor.map((vm) => vm.name.replace(/[^a-zA-Z0-9_-]/g, '_')));
+      this.liveVmObjectIds = new Set(vmsToMonitor.map((vm) => toObjectId(vm.name)));
 
       for (const vm of vmsToMonitor) {
-        const vmObjectId = vm.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const vmObjectId = toObjectId(vm.name);
         const baseName = `VM ${vm.name}`;
 
         // VM State Sensor
@@ -230,7 +231,7 @@ export class VmManager extends BaseFeature {
   }
 
   private async updateVmState(vmName: string, state?: string, commandError?: string): Promise<void> {
-    const vmObjectId = vmName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const vmObjectId = toObjectId(vmName);
     let currentState = state;
     let attributes: { [key: string]: any } = commandError ? { error: commandError } : {};
 
