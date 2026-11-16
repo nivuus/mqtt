@@ -86,6 +86,8 @@ interface Routing {
   psFailureByProject?: Record<string, string>;
   // Project name -> stderr; when set, that project's `up` call exits non-zero.
   upFailureByProject?: Record<string, string>;
+  // Result of the daemon probe `docker info` (default: success).
+  infoResult?: CommandResult;
 }
 
 /**
@@ -97,7 +99,7 @@ interface Routing {
 function routeExecuteArgv(routing: Routing) {
   return async (file: string, args: string[]): Promise<CommandResult> => {
     if (file !== 'docker') return ok();
-    if (args[0] === 'info') return ok();
+    if (args[0] === 'info') return routing.infoResult ?? ok();
     if (args[0] === 'compose' && args[1] === 'ls') {
       return ok(JSON.stringify(routing.projects));
     }
@@ -277,6 +279,25 @@ describe('AptUpdates installs', () => {
       'compose', '-p', 'mediamanager', '-f', '/stack/docker-compose.yml',
       'up', '-d', '--force-recreate', '--no-deps', 'sonarr',
     ]);
+  });
+
+  it('recreates nothing, and says which projects it left, when the Docker daemon does not answer after the upgrade', async () => {
+    await installWithCompose({
+      projects: [{ Name: 'mediamanager', ConfigFiles: '/stack/docker-compose.yml' }],
+      runningByProject: { mediamanager: 'plex' },
+      infoResult: { stdout: '', stderr: 'Cannot connect to the Docker daemon', exitCode: 1 },
+    });
+
+    // apt-get only returns once the package scripts' blocking `systemctl
+    // restart docker` is over: the daemon's answer then is final, and the
+    // failure is reported at once instead of after a minute of polling.
+    expect(mockedExec.execute_argv.mock.calls.filter(([file, args]) => file === 'docker' && args[0] === 'info')).toHaveLength(1);
+    expect(findCall(args => composeSubcommand(args) === 'up')).toBeUndefined();
+    expect((logger.error as jest.Mock).mock.calls.some(
+      ([message]) => typeof message === 'string'
+        && message.includes('mediamanager')
+        && message.includes('Cannot connect to the Docker daemon')
+    )).toBe(true);
   });
 
   it('snapshots the running compose services before dpkg or apt-get touches any package', async () => {
