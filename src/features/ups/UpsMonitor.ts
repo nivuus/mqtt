@@ -6,6 +6,7 @@ import { execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
 import { nutCredentialsFromEnv, parseInstantCommands, pickBatteryTestCommand } from './nutCommands';
 import { PeriodicBatteryTest } from './batteryTestSchedule';
+import { runNutInstantCommand } from './nutInstantCommand';
 
 const DEFAULT_TEST_STATE_FILE = '/var/lib/mqtt-system-agent/ups-battery-test.last';
 
@@ -161,13 +162,16 @@ export class UpsMonitor extends BaseFeature {
       logger.error(`[${this.featureName}] Battery test refused: ${upsName} offers no quick battery test (${listed.stderr || 'none listed'})`);
       return false;
     }
-    const result = await execute_argv('upscmd', ['-u', credentials.username, '-p', credentials.password, upsName, testCommand]);
-    if (result.exitCode === 0) {
-      logger.info(`[${this.featureName}] Battery test initiated (${testCommand})`);
-      return true;
+    // Over upsd's socket, never `upscmd -p`: a password in argv is readable by
+    // every local user (see nutInstantCommand.ts).
+    try {
+      await runNutInstantCommand(upsName, testCommand, credentials);
+    } catch (error) {
+      logger.error(`[${this.featureName}] Battery test failed: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
-    logger.error(`[${this.featureName}] Battery test failed: ${result.stderr}`);
-    return false;
+    logger.info(`[${this.featureName}] Battery test initiated (${testCommand})`);
+    return true;
   }
 
   protected async update(): Promise<void> {
