@@ -67,28 +67,36 @@ export abstract class BaseFeature {
     try {
       await this.publishDiscovery();
       await this.setup(); // Feature-specific setup
-      
-      // Initial update
-      await this.update(); 
-
-      // Schedule periodic updates if an interval is defined
-      if (this.featureConfig.update_interval_seconds && this.featureConfig.update_interval_seconds > 0) {
-        this.updateIntervalId = setInterval(
-          async () => {
-            if (!this.mqttClient.connected) return;
-            try {
-              await this.update();
-            } catch (error) {
-              logger.error(`Error during scheduled update for ${this._featureName}:`, error);
-            }
-          },
-          this.featureConfig.update_interval_seconds * 1000,
-        );
-        logger.debug(`Feature ${this._featureName} scheduled for updates every ${this.featureConfig.update_interval_seconds}s.`);
-      }
-      logger.info(`Feature ${this._featureName} started successfully.`);
     } catch (error) {
+      // Discovery and subscriptions are MQTT work: the next broker connection
+      // restarts the feature, so no timer is armed on a half-started one.
       logger.error(`Failed to start feature ${this._featureName}:`, error);
+      return;
+    }
+
+    // The first sample is an ordinary tick: its failure (a command or a file
+    // not there yet) is logged like any later one, and never keeps the timer
+    // from being armed, which froze the feature until the next reconnection.
+    await this.runUpdate('initial');
+
+    if (this.featureConfig.update_interval_seconds && this.featureConfig.update_interval_seconds > 0) {
+      this.updateIntervalId = setInterval(
+        async () => {
+          if (!this.mqttClient.connected) return;
+          await this.runUpdate('scheduled');
+        },
+        this.featureConfig.update_interval_seconds * 1000,
+      );
+      logger.debug(`Feature ${this._featureName} scheduled for updates every ${this.featureConfig.update_interval_seconds}s.`);
+    }
+    logger.info(`Feature ${this._featureName} started.`);
+  }
+
+  private async runUpdate(kind: 'initial' | 'scheduled'): Promise<void> {
+    try {
+      await this.update();
+    } catch (error) {
+      logger.error(`Error during ${kind} update for ${this._featureName}:`, error);
     }
   }
 
