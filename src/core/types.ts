@@ -23,6 +23,12 @@ export interface MqttClient extends EventEmitter {
   publish(topic: string, message: string | Buffer, options?: IClientPublishOptions): Promise<this>;
   /** Resolves when the broker grants the subscription; rejects while disconnected or when refused. */
   subscribe(topic: string | string[], options?: IClientSubscribeOptions): Promise<this>;
+  /**
+   * A retained publish whose payload is the last one sent on its topic is not
+   * sent again, until the next (re)connection or this call: Home Assistant's
+   * birth message makes the agent call it before republishing everything.
+   */
+  forgetRetained(): void;
   end(force?: boolean, opts?: object, cb?: (...args: any[]) => void): this; // Return this for chaining
 
   // Event methods are inherited from EventEmitter.

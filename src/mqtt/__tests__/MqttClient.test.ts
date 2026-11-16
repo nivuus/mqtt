@@ -7,6 +7,10 @@
 import { EventEmitter } from 'node:events';
 import { MqttClient } from '../MqttClient';
 import logger from '../../utils/logger';
+import * as mqtt from 'mqtt';
+
+// connect() is replaced so a (re)connection can be driven by hand.
+jest.mock('mqtt', () => ({ ...jest.requireActual('mqtt'), connect: jest.fn() }));
 
 jest.mock('../../config', () => ({
   getConfigManager: jest.fn(() => ({
@@ -22,11 +26,13 @@ jest.mock('../../config', () => ({
 class FakeInnerClient extends EventEmitter {
   public subscribeError: Error | null = null;
   public published: string[] = [];
+  public publishError: Error | null = null;
   async subscribeAsync(topic: string) {
     if (this.subscribeError) throw this.subscribeError;
     return [{ topic, qos: 1 }];
   }
   async publishAsync(topic: string) {
+    if (this.publishError) throw this.publishError;
     this.published.push(topic);
     return undefined;
   }
@@ -81,5 +87,72 @@ describe('MqttClient.publish', () => {
     client.connected = true;
     await (client as unknown as { drainQueue: () => Promise<void> }).drainQueue();
     expect(inner.published).toEqual(['a/retained']);
+  });
+});
+
+// Every feature republishes all its states on every tick; the broker already
+// holds an unchanged retained value, so sending it again only costs a QoS 1
+// round trip and a Home Assistant event (about 200 000 a day).
+describe('MqttClient retained de-duplication', () => {
+  const retained = { retain: true, qos: 1 as const };
+
+  it('does not send an unchanged retained payload again', async () => {
+    const inner = new FakeInnerClient();
+    const client = connectedClient(inner);
+    await client.publish('a/state', '42', retained);
+    await client.publish('a/state', '42', retained);
+    await client.publish('a/state', '43', retained);
+    await client.publish('a/state', '42', retained);
+    expect(inner.published).toEqual(['a/state', 'a/state', 'a/state']);
+  });
+
+  it('keeps topics apart', async () => {
+    const inner = new FakeInnerClient();
+    const client = connectedClient(inner);
+    await client.publish('a/state', '42', retained);
+    await client.publish('b/state', '42', retained);
+    expect(inner.published).toEqual(['a/state', 'b/state']);
+  });
+
+  it('always sends a non-retained payload, events included', async () => {
+    const inner = new FakeInnerClient();
+    const client = connectedClient(inner);
+    await client.publish('a/event', 'x', { qos: 1 });
+    await client.publish('a/event', 'x', { qos: 1 });
+    expect(inner.published).toEqual(['a/event', 'a/event']);
+  });
+
+  it('sends everything again after forgetRetained (Home Assistant birth)', async () => {
+    const inner = new FakeInnerClient();
+    const client = connectedClient(inner);
+    await client.publish('a/state', '42', retained);
+    client.forgetRetained();
+    await client.publish('a/state', '42', retained);
+    expect(inner.published).toEqual(['a/state', 'a/state']);
+  });
+
+  it('sends everything again on a new broker connection', async () => {
+    const inner = new FakeInnerClient();
+    const client = connectedClient(inner);
+    await client.publish('a/state', '42', retained);
+    // What the wrapper does when mqtt.js reports a (re)connection.
+    client.connected = false;
+    const fresh = new FakeInnerClient();
+    (mqtt.connect as unknown as jest.Mock).mockReturnValue(fresh);
+    const connecting = client.connect();
+    fresh.emit('connect');
+    await connecting;
+    await client.publish('a/state', '42', retained);
+    expect(fresh.published).toEqual(['a/state']);
+  });
+
+  it('sends the payload again after a failed send', async () => {
+    const inner = new FakeInnerClient();
+    const client = connectedClient(inner);
+    inner.publishError = new Error('broker gone');
+    await expect(client.publish('a/state', '42', retained)).rejects.toThrow('broker gone');
+    inner.publishError = null;
+    await client.publish('a/state', '42', retained);
+    expect(inner.published).toEqual(['a/state']);
   });
 });

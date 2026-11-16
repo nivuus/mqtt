@@ -8,6 +8,7 @@ import {
   fetchChangelog, updateContainer,
 } from './DockerHelper';
 import { hasPendingMaintenance, runExclusive } from './hostMaintenanceQueue';
+import { toObjectId } from '../../homeassistant/discovery/discoveryTopic';
 
 interface DockerUpdatesConfig extends FeatureConfig {
   check_interval_hours?: number;
@@ -294,7 +295,7 @@ export class DockerUpdates extends BaseFeature {
   }
 
   private sanitize(name: string): string {
-    return name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    return toObjectId(name).toLowerCase();
   }
 
   private formatName(serviceName: string): string {

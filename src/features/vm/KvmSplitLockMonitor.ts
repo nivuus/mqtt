@@ -5,21 +5,14 @@ import { MqttClient, FeatureConfig } from '../../core/types';
 import { execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
 import { spawn, ChildProcess } from 'child_process';
-
-interface SplitLockEvent {
-  timestamp: string;
-  cpu: string;
-  process: string;
-  pid: string;
-  address: string;
-}
+import { createInterface } from 'readline';
+import { SPLIT_LOCK_JOURNAL_FOLLOW_ARGS, parseSplitLockMessage, SplitLockEvent } from './splitLockJournal';
 
 export class KvmSplitLockMonitor extends BaseFeature {
   private journalProcess: ChildProcess | null = null;
   private splitLockCount: number = 0;
   private lastSplitLockEvent: SplitLockEvent | null = null;
   private shuttingDown: boolean = false;
-  private readonly monitorCommand = 'journalctl -kf --no-pager';
 
   constructor(mqttClient: MqttClient, featureName: string = 'kvm_split_lock_monitor') {
     super(mqttClient, featureName);
@@ -67,23 +60,6 @@ export class KvmSplitLockMonitor extends BaseFeature {
     this.shuttingDown = false;
     this.stopMonitoring();
     this.startMonitoring();
-  }
-
-  private parseSplitLockMessage(message: string): SplitLockEvent | null {
-    // Parse messages like: "x86/split lock detection: #AC: CPU 5/KVM/3495 took a split_lock trap at address: 0xfffff8040c6dfdff"
-    const regex = /x86\/split lock detection: #AC: CPU (\d+)\/(.*?)\/(\d+) took a split_lock trap at address: (0x[0-9a-fA-F]+)/;
-    const match = message.match(regex);
-
-    if (match) {
-      return {
-        timestamp: new Date().toISOString(),
-        cpu: match[1],
-        process: match[2],
-        pid: match[3],
-        address: match[4],
-      };
-    }
-    return null;
   }
 
   private async handleSplitLockEvent(event: SplitLockEvent): Promise<void> {
@@ -147,24 +123,22 @@ export class KvmSplitLockMonitor extends BaseFeature {
 
     logger.info(`[${this.featureName}] Starting kernel log monitoring for split locks`);
 
-    // Start journalctl to follow kernel logs
-    this.journalProcess = spawn('journalctl', ['-kf', '--no-pager'], {
+    // journalctl filters the kernel journal itself (--grep), so the agent only
+    // wakes for split lock lines, not for every kernel message.
+    this.journalProcess = spawn('journalctl', SPLIT_LOCK_JOURNAL_FOLLOW_ARGS, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    this.journalProcess.stdout?.on('data', (data: Buffer) => {
-      const lines = data.toString().split('\n');
-      for (const line of lines) {
-        if (line.includes('split lock detection') || line.includes('split_lock trap')) {
-          const event = this.parseSplitLockMessage(line);
-          if (event) {
-            this.handleSplitLockEvent(event).catch((error) => {
-              logger.error(`[${this.featureName}] Error handling split lock event:`, error.message);
-            });
-          }
-        }
-      }
-    });
+    // Whole lines: a chunk of the pipe can end in the middle of one.
+    if (this.journalProcess.stdout) {
+      createInterface({ input: this.journalProcess.stdout, crlfDelay: Infinity }).on('line', (line: string) => {
+        const event = parseSplitLockMessage(line);
+        if (!event) return;
+        this.handleSplitLockEvent(event).catch((error) => {
+          logger.error(`[${this.featureName}] Error handling split lock event:`, error.message);
+        });
+      });
+    }
 
     this.journalProcess.stderr?.on('data', (data: Buffer) => {
       logger.debug(`[${this.featureName}] journalctl stderr:`, data.toString());

@@ -1,6 +1,6 @@
 // src/homeassistant/discovery/__tests__/discoveryTopic.test.ts
 
-import { discoveryTopic, toTopicSegment } from '../discoveryTopic';
+import { discoveryTopic, toObjectId, toTopicSegment } from '../discoveryTopic';
 
 // Home Assistant matches every discovery topic against
 //   (?P<component>\w+)/(?:(?P<node_id>[a-zA-Z0-9_-]+)/)?(?P<object_id>[a-zA-Z0-9_-]+)/config
@@ -87,5 +87,47 @@ describe('discoveryTopic', () => {
   it('leaves a legal topic unchanged', () => {
     expect(discoveryTopic('update', 'nivuus', 'nivuus_docker_updates_ollama'))
       .toBe('homeassistant/update/nivuus/nivuus_docker_updates_ollama/config');
+  });
+});
+
+// Object ids of entities named after a system value: a disk, a VM, a bridge, a
+// filesystem. They appear in unique_ids and in state topics.
+describe('toObjectId', () => {
+  // Ids Home Assistant has registered, and the "Serveur" dashboard looks up by
+  // unique_id: a printable-ASCII name must keep the id the old slug gave it.
+  it.each([
+    ['sda', 'sda'],
+    ['nvme0n1', 'nvme0n1'],
+    ['/dev/nvme0n1p2', '_dev_nvme0n1p2'],
+    ['Windows', 'Windows'],
+    ['win.11', 'win_11'],
+    ['localBridge', 'localBridge'],
+    ['my disk (C:)', 'my_disk__C__'],
+  ])('keeps the historical id of %j', (name, id) => {
+    expect(toObjectId(name)).toBe(id);
+  });
+
+  it.each([
+    'Bureau 日本', 'Bureau 中国', 'غرفة المعيشة', 'مطبخ', 'リビング', '寝室', 'Гостиная', 'Disque Système', '',
+  ])('gives %j a legal id', (name) => {
+    expect(toObjectId(name)).toMatch(HA_TOPIC_SEGMENT);
+  });
+
+  // The old slug turned each of these pairs into one id: one entity silently
+  // overwrote the other, and an Arabic or Japanese name became underscores.
+  it.each([
+    ['Bureau 日本', 'Bureau 中国'],
+    ['غرفة المعيشة', 'مطبخ_المعيشة'],
+    ['リビング', '寝室'],
+    ['リビング', ''],
+    ['Disque Système', 'Disque Syst_me'],
+    ['Гостиная', 'Спальня1'],
+  ])('keeps %j and %j distinct', (a, b) => {
+    expect(toObjectId(a)).not.toBe(toObjectId(b));
+  });
+
+  it('is deterministic, so a restart targets the same entity', () => {
+    expect(toObjectId('Bureau 日本')).toBe(toObjectId('Bureau 日本'));
+    expect(toObjectId('غرفة المعيشة')).toBe(toObjectId('غرفة المعيشة'));
   });
 });

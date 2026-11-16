@@ -4,6 +4,7 @@ import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient, FeatureConfig } from '../../core/types';
 import * as si from 'systeminformation';
 import logger from '../../utils/logger';
+import { toObjectId } from '../../homeassistant/discovery/discoveryTopic';
 
 interface DiskUsageFeatureConfig extends FeatureConfig {
   drives?: string[]; // Optional: specific drives/mount points to monitor, e.g., ["/", "/mnt/data"]
@@ -20,7 +21,7 @@ export class DiskUsage extends BaseFeature {
 
   private getSafeObjectId(filesystemName: string): string {
     // Replace characters not suitable for MQTT topic segments or HA object IDs
-    return filesystemName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    return toObjectId(filesystemName);
   }
 
   protected async publishDiscovery(): Promise<void> {

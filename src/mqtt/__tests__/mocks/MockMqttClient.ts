@@ -59,6 +59,16 @@ export class MockMqttClient extends EventEmitter implements MqttClientInterface 
     return this;
   }
 
+  /**
+   * Counted only: the real client's retained de-duplication is a transport
+   * concern tested in MqttClient.test.ts, and feature tests count every
+   * publish their update() makes.
+   */
+  public forgetRetainedCalls = 0;
+  forgetRetained(): void {
+    this.forgetRetainedCalls++;
+  }
+
   // Unsubscribe can remain synchronous or also be async if the underlying lib is.
   // For simplicity, keeping it as returning `this` directly if the interface allows,
   // but the interface was changed to Promise<this>.
