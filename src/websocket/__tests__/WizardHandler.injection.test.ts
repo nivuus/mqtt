@@ -3,19 +3,81 @@
 // Proves that command-injection payloads reaching the wizard are neutralised by
 // strict validation *before* any command is executed. Each malicious value is
 // rejected (the handler throws) so execution never happens — no shell, no argv.
+//
+// The handlers are the real ones, so this suite must never be able to reach the
+// host: if a validator regressed, an injected value would otherwise have been
+// written over a hostapd config, /etc/passwd or the PPPoE profile with `sudo mv`
+// before the test turned red. Every command goes through utils/exec, stubbed
+// here to record what would have run; child_process itself throws, so a path
+// that bypasses utils/exec fails loudly instead of spawning; fs writes are
+// recorded, never made. After each rejection, nothing may have been recorded.
 
 import { WizardHandler } from '../WizardHandler';
 import { WizardCommand } from '../types';
+import * as exec from '../../utils/exec';
+import * as fs from 'fs';
+
+jest.mock('../../utils/exec', () => {
+  const ran = async () => ({ stdout: '', stderr: '', exitCode: 0 });
+  return {
+    ...jest.requireActual('../../utils/exec'),
+    execute_command: jest.fn(ran),
+    execute_argv: jest.fn(ran),
+    execute_argv_input: jest.fn(ran),
+  };
+});
+
+jest.mock('child_process', () => {
+  const forbidden = (name: string) => () => {
+    throw new Error(`child_process.${name} called from the injection suite: it must never spawn a process`);
+  };
+  return Object.fromEntries(
+    ['exec', 'execFile', 'execSync', 'execFileSync', 'spawn', 'spawnSync', 'fork'].map((name) => [name, forbidden(name)]),
+  );
+});
+
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  writeFileSync: jest.fn(),
+  appendFileSync: jest.fn(),
+  copyFileSync: jest.fn(),
+  renameSync: jest.fn(),
+  unlinkSync: jest.fn(),
+}));
+
+/** Every command the handlers would have run, and every file they would have written. */
+function sideEffects(): unknown[][] {
+  const mocks = [
+    exec.execute_command, exec.execute_argv, exec.execute_argv_input,
+    fs.writeFileSync, fs.appendFileSync, fs.copyFileSync, fs.renameSync, fs.unlinkSync,
+  ] as unknown as jest.Mock[];
+  return mocks.flatMap((mock) => mock.mock.calls);
+}
 
 function cmd(feature: string, action: string, params: Record<string, unknown>): WizardCommand {
   return { id: 'test', type: 'action', feature: feature as any, action, params };
 }
 
+describe('the injection suite cannot reach the host', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('records a validated command instead of running it', async () => {
+    await new WizardHandler().handleCommand(cmd('vm', 'start_vm', { vmName: 'Windows' }));
+    expect(exec.execute_argv).toHaveBeenCalledWith('virsh', ['-c', 'qemu:///system', 'start', 'Windows']);
+  });
+});
+
 describe('WizardHandler — injection payloads are rejected before execution', () => {
   let handler: WizardHandler;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     handler = new WizardHandler();
+  });
+
+  afterEach(() => {
+    // Shown as argv lists when a validator regresses: what would have run.
+    expect(sideEffects()).toEqual([]);
   });
 
   it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty'])(

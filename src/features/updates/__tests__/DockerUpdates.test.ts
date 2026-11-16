@@ -398,5 +398,22 @@ describe('DockerUpdates install queue', () => {
 
       expect(entityRemoved('plex')).toBe(true);
     });
+
+    it('keeps every entity, and checks again at the next tick, when docker ps could not be read', async () => {
+      await startWithContainers([plex, sonarr]);
+      mockedHelper.listWatchtowerContainers.mockResolvedValue(undefined);
+
+      await runPeriodicCheck();
+
+      expect(entityRemoved('plex')).toBe(false);
+      expect(entityRemoved('sonarr')).toBe(false);
+
+      // The failed listing is not a completed check: the next tick lists again
+      // instead of waiting another check_interval_hours.
+      mockedHelper.listWatchtowerContainers.mockResolvedValue([plex, sonarr]);
+      const listingsBefore = mockedHelper.listWatchtowerContainers.mock.calls.length;
+      await feature.runPeriodicUpdate();
+      expect(mockedHelper.listWatchtowerContainers.mock.calls.length).toBe(listingsBefore + 1);
+    });
   });
 });

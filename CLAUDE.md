@@ -89,6 +89,9 @@ npm run build
 # Start the agent (requires build first)
 npm start
 
+# Type-check sources AND tests (what `build` leaves out); CI runs it via ci-node.yml
+npm run typecheck
+
 # Run tests
 npm test
 

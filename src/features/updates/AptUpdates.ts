@@ -337,11 +337,16 @@ export class AptUpdates extends BaseFeature {
   private async restartComposeProjects(snapshot: ComposeProjectSnapshot[]): Promise<void> {
     logger.info('Docker packages updated — recreating previously running compose services...');
 
-    // Wait for Docker daemon to be ready after upgrade
-    for (let i = 0; i < 30; i++) {
-      const check = await execute_argv('docker', ['info']);
-      if (check.exitCode === 0) break;
-      await new Promise(r => setTimeout(r, 2000));
+    // The package scripts restart the daemon with a blocking `systemctl
+    // restart` (dockerd is Type=notify, so that returns once it is ready), and
+    // apt-get only returns after them: the daemon's answer now is final. A
+    // daemon that does not answer is a failed upgrade to report, not a delay
+    // to poll through -- every recreate below would fail on it anyway.
+    const daemon = await execute_argv('docker', ['info']);
+    if (daemon.exitCode !== 0) {
+      const left = snapshot.filter(project => project.runningServices.length > 0).map(project => project.name);
+      logger.error(`Docker daemon not answering after the upgrade, compose projects not recreated (${left.join(', ')}): ${daemon.stderr.trim()}`);
+      return;
     }
 
     for (const project of snapshot) {

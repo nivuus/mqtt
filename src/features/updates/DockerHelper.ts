@@ -33,15 +33,24 @@ export interface ChangelogResult {
 }
 
 /**
- * Lists running Docker containers with the watchtower enable label.
+ * Lists running Docker containers with the watchtower enable label, or
+ * undefined when that list could not be read in full. execute_argv never
+ * rejects, so a failed `docker ps` (daemon restarting or not answering) or a
+ * listed container that could not be inspected has to be told apart here
+ * from an empty list: taken as "no container", it withdrew every Docker
+ * update entity from Home Assistant.
  */
-export async function listWatchtowerContainers(): Promise<ContainerInfo[]> {
+export async function listWatchtowerContainers(): Promise<ContainerInfo[] | undefined> {
   const format = '{{.ID}}|{{.Names}}|{{.Image}}';
   const result = await execute_argv('docker', [
     'ps', '--filter', 'label=com.centurylinklabs.watchtower.enable=true', '--format', format,
   ]);
 
-  if (result.exitCode !== 0 || !result.stdout.trim()) return [];
+  if (result.exitCode !== 0) {
+    logger.warn(`'docker ps' could not be read (exit code ${result.exitCode}): ${result.stderr.trim()}`);
+    return undefined;
+  }
+  if (!result.stdout.trim()) return [];
 
   const containers: ContainerInfo[] = [];
 
@@ -50,7 +59,11 @@ export async function listWatchtowerContainers(): Promise<ContainerInfo[]> {
     if (!id || !name) continue;
 
     const info = await inspectContainer(id, name, image);
-    if (info) containers.push(info);
+    if (!info) {
+      logger.warn(`Docker container ${name} is listed but could not be inspected: the listing is incomplete`);
+      return undefined;
+    }
+    containers.push(info);
   }
 
   return containers;

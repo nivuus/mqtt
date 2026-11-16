@@ -103,6 +103,7 @@ export class DockerUpdates extends BaseFeature {
 
   private async checkAllContainers(): Promise<void> {
     logger.info('Checking Docker containers for updates...');
+    const previousCheckTimestamp = this.lastCheckTimestamp;
     this.lastCheckTimestamp = Date.now();
 
     // A container being recreated -- by an install here, or by the compose
@@ -113,6 +114,14 @@ export class DockerUpdates extends BaseFeature {
     // this check ends, and again before removing anything.
     const maintenanceAtListing = hasPendingMaintenance();
     const allContainers = await listWatchtowerContainers();
+    if (!allContainers) {
+      // Not knowing which containers exist is not knowing that none does:
+      // every entity keeps its last state, and the next tick checks again.
+      logger.warn('Docker update check skipped: the containers could not be listed');
+      this.lastCheckTimestamp = previousCheckTimestamp;
+      await this.publishAllStates();
+      return;
+    }
     const excludeList = this.featureConfig.exclude_containers || [];
     const containers = allContainers.filter(c => !excludeList.includes(c.serviceName));
 
@@ -240,8 +249,10 @@ export class DockerUpdates extends BaseFeature {
       if (success) {
         // Re-inspect the container to get the new version
         const containers = await listWatchtowerContainers();
-        const updated = containers.find(c => c.serviceName === state.container.serviceName);
-        if (updated) {
+        const updated = containers?.find(c => c.serviceName === state.container.serviceName);
+        if (!containers) {
+          logger.warn(`${state.container.name} was updated, but its new version could not be read back`);
+        } else if (updated) {
           state.container = updated;
           state.hasUpdate = false;
           state.newVersion = updated.installedVersion;

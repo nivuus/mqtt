@@ -43,6 +43,7 @@ function composeSubcommand(args: string[]): string | undefined {
 
 interface Routing {
   psWatchtower?: string; // stdout for the top-level `docker ps --filter ...`
+  psWatchtowerResult?: CommandResult; // overrides that listing with an arbitrary result (failure)
   inspectLabels?: string; // stdout for `docker inspect --format <labels> <id>`
   running?: boolean; // shorthand for serviceStates: 'running' or 'exited'
   serviceStates?: string; // stdout for the state lookup `docker ps -a --filter <compose labels> --format {{.State}}`
@@ -66,7 +67,7 @@ function routeExecuteArgv(routing: Routing) {
       return ok(routing.serviceStates ?? (routing.running ? 'running' : 'exited'));
     }
     if (args[0] === 'ps') {
-      return ok(routing.psWatchtower ?? '');
+      return routing.psWatchtowerResult ?? ok(routing.psWatchtower ?? '');
     }
     const staleId = args[0] === 'inspect' ? routing.staleIds?.find(id => args.includes(id)) : undefined;
     if (staleId) {
@@ -154,7 +155,7 @@ describe('DockerHelper', () => {
         configJson: '{"services": {}}',
       }));
 
-      const [container] = await listWatchtowerContainers();
+      const [container] = (await listWatchtowerContainers()) ?? [];
       expect(container.composeFiles).toEqual([
         '/opt/nivuus/media-manager/stack/docker-compose.yml',
         '/opt/nivuus/media-manager/stack/docker-compose.qsv.yml',
@@ -389,6 +390,32 @@ describe('DockerHelper', () => {
 
       expect(success).toBe(true);
       expect(findCall(args => composeSubcommand(args) === 'restart')).toBeUndefined();
+    });
+  });
+
+  describe('listing the watchtower containers', () => {
+    it('reports an unreadable listing, never an empty one, when docker ps fails', async () => {
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
+        psWatchtowerResult: { stdout: '', stderr: 'Cannot connect to the Docker daemon', exitCode: 1 },
+      }));
+
+      expect(await listWatchtowerContainers()).toBeUndefined();
+    });
+
+    it('reports an unreadable listing when a listed container cannot be inspected', async () => {
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({
+        psWatchtower: 'abc123|plex-1|plex:latest\ndef456|sonarr-1|sonarr:latest',
+        inspectLabels: 'plex|stack|/stack||/stack/docker-compose.yml|1.0||sha256:aa|plex:latest',
+        staleIds: ['def456'],
+      }));
+
+      expect(await listWatchtowerContainers()).toBeUndefined();
+    });
+
+    it('returns an empty list when docker answers that no container is labelled', async () => {
+      mockedExec.execute_argv.mockImplementation(routeExecuteArgv({ psWatchtower: '' }));
+
+      expect(await listWatchtowerContainers()).toEqual([]);
     });
   });
 
