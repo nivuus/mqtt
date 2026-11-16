@@ -254,21 +254,38 @@ validation), `hostapdConfigText.ts` (pure text edits of one radio file, unit-tes
 
 **Key Features:**
 - **NetworkManager integration**: Reads and writes credentials directly to `/etc/NetworkManager/system-connections/pppoe-enp6s0.835.nmconnection`
-- **Real credential display**: Username and password are read from nmconnection file and displayed in Home Assistant
+- **Username display only**: the username is read from the keyfile; the ISP password is **never
+  published** (its retained state is always `{"value":""}`, which also overwrites a secret retained
+  by agents older than 2026-11-14). A typed password is staged, not echoed; Save with an empty
+  password keeps the stored one.
 - **Connection restart**: Automatically reloads and restarts PPPoE connection after credential changes
 - **No server field**: Previous "server" input was removed as it's not needed for PPPoE configuration
 
 **Critical Implementation Points:**
 - Password input uses `mode: 'password'`: Home Assistant renders an editable, masked input
   (verified on 2026-11-10 in the 2026.11 frontend; `mode: 'text'` showed it in clear on dashboards)
-- Credentials are read with sudo due to nmconnection file permissions (600)
-- INI-style parser for `[pppoe]` section: `username=` and `password=` lines
-- After saving: `nmcli connection reload` + `nmcli connection down/up pppoe-enp6s0.835`
-- Backup created before any modification: `{path}.backup`
+- Form fields arrive on `pppoe_credentials/+/set` (`*` is not an MQTT wildcard: before
+  2026-11-14 the form never reached the agent and Save rewrote the old values).
+- Save (`pppoeProfile.ts`, `pppoeKeyfile.ts`): asks NM whether the profile (by the keyfile's
+  UUID) is active, writes the keyfile atomically 0600 (`vpn/atomicFile.ts`, GLib escapes),
+  `nmcli connection load <file>`, then `nmcli connection up uuid <uuid>` **only if it was
+  active**: the profile is the fallback WAN, kept down while the DHCP WAN works; it is never
+  brought up by a save. Every step's failure is published as `Error: ...` in `last_action`.
+- The "test" button is a status read (`Connection active|inactive`), never `pppd`.
+- No `.backup` copy (a second keyfile in `system-connections/` may be loaded as a profile).
 
 **Legacy files not used:**
 - `/etc/ppp/chap-secrets` and `/etc/ppp/pap-secrets` - monitored but not modified
 - NetworkManager is the single source of truth for active PPPoE configuration
+
+### Connected devices (`src/features/network/ConnectedDevices.ts`)
+- Host names: the bridge's own dnsmasq lease file `/var/lib/NetworkManager/dnsmasq-<bridge>.leases`
+  (`dnsmasqLeases.ts`, 5 fields), then a PTR lookup via Node's `dns.promises.Resolver`
+  (`reverseDns.ts`). Names are untrusted (`cleanHostname`). Only `ip` runs, through `execute_argv`.
+- Vendors (`src/utils/macVendor/`, the only import path): offline from Debian `ieee-data`
+  (`/usr/share/ieee-data/{oui,mam,oui36,iab}.csv`, a `.deb` dependency), longest prefix wins;
+  locally administered MACs (bit 0x02) get a fixed label without lookup. **No MAC ever leaves the
+  host** (the online macvendors lookup was removed on 2026-11-14; a test forbids http imports).
 
 ### Firewall Management (`src/features/firewall/FirewallManager.ts`)
 
