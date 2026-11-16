@@ -13,6 +13,15 @@ interface WinRMConfig {
 export const WINRM_PASSWORD_ENV_VAR = 'WINDOWS_ADMIN_PASSWORD';
 
 /**
+ * The account used when neither windows_vm.username nor WINDOWS_ADMIN_USERNAME
+ * names one: the built-in administrator that installer's console guest creates
+ * (installer console/guest/autounattend.py, ADMIN_ACCOUNT, an en-US medium).
+ * The name is localized by the install medium ("Administrateur" on a French
+ * one), so a guest installed by hand in another language must set it.
+ */
+export const DEFAULT_WINDOWS_ADMIN_USERNAME = 'Administrator';
+
+/**
  * A password that can be sent: not empty, and not a public placeholder of the
  * repository (CHANGE_ME*, any case) or an unresolved `${VAR}` reference, the
  * rule serverConfig.ts applies to the wizard token.
@@ -106,7 +115,7 @@ export function createWinRMClient(): WinRMClient {
 
   const config: WinRMConfig = {
     hostname: windowsVmConfig?.hostname || process.env.WINDOWS_HOSTNAME || '192.168.3.2',
-    username: windowsVmConfig?.username || process.env.WINDOWS_ADMIN_USERNAME || 'Administrateur',
+    username: windowsVmConfig?.username || process.env.WINDOWS_ADMIN_USERNAME || DEFAULT_WINDOWS_ADMIN_USERNAME,
     password: process.env[WINRM_PASSWORD_ENV_VAR] || windowsVmConfig?.password || '',
     port: windowsVmConfig?.port || parseInt(process.env.WINDOWS_PORT || '5985', 10)
   };
