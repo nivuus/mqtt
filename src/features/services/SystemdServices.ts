@@ -182,16 +182,17 @@ export class SystemdServices extends BaseFeature {
         rejectInvalid('systemd_unit', unit, 'systemd_services');
         return;
       }
+      // Without --no-block, systemctl returns once the restart job is over, so
+      // the state read right after it is the unit's real one: no settle delay.
       const result = await execute_argv('sudo', ['systemctl', 'restart', unit]);
 
       if (result.exitCode === 0) {
         logger.info(`Service ${serviceName} restarted successfully`);
-        // Wait a bit before checking status
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        await this.checkService(serviceName);
       } else {
         logger.error(`Failed to restart service ${serviceName}:`, result.stderr);
       }
+      // Either way Home Assistant shows what the unit is now, not what it was.
+      await this.checkService(serviceName);
     } catch (error) {
       logger.error(`Error restarting service ${serviceName}:`, error);
     }

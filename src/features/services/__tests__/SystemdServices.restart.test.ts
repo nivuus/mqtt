@@ -70,4 +70,22 @@ describe('SystemdServices restart command', () => {
     await flush();
     expect(restarts()).toEqual([['sudo', ['systemctl', 'restart', 'firewalld.service']]]);
   });
+
+  // `systemctl restart` returns once the start job is over (no --no-block): the
+  // state read right after it is the real one, no settle delay is needed, and
+  // a failed restart must show in Home Assistant as much as a successful one.
+  it.each([
+    ['succeeded', 0, 'active'],
+    ['failed', 1, 'failed'],
+  ])('publishes the unit state read right after a restart that %s', async (_label, exitCode, state) => {
+    exec.mockImplementation(async (_file, args) =>
+      args.includes('restart') ? { stdout: '', stderr: '', exitCode } : { stdout: `${state}\n`, stderr: '', exitCode: 0 });
+    client.publishedMessages.length = 0;
+
+    client.simulateMessage(RESTART_TOPIC, 'PRESS');
+    await flush();
+
+    const published = client.publishedMessages.filter((m) => m.topic === 'system_agent/nivuus/systemd_services/firewalld/state');
+    expect(published.map((m) => String(m.message))).toEqual([state]);
+  });
 });
