@@ -4,12 +4,11 @@
 mqtt:
   host: "192.168.0.1" # Replace with your MQTT broker IP or hostname
   port: 1883
-  username: "mqtt" # Optional: username for MQTT broker
-  password: "CHANGE_ME_MQTT_PASSWORD" # Optional: password for MQTT broker
-  # SECURITY NOTE: For better security, use environment variables instead:
-  # Set MQTT_USERNAME and MQTT_PASSWORD environment variables to override these values.
-  # Example: export MQTT_USERNAME="mqtt" && export MQTT_PASSWORD="your_password"
-  # Environment variables take precedence over config file values.
+  # No username and no password here, on purpose: this file is public and a .deb upgrade
+  # overwrites the deployed copy. The broker client is given as MQTT_USERNAME and
+  # MQTT_PASSWORD in /etc/mqtt-system-agent.env (mode 600), which the systemd unit reads.
+  # home-manager's install hook writes both there on a fresh install, for the agent's own
+  # client (mqtt-system-agent, role system-agent). Without them the broker refuses the agent.
   base_topic: "system_agent" # Base topic for all entities published by this agent
   # For TLS/SSL connections, uncomment and configure the following:
   # protocol: "mqtts" # or "wss" for WebSocket Secure
