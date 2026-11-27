@@ -147,6 +147,21 @@ describeWithHardware('CpuTemperature Feature', () => {
     expect(mainStateMsg!.message.toString()).toBe('45.0');
   }, 15000);
 
+  it('publishes None, the payload HA reads as unknown, when no temperature is available', async () => {
+    mockedSi.cpuTemperature.mockResolvedValue({
+      main: null, cores: [], max: null, socket: [], chipset: undefined
+    } as unknown as si.Systeminformation.CpuTemperatureData);
+
+    mockMqttClient.connect();
+    await cpuTemperatureFeature.start();
+    await new Promise(resolve => process.nextTick(resolve));
+
+    const mainStateMsg = mockMqttClient.publishedMessages.find(
+      msg => msg.topic.endsWith('cpu_temperature/main/state')
+    );
+    expect(mainStateMsg!.message.toString()).toBe('None');
+  }, 15000);
+
   it('should handle errors from systeminformation gracefully during initial update', async () => {
     mockedSi.cpuTemperature.mockRejectedValue(new Error('SI Error'));
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});

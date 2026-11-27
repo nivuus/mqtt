@@ -1,6 +1,7 @@
 // src/features/events/EventMonitor.ts
 
 import { BaseFeature } from '../../core/BaseFeature';
+import { HA_PAYLOAD_NONE } from '../../core/haPayload';
 import { parseLogTimestamp } from './logTimestamp';
 import { MqttClient, FeatureConfig, HaDiscoveryPayload } from '../../core/types';
 import { execute_stream_command } from '../../utils/exec_stream'; // Changed import
@@ -33,8 +34,8 @@ function truncateField(value: string): string {
 }
 
 
-// MQTT payload Home Assistant reads as "no value": the sensor shows unknown.
-const NO_TIMESTAMP = 'None';
+// A timestamp sensor with no event yet shows unknown.
+const NO_TIMESTAMP = HA_PAYLOAD_NONE;
 // Store last seen lines/timestamps to avoid re-processing. Simplistic for mock.
 // This might not be needed if we process streams directly.
 // const lastProcessed: { [logPath: string]: string } = {}; 

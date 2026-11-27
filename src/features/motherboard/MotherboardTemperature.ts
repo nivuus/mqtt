@@ -2,6 +2,7 @@
 
 import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient, HaDiscoveryPayload } from '../../core/types';
+import { numericState } from '../../core/haPayload';
 import { execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
 
@@ -13,6 +14,10 @@ interface MotherboardSensors {
   fan1Speed: number | null;        // fan1 RPM
   fan2Speed: number | null;        // fan2 RPM
 }
+
+// The nct6798 reports unwired temperature inputs as 0 °C or as negative values.
+const plausibleTemperature = (celsius: number): boolean => celsius > 0 && celsius < 150;
+const plausibleFanSpeed = (rpm: number): boolean => rpm >= 0 && rpm < 10000;
 
 /**
  * Motherboard Temperature & Fan monitoring using lm-sensors
@@ -112,8 +117,10 @@ export class MotherboardTemperature extends BaseFeature {
       this.sensors.systemTemp = this.extractValue(output, /SYSTIN:\s+\+?([\d.-]+)°C/);
       this.sensors.cpuTemp = this.extractValue(output, /CPUTIN:\s+\+?([\d.-]+)°C/);
       this.sensors.pchTemp = this.extractValue(output, /PCH_CHIP_TEMP:\s+\+?([\d.-]+)°C/);
-      this.sensors.fan1Speed = this.extractValue(output, /fan1:\s+([\d]+)\s+RPM/, 10000); // Max 10000 RPM
-      this.sensors.fan2Speed = this.extractValue(output, /fan2:\s+([\d]+)\s+RPM/, 10000); // Max 10000 RPM
+      // 0 RPM is a real reading: the board's fan curve stops a chassis fan when cool
+      // (on this host fan1's first auto point is PWM 1 below 52 °C), so it is not missing.
+      this.sensors.fan1Speed = this.extractValue(output, /fan1:\s+([\d]+)\s+RPM/, plausibleFanSpeed);
+      this.sensors.fan2Speed = this.extractValue(output, /fan2:\s+([\d]+)\s+RPM/, plausibleFanSpeed);
 
       // Parse NVMe temperature
       this.sensors.nvmeTemp = this.extractValue(output, /nvme-pci-[\w]+[\s\S]*?Composite:\s+\+?([\d.-]+)°C/);
@@ -125,16 +132,14 @@ export class MotherboardTemperature extends BaseFeature {
     }
   }
 
-  private extractValue(text: string, regex: RegExp, maxValue: number = 150): number | null {
+  /** First capture of `regex` as a number, or null when it is absent or implausible. */
+  private extractValue(
+    text: string, regex: RegExp, isPlausible: (value: number) => boolean = plausibleTemperature,
+  ): number | null {
     const match = text.match(regex);
-    if (match && match[1]) {
-      const value = parseFloat(match[1]);
-      // Ignore invalid readings (e.g., negative temps, 0°C, or unreasonably high values)
-      if (value > 0 && value < maxValue) {
-        return value;
-      }
-    }
-    return null;
+    if (!match?.[1]) return null;
+    const value = parseFloat(match[1]);
+    return isPlausible(value) ? value : null;
   }
 
   private async publishSensors(): Promise<void> {
@@ -148,7 +153,7 @@ export class MotherboardTemperature extends BaseFeature {
     ];
 
     for (const sensor of sensors) {
-      const stateValue = sensor.value !== null ? sensor.value.toFixed(1) : 'unknown';
+      const stateValue = numericState(sensor.value, 1);
       const topic = this.prefixTopic(`${this.featureName}/${sensor.id}/state`);
       await this.mqttClient.publish(
         topic,

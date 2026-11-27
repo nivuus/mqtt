@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BaseFeature } from '../../core/BaseFeature';
 import { HaDiscoveryPayload } from '../../core/types';
+import { numericState } from '../../core/haPayload';
 import logger from '../../utils/logger';
 import {
   DiskErrors, findChip, listDisks, readCpuCounters, readDiskErrors,
@@ -149,22 +150,22 @@ export class HardwareHealth extends BaseFeature {
     for (const rail of HardwareHealth.RAILS) {
       const millivolts = readInt(path.join(this.chipDir, `${rail.input}_input`));
       const volts = millivolts === null ? null : (millivolts * rail.scale) / 1000;
-      await this.publishValue(rail.id, volts === null ? 'unknown' : volts.toFixed(2), {
+      await this.publishValue(rail.id, numericState(volts, 2), {
         raw_millivolts: millivolts, hwmon_input: rail.input, scale: rail.scale,
       });
     }
 
     const { drift, worst } = this.maxDrift(rails);
-    await this.publishValue('max_rail_drift', drift === null ? 'unknown' : drift.toFixed(2), {
+    await this.publishValue('max_rail_drift', numericState(drift, 2), {
       worst_rail: worst, rails_tracked: Object.keys(this.baseline).length,
     });
 
     const cpu = readCpuCounters();
-    await this.publishValue('cpu_machine_checks', cpu.mce === null ? 'unknown' : String(cpu.mce), {
+    await this.publishValue('cpu_machine_checks', numericState(cpu.mce), {
       source: '/proc/interrupts MCE', meaning: 'hardware faults reported by the CPU itself',
     });
     await this.publishValue(
-      'cpu_thermal_events', cpu.thermal === null ? 'unknown' : String(cpu.thermal),
+      'cpu_thermal_events', numericState(cpu.thermal),
       { source: '/proc/interrupts THR' },
     );
 
