@@ -155,8 +155,9 @@ features:
     enabled: true
     update_interval_seconds: 60 # Check Windows disk usage every minute
     volumes: ["C:"] # Optional: specify volumes to monitor, auto-detects all fixed drives if empty
+  # Off since 2026-11-11: the UPS was disconnected for good. Turn it back on with a UPS.
   ups_monitor:
-    enabled: true
+    enabled: false
     update_interval_seconds: 15
     ups_name: "myups@localhost"
     low_battery_threshold: 50
