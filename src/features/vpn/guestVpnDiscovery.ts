@@ -3,14 +3,12 @@
  * agent's base topic (BaseFeature prefixes them). Names follow CLAUDE.md: no device name,
  * `{Category} {Name} {Type}`.
  */
+import { HA_PAYLOAD_NONE } from '../../core/haPayload';
 import { HaDiscoveryPayload } from '../../core/types';
 import { GuestVpnState } from './guestVpnStatus';
 import { GuestVpnSnapshot } from './guestVpnSupervisor';
 
 export const GUEST_VPN_STATES: GuestVpnState[] = ['connected', 'connecting', 'disabled', 'no_config', 'error'];
-
-/** HA's MQTT sensor, switch and binary_sensor read this payload as "unknown". */
-export const PAYLOAD_NONE = 'None';
 
 export function guestVpnTopics(feature: string) {
   return {
@@ -63,7 +61,7 @@ export function guestVpnEntities(feature: string): EntityDefinition[] {
 /** Topic → payload for one snapshot. Never carries a credential: only NM's state and errors. */
 export function snapshotPayloads(feature: string, s: GuestVpnSnapshot): Array<[string, string]> {
   const t = guestVpnTopics(feature);
-  const switchState = s.desired === undefined ? PAYLOAD_NONE : s.desired ? 'ON' : 'OFF';
+  const switchState = s.desired === undefined ? HA_PAYLOAD_NONE : s.desired ? 'ON' : 'OFF';
   const attributes = {
     last_error: s.status.lastError ?? null,
     remote: s.status.remote ?? null,
@@ -77,7 +75,7 @@ export function snapshotPayloads(feature: string, s: GuestVpnSnapshot): Array<[s
     [t.switchState, switchState],
     [t.state, s.status.state],
     [t.attributes, JSON.stringify(attributes)],
-    [t.exitIp, s.status.exitIp ?? PAYLOAD_NONE],
+    [t.exitIp, s.status.exitIp ?? HA_PAYLOAD_NONE],
     // Guests leave through Orange whenever the tunnel fails its health checks (tunnelHealth.ts).
     [t.onOrange, s.status.state === 'connected' ? 'OFF' : 'ON'],
   ];

@@ -4,6 +4,7 @@ import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient } from '../../core/types';
 import * as si from 'systeminformation';
 import logger from '../../utils/logger';
+import { HA_PAYLOAD_NONE } from '../../core/haPayload';
 
 export class CpuTemperature extends BaseFeature {
   constructor(mqttClient: MqttClient, featureName: string = 'cpu_temperature') {
@@ -99,7 +100,7 @@ export class CpuTemperature extends BaseFeature {
         await this.publishState(`${this.featureName}/main/state`, mainTemp.toFixed(1), true);
       } else {
         logger.warn(`Main CPU temperature not available for ${this.featureName}.`);
-        await this.publishState(`${this.featureName}/main/state`, 'unavailable', true);
+        await this.publishState(`${this.featureName}/main/state`, HA_PAYLOAD_NONE, true);
       }
 
       const attributes: any = { max: temp.max };

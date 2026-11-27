@@ -2,6 +2,7 @@
 
 import { BaseFeature } from '../../core/BaseFeature';
 import { MqttClient, FeatureConfig } from '../../core/types';
+import { numericState } from '../../core/haPayload';
 import { execute_argv } from '../../utils/exec';
 import logger from '../../utils/logger';
 import { nutCredentialsFromEnv, parseInstantCommands, pickBatteryTestCommand } from './nutCommands';
@@ -177,9 +178,9 @@ export class UpsMonitor extends BaseFeature {
 
     await Promise.all([
       this.publishState(`${this.featureName}/battery_level/state`,
-        data.batteryCharge !== null ? data.batteryCharge : 'unavailable', true),
+        numericState(data.batteryCharge), true),
       this.publishState(`${this.featureName}/runtime/state`,
-        data.runtimeSeconds !== null ? Math.round(data.runtimeSeconds / 60) : 'unavailable', true),
+        numericState(data.runtimeSeconds === null ? null : Math.round(data.runtimeSeconds / 60)), true),
       this.publishState(`${this.featureName}/status/state`,
         this.translateStatus(data.status), true),
       this.publishAttributes(`${this.featureName}/status/attributes`, {
@@ -187,13 +188,13 @@ export class UpsMonitor extends BaseFeature {
         ups_name: upsName,
       }, true),
       this.publishState(`${this.featureName}/load/state`,
-        data.load !== null ? data.load : 'unavailable', true),
+        numericState(data.load), true),
       this.publishState(`${this.featureName}/input_voltage/state`,
-        data.inputVoltage !== null ? data.inputVoltage : 'unavailable', true),
+        numericState(data.inputVoltage), true),
       this.publishState(`${this.featureName}/power_consumption/state`,
-        data.load !== null && data.realPowerNominal !== null
+        numericState(data.load !== null && data.realPowerNominal !== null
           ? Math.round(data.load * data.realPowerNominal / 100)
-          : 'unavailable', true),
+          : null), true),
       // ON = mains power present (OL), OFF = on battery
       this.publishState(`${this.featureName}/power_source/state`,
         data.status.includes('OL') ? 'ON' : 'OFF', true),

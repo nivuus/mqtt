@@ -357,6 +357,9 @@ findings and the firewalld incident: [docs/claude/guest-vpn-host-notes.md](docs/
 - MQTT message handlers are registered with `listenToMessages()`, which `stop()` removes. A raw
   `mqttClient.on('message')` in `setup()` adds one more handler at every restart, so each command ran
   once per reconnection.
+- A missing reading is `HA_PAYLOAD_NONE` (`'None'`, `src/core/haPayload.ts`); numeric sensors go
+  through `numericState()`. HA maps only `None` to unknown: `'unknown'` or `'unavailable'` on a sensor
+  with a unit is rejected as non-numeric and logged at every publish.
 - Publish states AFTER publishing discovery entities
 - Use `mode: 'password'` for password fields: they stay editable, masked on screen
 
